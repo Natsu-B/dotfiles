@@ -1,5 +1,5 @@
 #!/bin/bash
-
+<< "NoUninstall"
 echo "Warning!!!"
 echo "This scrpit is expected to run under CUI enviroment!!!"
 echo "If you want to run Ubuntu Desktop. Change language to English."
@@ -18,17 +18,19 @@ case "$val" in
     ;;
 esac
 
-#--see updates--
-echo "--serch and install updates--"
-do-release-upgrade
-sudo apt update -y
-sudo apt upgrade -y
-
 #--rm gnome enviroment--
 echo "remove gnome environment"
 sudo apt-get remove -y ubuntu-desktop
 sudo apt-get -y autoremove
 sudo apt-get -y remove nautilus nautilus-* gnome-power-manager gnome-screensaver gnome-termina* gnome-pane* gnome-applet* gnome-bluetooth gnome-desktop* gnome-sessio* gnome-user* gnome-shell-common zeitgeist-core libzeitgeist* gnome-control-center gnome-screenshot && sudo apt-get autoremove
+
+NoUninstall
+
+#--see updates--
+echo "--serch and install updates--"
+do-release-upgrade
+sudo apt update -y
+sudo apt upgrade -y
 
 #--install essential apps--
 sudo apt install -y zsh build-essential vim python3 python3-pip python3-dev curl wget git vim tlp powertop
@@ -66,14 +68,12 @@ sudo apt install -y brightnessctl network-manager-gnome
 sudo apt install -y wl-clipboard clipman
 
 #Neovim
-sudo add-apt-repository -y ppa:neovim-ppa/stable
-sudo apt update -y
-sudo apt install -y neovim
+sudo snap install -y nvim --classic
 
 #Google Chrome
 wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/google-chrome.deb
-yes | sudo apt update
-yes | sudo apt install /tmp/google-chrome.deb
+sudo apt update -y
+sudo apt install -y /tmp/google-chrome.deb
 
 #Brave Browser
 sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
@@ -113,6 +113,7 @@ sudo apt install -y meson libwayland-dev libgtk-3-dev gobject-introspection libg
 )
 cp ./lib/wleave.sh /etc/profile.d/
 
+<< Nocopy
 for dotfile in .??*; do
     [ "$dotfile" = ".git" ] && continue
     rm -r "$HOME/$dotfile"

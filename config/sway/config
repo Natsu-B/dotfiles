@@ -386,7 +386,7 @@ for_window [app_id="meteo-qt.python3"] {
     #show cilpborad history
     bindsym $mod+v exec clipman pick -t wofi
     #lock screen
-    bindsym $mod+l 
+    bindsym $mod+l exec ~/.bin/swaylight.sh
 #
 # Layout stuff:
 #
