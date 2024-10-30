@@ -38,9 +38,11 @@ yes | sudo apt purge needrestart
 #--enable this if you want to run it in VMM--
 # sudo apt install spice-vdagent
 
+<< NoStartPowertop
 #enable powertop and tlp
 sudo powertop --calibrate
 sudo systemctl enable --now tlp.service
+NoStartPowertop
 
 #--install window manager, etc.--
 sudo apt install -y sway swaybg swayidle swaylock xdg-desktop-portal-wlr xwayland
@@ -61,6 +63,8 @@ sudo apt install -y bluetooth blueman
 
 #fontmanager
 sudo apt install -y fonts-vlgothic fonts-ipafont
+sudo apt install -y fonts-noto-cjk
+sudo apt install -y fonts-noto-color-emoji
 
 sudo apt install -y brightnessctl network-manager-gnome
 
