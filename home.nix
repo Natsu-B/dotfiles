@@ -5,24 +5,35 @@
   home.username = username;
   home.homeDirectory = "/home/${username}";
 
-  # This value determines the Home Manager release that your configuration is
-  # compatible with. This helps avoid breakage when a new Home Manager release
-  # introduces backwards incompatible changes.
   home.stateVersion = "24.05";
 
-  # The home.packages option allows you to install packages into your
-  # environment.
+  # Install packages
   home.packages = [
-    # pkgs.vscode
+    pkgs.xremap # Install xremap package
   ];
+
+  # Manage dotfiles
+  home.file.".config/xremap/config.yml" = {
+    source = ./config.yml; # Link the config file
+  };
+
+  # Manually define the systemd service file to avoid internal home-manager errors
+  home.file.".config/systemd/user/xremap.service" = {
+    text = ''
+      [Unit]
+      Description=xremap input remapper
+      After=graphical-session.target
+
+      [Service]
+      ExecStart=${pkgs.xremap}/bin/xremap --config %h/.config/xremap/config.yml
+      Restart=on-failure
+      RestartSec=1
+
+      [Install]
+      WantedBy=graphical-session.target
+    '';
+  };
 
   # Let Home Manager manage itself.
   programs.home-manager.enable = true;
-
-  # Enable xremap
-  programs.xremap = {
-    enable = true;
-    # Load configuration from config.yaml
-    configFile = ./config.yaml;
-  };
 }
