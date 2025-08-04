@@ -1,0 +1,163 @@
+virtual_modifiers:
+  - F15
+  - F14
+modmap:
+  - remap:
+      CapsLock: KatakanaHiragana
+      GRAVE: KatakanaHiragana
+  - name: SandS
+    remap:
+      # Space: [Shift_L, Space]
+      Space:
+        held: Shift_L
+        alone: Space
+        alone_timeout_mills: 999999999999
+  - name: henkan
+    remap:
+      MUHENKAN: [F15, F15]
+      # MUHENKAN:
+      #   alone: null
+      #   with_other_key: F15
+      #   alone_timeout_mills: 999999999999
+      HENKAN: [F14, F14]
+      # HENKAN:
+      #   alone: null
+      #   with_other_key: F14
+      #   alone_timeout_millis: 999999999999
+  - name: my_dvorak
+    remap:
+      BACKSLASH: GRAVE
+      YEN: BACKSLASH
+  #- name: for_typing
+  #  remap:
+  #    i: v
+  #    v: Space
+keymap:
+  #- remap: Ctrl-Space: KatakanaHiragana
+  - name: henkan
+    remap:
+      F15-j: Left
+      F15-l: Right
+      F15-i: Up
+      F15-k: Down
+      F15-SEMICOLON: Enter
+      F15-o: Delete
+      F15-p: Backspace
+      F15-h: Tab
+      F15-u: KatakanaHiragana
+      F15-1: Shift-5 #1
+      F15-2: Shift-8 #2
+      F15-3: Shift-4 #3
+      F15-4: Shift-9 #4
+      F15-5: Shift-3 #5
+      F15-6: Shift-0 #6
+      F15-7: Shift-2 #7
+      F15-8: Shift-MINUS #8
+      F15-9: Shift-6 #9
+      F15-0: Shift-7 #0
+  - name: muhenkan
+    remap:
+
+  - name: my_dvorak
+    remap:
+      C-q: C-x
+      C-w: C-COMMA
+      C-e: C-d
+      C-r: C-o
+      C-t: C-k
+      C-y: C-t
+      C-u: C-f
+      C-i: C-g
+      C-o: C-s
+      C-p: C-r
+      C-LEFTBRACE: C-RIGHTBRACE
+      C-RIGHTBRACE: C-2
+      C-s: C-SEMICOLON
+      C-d: C-h
+      C-f: C-y
+      C-g: C-u
+      C-h: C-j
+      C-j: C-c
+      C-k: C-v
+      C-l: C-p
+      C-SEMICOLON: C-q
+      #C-APOSTROPHE: C-:
+      C-BACKSLASH: C-0
+      C-z: C-SLASH
+      C-x: C-b
+      C-c: C-i
+      C-v: C-DOT
+      C-b: C-n
+      C-n: C-l
+      #C-m
+      C-COMMA: C-w
+      C-DOT: C-e
+      C-SLASH: C-LEFTBRACE
+      SUPER-q: SUPER-x
+      SUPER-w: SUPER-COMMA
+      SUPER-e: SUPER-d
+      SUPER-r: SUPER-o
+      SUPER-t: SUPER-k
+      SUPER-y: SUPER-t
+      SUPER-u: SUPER-f
+      SUPER-i: SUPER-g
+      SUPER-o: SUPER-s
+      SUPER-p: SUPER-r
+      SUPER-LEFTBRACE: SUPER-RIGHTBRACE
+      SUPER-RIGHTBRACE: SUPER-2
+      SUPER-s: SUPER-SEMICOLON
+      SUPER-d: SUPER-h
+      SUPER-f: SUPER-y
+      SUPER-g: SUPER-u
+      SUPER-h: SUPER-j
+      SUPER-j: SUPER-c
+      SUPER-k: SUPER-v
+      SUPER-l: SUPER-p
+      SUPER-SEMICOLON: SUPER-q
+      #SUPER-APOSTROPHE: SUPER-:
+      SUPER-BACKSLASH: SUPER-0
+      SUPER-z: SUPER-SLASH
+      SUPER-x: SUPER-b
+      SUPER-c: SUPER-i
+      SUPER-v: SUPER-DOT
+      SUPER-b: SUPER-n
+      SUPER-n: SUPER-l
+      #SUPER-m
+      SUPER-COMMA: SUPER-w
+      SUPER-DOT: SUPER-e
+      SUPER-SLASH: SUPER-LEFTBRACE
+      M-q: M-x
+      M-w: M-COMMA
+      M-e: M-d
+      M-r: M-o
+      M-t: M-k
+      M-y: M-t
+      M-u: M-f
+      M-i: M-g
+      M-o: M-s
+      M-p: M-r
+      M-LEFTBRACE: M-RIGHTBRACE
+      M-RIGHTBRACE: M-2
+      M-s: M-SEMICOLON
+      M-d: M-h
+      M-f: M-y
+      M-g: M-u
+      M-h: M-j
+      M-j: M-c
+      M-k: M-v
+      M-l: M-p
+      M-SEMICOLON: M-q
+      #M-APOSTROPHE: M-:
+      M-BACKSLASH: M-0
+      M-z: M-SLASH
+      M-x: M-b
+      M-c: M-i
+      M-v: M-DOT
+      M-b: M-n
+      M-n: M-l
+      #M-m
+      M-COMMA: M-w
+      M-DOT: M-e
+      M-SLASH: M-LEFTBRACE
+    application:
+      not: [Google-chrome, steam_app_0]
