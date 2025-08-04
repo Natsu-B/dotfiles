@@ -24,8 +24,6 @@ EOF
 
 # --- Main Script ---
 
-# If called with --setup-udev, run the function and exit.
-# This is for the sudo recursive call.
 if [ "$1" = "--setup-udev" ]; then
   setup_udev_rules
   exit 0
@@ -34,7 +32,7 @@ fi
 echo "🚀 Starting dotfiles installation for user: $USERNAME..."
 
 # 1. Build and activate Home Manager.
-# This will also enable and start the xremap service.
+# This will create and enable the systemd service for xremap.
 echo "Building and activating Home Manager configuration..."
 nix build .#home-manager --print-build-logs
 ./result/activate
