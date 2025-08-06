@@ -1,0 +1,5 @@
+# Nix build results
+result*
+
+# Machine-specific hardware configuration
+nixos/hardware-configuration.nix

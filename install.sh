@@ -2,41 +2,45 @@
 
 set -e
 
-USERNAME=$(whoami 2>/dev/null || echo hotaru)
+# --- Configuration ---
+# Get the hostname of the current machine.
+HOSTNAME=$(hostname)
+
+# The source hardware configuration file on the target system.
+SRC_HW_CONFIG="/etc/nixos/hardware-configuration.nix"
+
+# The destination for the hardware config in this repository.
+DEST_HW_CONFIG="./nixos/hardware-configuration.nix"
 
 # --- Main Script ---
-echo "🚀 Starting dotfiles installation for user: $USERNAME..."
+echo "🚀 Starting NixOS dotfiles installation for host: $HOSTNAME..."
 
-# Prompt for sudo password at the beginning and cache the credential.
-echo "This script requires sudo access to configure udev rules for xremap."
+# 1. Check for sudo and cache credentials
+echo "This script needs sudo access to copy your hardware configuration."
 sudo -v
 
-# 1. Build and activate Home Manager.
-echo "Building and activating Home Manager configuration..."
-nix build .#home-manager --print-build-logs
-./result/activate
-echo "✅ Home Manager configuration activated."
-
-# 2. Set up udev rules. Sudo credentials should now be cached.
-echo "Configuring udev rules for xremap..."
-
-# Add user to the 'input' group if not already a member.
-if ! groups "$USERNAME" | grep -q '\binput\b'; then
-  echo "Adding user '$USERNAME' to the 'input' group..."
-  sudo usermod -aG input "$USERNAME"
-  echo "NOTE: You may need to log out and log back in for this change to take effect."
+# 2. Copy hardware configuration
+echo "Attempting to copy hardware configuration from $SRC_HW_CONFIG..."
+if [ -f "$SRC_HW_CONFIG" ]; then
+  sudo cp "$SRC_HW_CONFIG" "$DEST_HW_CONFIG"
+  echo "✅ Hardware configuration copied successfully."
+else
+  echo "❌ ERROR: Hardware configuration file not found at $SRC_HW_CONFIG." >&2
+  echo "Please ensure you have run the NixOS installer and this file exists." >&2
+  exit 1
 fi
 
-# Create udev rules file safely using tee.
-UDEV_RULES_CONTENT='KERNEL=="event*", GROUP="input", MODE="0660"\nKERNEL=="uinput", GROUP="input", MODE="0660"'
-echo -e "$UDEV_RULES_CONTENT" | sudo tee /etc/udev/rules.d/99-input.rules > /dev/null
+# 3. Update the hostname in flake.nix
+# This replaces the placeholder 'nixos' with the actual hostname.
+echo "Updating hostname in flake.nix to '$HOSTNAME'..."
+sed -i "s/nixos = nixpkgs.lib.nixosSystem/${HOSTNAME} = nixpkgs.lib.nixosSystem/" flake.nix
+echo "✅ flake.nix updated."
 
-echo "Reloading udev rules..."
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-echo "✅ udev rules configured."
+# 4. Run the initial build
+echo "Building the system for the first time. This may take a while..."
+nixos-rebuild switch --flake .#"$HOSTNAME"
 
-# The home-manager activation script should have already enabled the systemd service.
-# You can check its status with: systemctl --user status xremap.service
-
-echo "✅ Dotfiles installation complete!"
+echo "
+🎉 Installation complete!"
+echo "Your system is now managed by these dotfiles."
+echo "For future updates, please run ./update.sh"
