@@ -14,8 +14,28 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         # 1. Define an overlay to inject packages from unstable into stable.
-        unstable-overlay = final: prev: {
-          xremap = nixpkgs-unstable.legacyPackages.${system}.xremap;
+        unstable-overlay = final: prev: let
+          unstable = nixpkgs-unstable.legacyPackages.${system};
+        in {
+          xremap = unstable.xremap;
+
+          # Build xremap with gnome feature and rename the binary
+          xremap-gnome = unstable.xremap.overrideAttrs (oldAttrs: {
+            pname = "xremap-gnome";
+            features = [ "gnome" ];
+            postInstall = ''
+              mv $out/bin/xremap $out/bin/xremap-gnome
+            '';
+          });
+
+          # Build xremap with hypr feature and rename the binary
+          xremap-hypr = unstable.xremap.overrideAttrs (oldAttrs: {
+            pname = "xremap-hypr";
+            features = [ "hypr" ];
+            postInstall = ''
+              mv $out/bin/xremap $out/bin/xremap-hypr
+            '';
+          });
         };
 
         # 2. Apply the overlay to the stable nixpkgs.
