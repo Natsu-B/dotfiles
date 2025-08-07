@@ -5,49 +5,73 @@
   pkgs,
   unstable,
   inputs,
+  self,
+  gemini,
   ...
 }: {
   imports = [
-    <nixos-hardware/lenovo/thinkpad/p14s/intel/gen5>
+    inputs.nixos-hardware.nixosModules.lenovo-thinkpad-p14s-intel-gen5
     ./hardware-configuration.nix
   ];
+
+  # Optimize nix store
+  nix = {
+    settings = {
+      # auto-optimize-store = true;
+      experimental-features = ["nix-command" "flakes"];
+    };
+    gc = {
+      automatic = true;
+      dates = "weekly";
+      options = "--delete-older-than 7d";
+    };
+  };
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
   # Use the unstable package set for specific packages
   nixpkgs.overlays = [
-    (final: prev: {
-      unstable = import unstable {
-        system = prev.system;
-        config.allowUnfree = true;
-      };
+    (final: prev:
+      let
+        unstablePkgs = import inputs.nixpkgs-unstable {
+          system = prev.system;
+          config.allowUnfree = true;
+        };
+      in {
+        unstable = unstablePkgs;
 
-      # Custom xremap builds to avoid conflicts
-      xremap-gnome = prev.xremap.overrideAttrs (oldAttrs: {
-        pname = "xremap-gnome";
-        features = [ "gnome" ];
-        postInstall = ''
-          mv $out/bin/xremap $out/bin/xremap-gnome
-        '';
-      });
+        # Custom xremap builds to avoid conflicts
+        xremap-gnome = unstablePkgs.xremap.overrideAttrs (oldAttrs: {
+          pname = "xremap-gnome";
+          features = [ "gnome" ];
+          postInstall = ''
+            mv $out/bin/xremap $out/bin/xremap-gnome
+          '';
+        });
 
-      xremap-hypr = prev.xremap.overrideAttrs (oldAttrs: {
-        pname = "xremap-hypr";
-        features = [ "hypr" ];
-        postInstall = ''
-          mv $out/bin/xremap $out/bin/xremap-hypr
-        '';
-      });
-    })
+        xremap-hypr = unstablePkgs.xremap.overrideAttrs (oldAttrs: {
+          pname = "xremap-hypr";
+          features = [ "hypr" ];
+          postInstall = ''
+            mv $out/bin/xremap $out/bin/xremap-hypr
+          '';
+        });
+      })
   ];
 
   # Bootloader
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
+  # Use stable kernel
+  boot.kernelPackages = pkgs.linuxPackages;
+
   # Networking
   networking.hostName = "nixos"; # Define your hostname
+
+  # Enable networking
+  networking.networkmanager.enable = true;
 
   # Set your time zone
   time.timeZone = "Asia/Tokyo";
@@ -58,7 +82,7 @@
   # Define a user account
   users.users.hotaru = {
     isNormalUser = true;
-    extraGroups = [ "wheel" "input" ]; # Add user to wheel and input groups
+    extraGroups = [ "wheel" "input" "networkmanager" ]; # Add user to wheel and input groups
     shell = pkgs.zsh;
   };
 
@@ -68,9 +92,45 @@
     xwayland.enable = true;
   };
 
+  # Enable GNOME
+  services.xserver.enable = true;
+  services.xserver.displayManager.gdm.enable = true;
+  services.xserver.desktopManager.gnome.enable = true;
+
+  # Register the custom XKB layout
+  services.xserver.xkb.extraLayouts = {
+    custom = {
+      description = "Custom Programmer Dvorak";
+      languages = [ "eng" ];
+      symbolsFile = ./custom_dvorak.xkb;
+    };
+  };
+
   # Enable sound
   sound.enable = true;
-  hardware.pulseaudio.enable = true;
+  hardware.pulseaudio.enable = false; # Use pipwire as a sound module
+  security.rtkit.enable = true;
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    alsa.support32Bit = true;
+    jack.enable = true;
+    pulse.enable = true;
+  };
+
+  # Enable zsh
+  programs.zsh.enable = true;
+
+  # Enable Docker with rootless
+  virtualisation = {
+    docker = {
+      enable = true;
+      rootless = {
+        enable = true;
+        setSocketVariable = true; # sets $DOCKER_HOST
+      };
+    };
+  };
 
   # Enable udev rules for xremap
   services.udev.extraRules = ''
@@ -80,19 +140,35 @@
 
   # Home Manager configuration
   home-manager = {
-    extraSpecialArgs = { inherit unstable; };
+    extraSpecialArgs = { inherit unstable gemini pkgs; };
     users.hotaru = import ../home/home.nix;
   };
+
+  # Enable Flatpak
+  services.flatpak.enable = true;
+  xdg.portal.enable = true;
 
   # List packages installed in system profile
   environment.systemPackages = with pkgs; [
     git
     vim
     wget
+    vscode
   ];
 
+  programs.git = {
+    enable = true;
+    config = {
+      user = {
+        name = "Natsu-B";
+        email = "natsu.minatomirai@gmail.com";
+      };
+      init.defaultBranch = "main";
+    };
+  };
+
   # System state version
-  system.stateVersion = "25.05";
+  system.stateVersion = "24.05";
 
   # Language settings
   i18n.inputMethod = {
@@ -100,12 +176,18 @@
     fcitx5.addons = [pkgs.fcitx5-mozc];
   };
 
+  # Enable Steam
+  programs.steam = {
+    enable = true;
+  };
+
   fonts = {
-    fonts = with pkgs; [
-      noto-fonts-cjk-serift
+    packages = with pkgs; [
+      noto-fonts-cjk-serif
       noto-fonts-cjk-sans
       noto-fonts-emoji
       nerdfonts
+      migu
     ];
     fontDir.enable = true;
     fontconfig = {
@@ -115,6 +197,24 @@
         monospace = ["JetBrainsMono Nerd Font" "Noto Color Emoji"];
         emoji = ["Noto Color Emoji"];
       };
+           localConf = ''
+        <?xml version="1.0"?>
+        <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+        <fontconfig>
+          <description>Change default fonts for Steam client</description>
+          <match>
+            <test name="prgname">
+              <string>steamwebhelper</string>
+            </test>
+            <test name="family" qual="any">
+              <string>sans-serif</string>
+            </test>
+            <edit mode="prepend" name="family">
+              <string>Migu 1P</string>
+            </edit>
+          </match>
+        </fontconfig>
+      '';
     };
   };
 }

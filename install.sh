@@ -38,7 +38,9 @@ echo "✅ flake.nix updated."
 
 # 4. Run the initial build
 echo "Building the system for the first time. This may take a while..."
-nixos-rebuild switch --flake .#"$HOSTNAME"
+nix-env -iA nixos.git
+git add nixos/hardware-configuration.nix
+sudo nixos-rebuild switch --flake .#"$HOSTNAME"
 
 echo "
 🎉 Installation complete!"

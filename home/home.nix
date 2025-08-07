@@ -4,36 +4,66 @@
   config,
   pkgs,
   unstable,
+  gemini,
   ...
 }: {
-  home.username = "hotaru";
-  home.homeDirectory = "/home/hotaru";
-  home.stateVersion = "24.05";
+  nixpkgs.config.allowUnfree = true;
 
-  # Install user-specific packages
-  home.packages = with pkgs; [
-    # Use the custom-built xremap packages
-    xremap-gnome
-    xremap-hypr
+#  programs.dconf.enable = true;
 
-    # Development tools
-    gcc
-    gnumake
-    bison
-    bc
-    flex
-    openssl
-    qemu
-    curl
-
-    # Rust toolchain
-    cargo
-    rustc
+  imports = [
+    ./dconf.nix
   ];
 
-  # Place the xremap configuration file
-  home.file.".config/xremap/config.yml" = {
-    source = ../config.yml;
+  home = rec {
+    username = "hotaru";
+    homeDirectory = "/home/${username}";
+    stateVersion = "24.05";
+    # Install pkgs
+    packages = [
+      # Use the custom-built xremap packages
+      pkgs.xremap-gnome
+      pkgs.xremap-hypr
+
+      # Development tools
+      pkgs.gh
+      pkgs.gcc
+      pkgs.gnumake
+      pkgs.bison
+      pkgs.bc
+      pkgs.flex
+      pkgs.openssl
+      pkgs.qemu
+      pkgs.curl
+      pkgs.bat
+
+      # Rust toolchain
+      pkgs.cargo
+      pkgs.rustc
+
+      # Chat
+      pkgs.discord
+      pkgs.slack
+
+      # Browser
+      pkgs.google-chrome
+      pkgs.brave
+
+      # Gemini cli
+      gemini.packages.${pkgs.system}.gemini
+    ];
+    # Place the xremap configuration file
+    file.".config/xremap/config.yml" = {
+      source = ../config.yml;
+    };
+    # Link Hyprland configuration
+    file.".config/hypr/hyprland.conf" = {
+      source = ../hyprland.conf;
+    };
+    # Enable unfree software on command line
+    file.".config/nixpkgs/config.nix" = {
+      source = ../nixpkgs/config.nix;
+    };
   };
 
   # Define and enable systemd services for xremap
@@ -55,24 +85,19 @@
     Install = { WantedBy = [ "hyprland-session.target" ]; };
   };
 
-  # Link Hyprland configuration
-  home.file.".config/hypr/hyprland.conf" = {
-    source = ../hyprland.conf;
-  };
-
   # Configure Zsh and Oh My Zsh
   programs.zsh = {
     enable = true;
   };
-  programs.oh-my-zsh = {
-    enable = true;
-    theme = "robbyrussell";
-    plugins = [
-      "git"
-      "zsh-autosuggestions"
-      "zsh-syntax-highlighting"
-    ];
-  };
+#  programs.zsh.ohMyZsh = {
+#    enable = true;
+#    theme = "robbyrussell";
+#    plugins = [
+#      "git"
+#      "zsh-autosuggestions"
+#      "zsh-syntax-highlighting"
+#    ];
+#  };
 
   programs.home-manager.enable = true;
 }

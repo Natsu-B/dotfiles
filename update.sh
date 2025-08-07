@@ -15,6 +15,6 @@ git pull
 
 # 2. Rebuild the system with the updated configuration.
 echo "Rebuilding the system..."
-nixos-rebuild switch --flake .#"$HOSTNAME"
+sudo nixos-rebuild switch --flake .#"$HOSTNAME"
 
 echo "✅ System update complete!"
