@@ -4,7 +4,6 @@
   config,
   pkgs,
   unstable,
-  gemini,
   ...
 }: {
   nixpkgs.config.allowUnfree = true;
@@ -49,8 +48,9 @@
       pkgs.google-chrome
       pkgs.brave
 
+      pkgs.nodejs
       # Gemini cli
-      gemini.packages.${pkgs.system}.gemini
+      pkgs.gemini-cli
     ];
     # Place the xremap configuration file
     file.".config/xremap/config.yml" = {

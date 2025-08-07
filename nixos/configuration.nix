@@ -6,7 +6,6 @@
   unstable,
   inputs,
   self,
-  gemini,
   ...
 }: {
   imports = [
@@ -107,7 +106,6 @@
   };
 
   # Enable sound
-  sound.enable = true;
   hardware.pulseaudio.enable = false; # Use pipwire as a sound module
   security.rtkit.enable = true;
   services.pipewire = {
@@ -140,7 +138,7 @@
 
   # Home Manager configuration
   home-manager = {
-    extraSpecialArgs = { inherit unstable gemini pkgs; };
+    extraSpecialArgs = { inherit unstable pkgs; };
     users.hotaru = import ../home/home.nix;
   };
 
@@ -173,7 +171,17 @@
   # Language settings
   i18n.inputMethod = {
     enabled = "fcitx5";
-    fcitx5.addons = [pkgs.fcitx5-mozc];
+    fcitx5.addons = [
+      pkgs.fcitx5-mozc
+      pkgs.fcitx5-gtk
+    ];
+  };
+
+  # Set environment variables for input methods
+  environment.variables = {
+    GTK_IM_MODULE = "fcitx";
+    QT_IM_MODULE = "fcitx";
+    XMODIFIERS = "@im=fcitx";
   };
 
   # Enable Steam
