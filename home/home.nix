@@ -17,7 +17,7 @@
   home = rec {
     username = "hotaru";
     homeDirectory = "/home/${username}";
-    stateVersion = "24.05";
+    stateVersion = "25.05";
     # Install pkgs
     packages = [
       # Use the custom-built xremap packages
@@ -35,6 +35,7 @@
       pkgs.qemu
       pkgs.curl
       pkgs.bat
+      pkgs.nil
 
       # Rust toolchain
       pkgs.cargo
@@ -43,6 +44,7 @@
       # Chat
       pkgs.discord
       pkgs.slack
+      pkgs.mattermost
 
       # Browser
       pkgs.google-chrome
@@ -50,7 +52,7 @@
 
       pkgs.nodejs
       # Gemini cli
-      pkgs.gemini-cli
+      # pkgs.gemini-cli
     ];
     # Place the xremap configuration file
     file.".config/xremap/config.yml" = {

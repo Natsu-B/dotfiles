@@ -6,12 +6,17 @@
   unstable,
   inputs,
   self,
+  lib,
   ...
 }: {
   imports = [
     inputs.nixos-hardware.nixosModules.lenovo-thinkpad-p14s-intel-gen5
     ./hardware-configuration.nix
   ];
+
+  # disable nvidia driver
+  hardware.nvidia.modesetting.enable = lib.mkForce false;
+  services.xserver.videoDrivers = lib.mkForce [ "modesetting" ];
 
   # Optimize nix store
   nix = {
@@ -64,7 +69,7 @@
   boot.loader.efi.canTouchEfiVariables = true;
 
   # Use stable kernel
-  boot.kernelPackages = pkgs.linuxPackages;
+  boot.kernelPackages = pkgs.linuxPackages_latest;
 
   # Networking
   networking.hostName = "nixos"; # Define your hostname
@@ -146,6 +151,11 @@
   services.flatpak.enable = true;
   xdg.portal.enable = true;
 
+  # Enable finger print
+  services.fprintd.enable = true;
+  services.fprintd.tod.enable = true;
+  services.fprintd.tod.driver = pkgs.libfprint-2-tod1-goodix;
+
   # List packages installed in system profile
   environment.systemPackages = with pkgs; [
     git
@@ -194,7 +204,10 @@
       noto-fonts-cjk-serif
       noto-fonts-cjk-sans
       noto-fonts-emoji
-      nerdfonts
+      nerd-fonts.noto
+      nerd-fonts.jetbrains-mono
+      nerd-fonts.fira-code
+      nerd-fonts.fantasque-sans-mono
       migu
     ];
     fontDir.enable = true;
