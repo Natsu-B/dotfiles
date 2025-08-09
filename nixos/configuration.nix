@@ -162,6 +162,7 @@
     vim
     wget
     vscode
+    dconf
   ];
 
   programs.git = {
@@ -179,6 +180,7 @@
   system.stateVersion = "24.05";
 
   # Language settings
+  i18n.defaultLocale = "ja_JP.UTF-8";
   i18n.inputMethod = {
     enabled = "fcitx5";
     fcitx5.addons = [

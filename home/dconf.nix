@@ -5,11 +5,12 @@ with lib.hm.gvariant;
 
 {
   dconf.settings = {
-    "org/gnome/desktop/input-sources" = {
-      mru-sources = [ (mkTuple [ "xkb" "us" ]) ];
-      sources = [ (mkTuple [ "xkb" "us+dvp" ]) (mkTuple [ "xkb" "jp" ]) ];
-      xkb-options = [ "terminate:ctrl_alt_bksp" ];
-    };
+    "org/gnome/desktop/wm/preferences".button-layout = ":minimize,maximize,close";
+    # "org/gnome/desktop/input-sources" = {
+    #   mru-sources = [ (mkTuple [ "xkb" "us" ]) ];
+    #   sources = [ (mkTuple [ "xkb" "us+dvp" ]) (mkTuple [ "xkb" "jp" ]) ];
+    #   xkb-options = [ "terminate:ctrl_alt_bksp" ];
+    # };
 
     "org/gnome/desktop/interface" = {
       color-scheme = "prefer-dark";

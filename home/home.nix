@@ -8,8 +8,6 @@
 }: {
   nixpkgs.config.allowUnfree = true;
 
-#  programs.dconf.enable = true;
-
   imports = [
     ./dconf.nix
   ];
@@ -52,7 +50,7 @@
 
       pkgs.nodejs
       # Gemini cli
-      # pkgs.gemini-cli
+      pkgs.gemini-cli
     ];
     # Place the xremap configuration file
     file.".config/xremap/config.yml" = {
