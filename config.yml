@@ -11,7 +11,7 @@ modmap:
       Space:
         held: Shift_L
         alone: Space
-        alone_timeout_mills: 999999999999
+        alone_timeout_mills: 2000
   - name: henkan
     remap:
       MUHENKAN: [F15, F15]
@@ -159,5 +159,5 @@ keymap:
       M-COMMA: M-w
       M-DOT: M-e
       M-SLASH: M-LEFTBRACE
-    application:
-      not: [Google-chrome, steam_app_0]
+    # application:
+    #   not: [Google-chrome, steam_app_0]

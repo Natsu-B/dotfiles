@@ -12,9 +12,27 @@ with lib.hm.gvariant;
     #   xkb-options = [ "terminate:ctrl_alt_bksp" ];
     # };
 
+    "org/virt-manager/virt-manager/connections" = {
+      autoconnect = ["qemu:///system"];
+      uris = ["qemu:///system"];
+    };
+
     "org/gnome/desktop/interface" = {
       color-scheme = "prefer-dark";
       show-battery-percentage = true;
+    };
+
+    "org/gnome/shell/extensions/clipboard-history" = {
+      toggle-menu = [ "<Super>v" ];
+    };
+
+    "org/gnome/shell/extensions/runcat" = {
+      displaying-items = "character-and-percentage";
+      idle-threshold = 5;
+    };
+
+    "org/gnome/shell/keybindings" = {
+      toggle-message-tray = [];
     };
 
     "org/gnome/desktop/peripherals/mouse" = {

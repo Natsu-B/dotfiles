@@ -86,7 +86,7 @@
   # Define a user account
   users.users.hotaru = {
     isNormalUser = true;
-    extraGroups = [ "wheel" "input" "networkmanager" ]; # Add user to wheel and input groups
+    extraGroups = [ "wheel" "input" "networkmanager" "libvirtd" ]; # Add user to wheel and input groups
     shell = pkgs.zsh;
   };
 
@@ -98,8 +98,8 @@
 
   # Enable GNOME
   services.xserver.enable = true;
-  services.xserver.displayManager.gdm.enable = true;
-  services.xserver.desktopManager.gnome.enable = true;
+  services.displayManager.gdm.enable = true;
+  services.desktopManager.gnome.enable = true;
 
   # Register the custom XKB layout
   services.xserver.xkb.extraLayouts = {
@@ -111,7 +111,7 @@
   };
 
   # Enable sound
-  hardware.pulseaudio.enable = false; # Use pipwire as a sound module
+  services.pulseaudio.enable = false; # Use pipwire as a sound module
   security.rtkit.enable = true;
   services.pipewire = {
     enable = true;
@@ -163,6 +163,10 @@
     wget
     vscode
     dconf
+    gnome-extension-manager
+    gnome-tweaks
+    gnomeExtensions.runcat
+    gnomeExtensions.clipboard-history
   ];
 
   programs.git = {
@@ -176,13 +180,19 @@
     };
   };
 
+  programs.virt-manager.enable = true;
+  users.groups.libvirtd.members = ["hotaru"];
+  virtualisation.libvirtd.enable = true;
+  virtualisation.spiceUSBRedirection.enable = true;
+
   # System state version
   system.stateVersion = "24.05";
 
   # Language settings
-  i18n.defaultLocale = "ja_JP.UTF-8";
+  # i18n.defaultLocale = "ja_JP.UTF-8";
   i18n.inputMethod = {
-    enabled = "fcitx5";
+    enable = true;
+    type = "fcitx5";
     fcitx5.addons = [
       pkgs.fcitx5-mozc
       pkgs.fcitx5-gtk

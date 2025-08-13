@@ -9,9 +9,13 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, home-manager, nixpkgs-unstable, ... }@inputs: {
+  outputs = { self, nixpkgs, home-manager, nixpkgs-unstable, rust-overlay, ... }@inputs: {
     nixosConfigurations = {
       nixos = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
@@ -21,6 +25,17 @@
           inherit inputs self;
         };
         modules = [
+          ({
+            nixpkgs.overlays = [
+              rust-overlay.overlays.default
+              (final: prev: {
+                rustToolchain = final.rust-bin.stable.latest.default.override {
+                  targets = ["aarch64-unknown-none" "aarch64-unknown-uefi"];
+                  extensions = ["rust-src"];
+                };
+              })
+            ];
+          })
           ./nixos/configuration.nix
           home-manager.nixosModules.home-manager
         ];

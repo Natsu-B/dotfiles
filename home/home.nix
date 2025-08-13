@@ -34,10 +34,11 @@
       pkgs.curl
       pkgs.bat
       pkgs.nil
+      pkgs.gdb
+      pkgs.file
 
       # Rust toolchain
-      pkgs.cargo
-      pkgs.rustc
+      pkgs.rustToolchain
 
       # Chat
       pkgs.discord
@@ -48,9 +49,20 @@
       pkgs.google-chrome
       pkgs.brave
 
+      pkgs.python3
+
       pkgs.nodejs
       # Gemini cli
       pkgs.gemini-cli
+
+      # PDF viewer
+      pkgs.kdePackages.okular
+
+      pkgs.kicad
+      pkgs.ghidra
+      pkgs.cmake
+
+      pkgs.llvmPackages.bintools-unwrapped
     ];
     # Place the xremap configuration file
     file.".config/xremap/config.yml" = {
