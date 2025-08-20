@@ -63,6 +63,8 @@
       pkgs.cmake
 
       pkgs.llvmPackages.bintools-unwrapped
+
+      pkgs.inkscape-with-extensions
     ];
     # Place the xremap configuration file
     file.".config/xremap/config.yml" = {
