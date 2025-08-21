@@ -38,7 +38,7 @@
       pkgs.file
 
       # Rust toolchain
-      pkgs.rustToolchain
+      pkgs.rustup
 
       # Chat
       pkgs.discord
@@ -61,10 +61,14 @@
       pkgs.kicad
       pkgs.ghidra
       pkgs.cmake
+      pkgs.unzip
 
+      # llvm-objdump
       pkgs.llvmPackages.bintools-unwrapped
 
       pkgs.inkscape-with-extensions
+      pkgs.zoom-us
+      pkgs.libreoffice
     ];
     # Place the xremap configuration file
     file.".config/xremap/config.yml" = {
