@@ -43,8 +43,14 @@
           system = prev.system;
           config.allowUnfree = true;
         };
+        masterPkgs = import inputs.nixpkgs-master {
+          system = prev.system;
+          config.allowUnfree = true;
+        };
       in {
         unstable = unstablePkgs;
+        master = masterPkgs;
+        vscode = masterPkgs.vscode;
 
         # Custom xremap builds to avoid conflicts
         xremap-gnome = unstablePkgs.xremap.overrideAttrs (oldAttrs: {
