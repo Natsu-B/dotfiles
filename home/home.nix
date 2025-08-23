@@ -4,6 +4,7 @@
   config,
   pkgs,
   unstable,
+  master,
   ...
 }: {
   nixpkgs.config.allowUnfree = true;
@@ -15,7 +16,6 @@
   home =
     let
       gef = pkgs.callPackage ./app/gef.nix { };
-      gemini-cli = pkgs.callPackage ./app/gemini-cli.nix { };
     in
     rec {
       username = "hotaru";
@@ -59,7 +59,7 @@
 
         pkgs.nodejs
         # Gemini cli
-        gemini-cli
+        master.gemini-cli
 
         # PDF viewer
         pkgs.kdePackages.okular
