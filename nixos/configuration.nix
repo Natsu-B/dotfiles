@@ -167,6 +167,7 @@
     gnome-tweaks
     gnomeExtensions.runcat
     gnomeExtensions.clipboard-history
+    libfprint
   ];
 
   programs.git = {

@@ -12,64 +12,70 @@
     ./dconf.nix
   ];
 
-  home = rec {
-    username = "hotaru";
-    homeDirectory = "/home/${username}";
-    stateVersion = "25.05";
-    # Install pkgs
-    packages = [
-      # Use the custom-built xremap packages
-      pkgs.xremap-gnome
-      pkgs.xremap-hypr
+  home =
+    let
+      gef = pkgs.callPackage ./app/gef.nix { };
+      gemini-cli = pkgs.callPackage ./app/gemini-cli.nix { };
+    in
+    rec {
+      username = "hotaru";
+      homeDirectory = "/home/${username}";
+      stateVersion = "25.05";
+      # Install pkgs
+      packages = [
+        # Use the custom-built xremap packages
+        pkgs.xremap-gnome
+        pkgs.xremap-hypr
 
-      # Development tools
-      pkgs.gh
-      pkgs.gcc
-      pkgs.gnumake
-      pkgs.bison
-      pkgs.bc
-      pkgs.flex
-      pkgs.openssl
-      pkgs.qemu
-      pkgs.curl
-      pkgs.bat
-      pkgs.nil
-      pkgs.gdb
-      pkgs.file
+        # Development tools
+        pkgs.gh
+        pkgs.gcc
+        pkgs.gnumake
+        pkgs.bison
+        pkgs.bc
+        pkgs.flex
+        pkgs.openssl
+        pkgs.qemu
+        pkgs.curl
+        pkgs.bat
+        pkgs.nil
+        pkgs.gdb
+        pkgs.file
+        gef
 
-      # Rust toolchain
-      pkgs.rustup
+        # Rust toolchain
+        pkgs.rustup
 
-      # Chat
-      pkgs.discord
-      pkgs.slack
-      pkgs.mattermost
+        # Chat
+        pkgs.discord
+        pkgs.slack
+        pkgs.mattermost
 
-      # Browser
-      pkgs.google-chrome
-      pkgs.brave
+        # Browser
+        pkgs.google-chrome
+        pkgs.brave
 
-      pkgs.python3
+        pkgs.python3
 
-      pkgs.nodejs
-      # Gemini cli
-      pkgs.gemini-cli
+        pkgs.nodejs
+        # Gemini cli
+        gemini-cli
 
-      # PDF viewer
-      pkgs.kdePackages.okular
+        # PDF viewer
+        pkgs.kdePackages.okular
 
-      pkgs.kicad
-      pkgs.ghidra
-      pkgs.cmake
-      pkgs.unzip
+        pkgs.kicad
+        pkgs.ghidra
+        pkgs.cmake
+        pkgs.unzip
 
-      # llvm-objdump
-      pkgs.llvmPackages.bintools-unwrapped
+        # llvm-objdump
+        pkgs.llvmPackages.bintools-unwrapped
 
-      pkgs.inkscape-with-extensions
-      pkgs.zoom-us
-      pkgs.libreoffice
-    ];
+        pkgs.inkscape-with-extensions
+        pkgs.zoom-us
+        pkgs.libreoffice
+      ];
     # Place the xremap configuration file
     file.".config/xremap/config.yml" = {
       source = ../config.yml;
