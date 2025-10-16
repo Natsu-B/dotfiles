@@ -60,6 +60,8 @@
         pkgs.nodejs
         # Gemini cli
         master.gemini-cli
+        # Codex
+        master.codex
 
         # PDF viewer
         pkgs.kdePackages.okular
@@ -75,20 +77,24 @@
         pkgs.inkscape-with-extensions
         pkgs.zoom-us
         pkgs.libreoffice
+        pkgs.typst
+        pkgs.tinymist
+
+        pkgs.jdk25
       ];
-    # Place the xremap configuration file
-    file.".config/xremap/config.yml" = {
-      source = ../config.yml;
+      # Place the xremap configuration file
+      file.".config/xremap/config.yml" = {
+        source = ../config.yml;
+      };
+      # Link Hyprland configuration
+      file.".config/hypr/hyprland.conf" = {
+        source = ../hyprland.conf;
+      };
+      # Enable unfree software on command line
+      file.".config/nixpkgs/config.nix" = {
+        source = ../nixpkgs/config.nix;
+      };
     };
-    # Link Hyprland configuration
-    file.".config/hypr/hyprland.conf" = {
-      source = ../hyprland.conf;
-    };
-    # Enable unfree software on command line
-    file.".config/nixpkgs/config.nix" = {
-      source = ../nixpkgs/config.nix;
-    };
-  };
 
   # Define and enable systemd services for xremap
   systemd.user.services.xremap-gnome = {
@@ -113,15 +119,15 @@
   programs.zsh = {
     enable = true;
   };
-#  programs.zsh.ohMyZsh = {
-#    enable = true;
-#    theme = "robbyrussell";
-#    plugins = [
-#      "git"
-#      "zsh-autosuggestions"
-#      "zsh-syntax-highlighting"
-#    ];
-#  };
+  #  programs.zsh.ohMyZsh = {
+  #    enable = true;
+  #    theme = "robbyrussell";
+  #    plugins = [
+  #      "git"
+  #      "zsh-autosuggestions"
+  #      "zsh-syntax-highlighting"
+  #    ];
+  #  };
 
   programs.home-manager.enable = true;
 }

@@ -68,6 +68,8 @@
             mv $out/bin/xremap $out/bin/xremap-hypr
           '';
         });
+
+        jdk25 = unstablePkgs.jdk25;
       })
   ];
 
@@ -77,6 +79,10 @@
 
   # Use stable kernel
   boot.kernelPackages = pkgs.linuxPackages_latest;
+
+  boot.kernelModules = [ "e1000e" ];
+
+  boot.binfmt.emulatedSystems = [ "aarch64-linux" "riscv64-linux" ];
 
   # Networking
   networking.hostName = "nixos"; # Define your hostname
@@ -93,7 +99,7 @@
   # Define a user account
   users.users.hotaru = {
     isNormalUser = true;
-    extraGroups = [ "wheel" "input" "networkmanager" "libvirtd" ]; # Add user to wheel and input groups
+    extraGroups = [ "wheel" "input" "networkmanager" "libvirtd" "serial" "dialout" "plugdev" ]; # Add user to wheel and input groups
     shell = pkgs.zsh;
   };
 
@@ -175,6 +181,7 @@
     gnomeExtensions.runcat
     gnomeExtensions.clipboard-history
     libfprint
+    qemu
   ];
 
   programs.git = {
