@@ -24,6 +24,7 @@
     settings = {
       # auto-optimize-store = true;
       experimental-features = ["nix-command" "flakes"];
+      extra-sandbox-paths = [ "/run/media/hotaru/data" ];
     };
     gc = {
       automatic = true;
@@ -103,6 +104,23 @@
     shell = pkgs.zsh;
   };
 
+  users.groups.plugdev = {
+    members = [ "hotaru" ];
+  };
+
+  fileSystems."/run/media/hotaru/data" = {
+    device = "/dev/disk/by-label/data";
+    fsType = "ntfs3";
+    options = [
+      "nofail"
+      "users"
+      "uid=1000"
+      "gid=100"
+      "umask=002"
+      "exec"
+    ];
+  };
+
   # Enable Hyprland
   programs.hyprland = {
     enable = true;
@@ -134,6 +152,27 @@
     pulse.enable = true;
   };
 
+  security.pam.services.login.fprintAuth = false;
+  security.pam.services.gdm-fingerprint = lib.mkIf (config.services.fprintd.enable) {
+    text = ''
+      auth       required                    pam_shells.so
+      auth       requisite                   pam_nologin.so
+      auth       requisite                   pam_faillock.so      preauth
+      auth       required                    ${pkgs.fprintd}/lib/security/pam_fprintd.so
+      auth       optional                    pam_permit.so
+      auth       required                    pam_env.so
+      auth       [success=ok default=1]      ${pkgs.gdm}/lib/security/pam_gdm.so
+      auth       optional                    ${pkgs.gnome-keyring}/lib/security/pam_gnome_keyring.so
+
+      account    include                     login
+
+      password   required                    pam_deny.so
+
+      session    include                     login
+      session    optional                    ${pkgs.gnome-keyring}/lib/security/pam_gnome_keyring.so auto_start
+    '';
+  };
+
   # Enable zsh
   programs.zsh.enable = true;
 
@@ -152,6 +191,12 @@
   services.udev.extraRules = ''
     KERNEL=="event*", GROUP="input", MODE="0660"
     KERNEL=="uinput", GROUP="input", MODE="0660"
+    # Allow probe-rs compatible debug probes for users in plugdev
+    SUBSYSTEM=="usb", ATTR{idVendor}=="2e8a", ATTR{idProduct}=="000c", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+    SUBSYSTEM=="usb", ATTR{idVendor}=="0d28", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+    SUBSYSTEM=="usb", ATTR{idVendor}=="1fc9", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+    SUBSYSTEM=="usb", ATTR{idVendor}=="1366", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+    SUBSYSTEM=="usb", ATTR{idVendor}=="0483", MODE="0660", GROUP="plugdev", TAG+="uaccess"
   '';
 
   # Home Manager configuration
@@ -166,8 +211,8 @@
 
   # Enable finger print
   services.fprintd.enable = true;
-  services.fprintd.tod.enable = true;
-  services.fprintd.tod.driver = pkgs.libfprint-2-tod1-goodix;
+  services.fwupd.enable = true;
+  services.fprintd.tod.enable = false;
 
   # List packages installed in system profile
   environment.systemPackages = with pkgs; [
@@ -175,13 +220,16 @@
     vim
     wget
     vscode
+    jetbrains.rust-rover
     dconf
     gnome-extension-manager
     gnome-tweaks
     gnomeExtensions.runcat
     gnomeExtensions.clipboard-history
+    gnomeExtensions.kimpanel
     libfprint
     qemu
+    tcsh
   ];
 
   programs.git = {

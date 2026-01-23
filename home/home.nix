@@ -16,11 +16,12 @@
   home =
     let
       gef = pkgs.callPackage ./app/gef.nix { };
+      gemini-cli = pkgs.callPackage ./app/gemini.nix { };
     in
     rec {
       username = "hotaru";
       homeDirectory = "/home/${username}";
-      stateVersion = "25.05";
+      stateVersion = "26.05";
       # Install pkgs
       packages = [
         # Use the custom-built xremap packages
@@ -59,9 +60,10 @@
 
         pkgs.nodejs
         # Gemini cli
-        master.gemini-cli
+        gemini-cli
         # Codex
         master.codex
+        master.copilot-cli
 
         # PDF viewer
         pkgs.kdePackages.okular
@@ -81,6 +83,19 @@
         pkgs.tinymist
 
         pkgs.jdk25
+        # verilog
+        pkgs.gtkwave
+        pkgs.iverilog
+
+        pkgs.scala
+        pkgs.scalafmt
+        pkgs.sbt
+
+        pkgs.racket
+        pkgs.davinci-resolve
+
+        pkgs.iverilog
+        pkgs.github-copilot-cli
       ];
       # Place the xremap configuration file
       file.".config/xremap/config.yml" = {
