@@ -5,6 +5,7 @@
   pkgs,
   unstable,
   master,
+  lib,
   ...
 }: {
   nixpkgs.config.allowUnfree = true;
@@ -131,6 +132,12 @@
   # Configure Zsh and Oh My Zsh
   programs.zsh = {
     enable = true;
+    initContent = lib.mkOrder 1000 ''
+      typeset -U path PATH
+      [[ -d "$HOME/.local/bin" ]] && path=("$HOME/.local/bin" $path)
+      [[ -d "/usr/local/bin" ]] && path=("/usr/local/bin" $path)
+      [[ -d "/usr/local/sbin" ]] && path=("/usr/local/sbin" $path)
+    '';
   };
   #  programs.zsh.ohMyZsh = {
   #    enable = true;
