@@ -243,6 +243,13 @@
     };
   };
 
+  programs.nix-ld.enable = true;
+  programs.nix-ld.libraries = with pkgs; [
+    stdenv.cc.cc
+    zlib
+    openssl
+  ];
+
   programs.virt-manager.enable = true;
   users.groups.libvirtd.members = ["hotaru"];
   virtualisation.libvirtd.enable = true;

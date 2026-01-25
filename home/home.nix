@@ -63,7 +63,6 @@
         gemini-cli
         # Codex
         master.codex
-        master.copilot-cli
 
         # PDF viewer
         pkgs.kdePackages.okular
@@ -95,7 +94,6 @@
         pkgs.davinci-resolve
 
         pkgs.iverilog
-        pkgs.github-copilot-cli
       ];
       # Place the xremap configuration file
       file.".config/xremap/config.yml" = {
