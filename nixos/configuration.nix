@@ -24,7 +24,7 @@
     settings = {
       # auto-optimize-store = true;
       experimental-features = ["nix-command" "flakes"];
-      extra-sandbox-paths = [ "/run/media/hotaru/data" ];
+      extra-sandbox-paths = [ "/mnt/data" ];
     };
     gc = {
       automatic = true;
@@ -78,10 +78,12 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Use stable kernel
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  # Use the NixOS default stable kernel instead of latest. ntfs3 is kernel-side,
+  # so avoiding latest reduces the chance of hitting fresh filesystem regressions.
+  # boot.kernelPackages = pkgs.linuxPackages_latest;
 
   boot.kernelModules = [ "e1000e" ];
+  boot.supportedFilesystems = [ "ntfs" ];
 
   boot.binfmt.emulatedSystems = [ "aarch64-linux" "riscv64-linux" ];
 
@@ -108,16 +110,20 @@
     members = [ "hotaru" ];
   };
 
-  fileSystems."/run/media/hotaru/data" = {
+  fileSystems."/mnt/data" = {
     device = "/dev/disk/by-label/data";
-    fsType = "ntfs3";
+    fsType = "ntfs-3g";
     options = [
       "nofail"
-      "users"
+      "noauto"
+      "x-systemd.automount"
+      "x-systemd.idle-timeout=60"
       "uid=1000"
       "gid=100"
       "umask=002"
       "exec"
+      "windows_names"
+      "big_writes"
     ];
   };
 
@@ -235,6 +241,7 @@
     tailscale
     man-pages
     man-pages-posix
+    ntfs3g
   ];
 
   services.tailscale.enable = true;
