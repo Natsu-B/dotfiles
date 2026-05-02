@@ -197,6 +197,8 @@
     SUBSYSTEM=="usb", ATTR{idVendor}=="1fc9", MODE="0660", GROUP="plugdev", TAG+="uaccess"
     SUBSYSTEM=="usb", ATTR{idVendor}=="1366", MODE="0660", GROUP="plugdev", TAG+="uaccess"
     SUBSYSTEM=="usb", ATTR{idVendor}=="0483", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+    # Allow ESP32-S3 built-in USB-JTAG/serial for probe-rs / espflash
+    SUBSYSTEM=="usb", ATTR{idVendor}=="303a", ATTR{idProduct}=="1001", MODE="0660", GROUP="plugdev", TAG+="uaccess"
   '';
 
   # Home Manager configuration
@@ -230,7 +232,12 @@
     libfprint
     qemu
     tcsh
+    tailscale
+    man-pages
+    man-pages-posix
   ];
+
+  services.tailscale.enable = true;
 
   programs.git = {
     enable = true;
@@ -285,7 +292,7 @@
     packages = with pkgs; [
       noto-fonts-cjk-serif
       noto-fonts-cjk-sans
-      noto-fonts-emoji
+      noto-fonts-color-emoji
       nerd-fonts.noto
       nerd-fonts.jetbrains-mono
       nerd-fonts.fira-code

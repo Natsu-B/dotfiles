@@ -22,7 +22,7 @@
     rec {
       username = "hotaru";
       homeDirectory = "/home/${username}";
-      stateVersion = "26.05";
+      stateVersion = "25.11";
       # Install pkgs
       packages = [
         # Use the custom-built xremap packages
@@ -42,7 +42,7 @@
         pkgs.bat
         pkgs.nil
         pkgs.gdb
-        pkgs.file
+        master.file
         gef
 
         # Rust toolchain
@@ -87,14 +87,23 @@
         pkgs.gtkwave
         pkgs.iverilog
 
-        pkgs.scala
-        pkgs.scalafmt
-        pkgs.sbt
-
         pkgs.racket
         pkgs.davinci-resolve
 
         pkgs.iverilog
+
+        pkgs.obsidian
+
+        pkgs.libretranslate
+
+        pkgs.bashInteractive
+
+        pkgs.pwntools
+
+        pkgs.openocd
+        pkgs.gtkterm
+
+        pkgs.remmina
       ];
       # Place the xremap configuration file
       file.".config/xremap/config.yml" = {
