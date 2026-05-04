@@ -120,7 +120,10 @@
       "x-systemd.idle-timeout=60"
       "uid=1000"
       "gid=100"
-      "umask=002"
+      # Keep directories traversable while preventing regular files from all
+      # appearing executable. Git gets dramatic about mode-only changes.
+      "fmask=113"
+      "dmask=002"
       "exec"
       "windows_names"
       "big_writes"
