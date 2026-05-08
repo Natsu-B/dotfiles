@@ -118,7 +118,11 @@
       "noauto"
       "x-systemd.automount"
       "x-systemd.idle-timeout=60"
-      "permissions"
+      "uid=1000"
+      "gid=100"
+      # Keep directories traversable and files writable on this NTFS workspace.
+      # Git mode noise is suppressed separately with core.fileMode=false.
+      "umask=000"
       "exec"
       "windows_names"
       "big_writes"
@@ -252,6 +256,7 @@
         email = "natsu.minatomirai@gmail.com";
       };
       init.defaultBranch = "main";
+      core.fileMode = false;
     };
   };
 
