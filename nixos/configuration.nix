@@ -118,12 +118,7 @@
       "noauto"
       "x-systemd.automount"
       "x-systemd.idle-timeout=60"
-      "uid=1000"
-      "gid=100"
-      # Keep directories traversable while preventing regular files from all
-      # appearing executable. Git gets dramatic about mode-only changes.
-      "fmask=113"
-      "dmask=002"
+      "permissions"
       "exec"
       "windows_names"
       "big_writes"
