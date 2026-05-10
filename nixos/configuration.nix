@@ -120,9 +120,10 @@
       "x-systemd.idle-timeout=60"
       "uid=1000"
       "gid=100"
-      # Keep directories traversable and files writable on this NTFS workspace.
-      # Git mode noise is suppressed separately with core.fileMode=false.
-      "umask=000"
+      # Keep directories traversable while preventing regular files from all
+      # appearing executable. Git gets dramatic about mode-only changes.
+      "fmask=113"
+      "dmask=002"
       "exec"
       "windows_names"
       "big_writes"
