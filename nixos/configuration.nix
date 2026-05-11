@@ -117,7 +117,6 @@
       "nofail"
       "noauto"
       "x-systemd.automount"
-      "x-systemd.idle-timeout=60"
       "uid=1000"
       "gid=100"
       # Keep directories traversable while preventing regular files from all
