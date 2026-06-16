@@ -18,6 +18,8 @@
     let
       gef = pkgs.callPackage ./app/gef.nix { };
       gemini-cli = pkgs.callPackage ./app/gemini.nix { };
+      temurin-jdk = pkgs.javaPackages.compiler.temurin-bin.jdk-25;
+      javafx-sdk = pkgs.openjfx25;
     in
     rec {
       username = "hotaru";
@@ -82,7 +84,10 @@
         pkgs.typst
         pkgs.tinymist
 
-        pkgs.jdk25
+        # Java / JavaFX
+        temurin-jdk
+        javafx-sdk
+
         # verilog
         pkgs.gtkwave
         pkgs.iverilog
@@ -105,6 +110,10 @@
 
         pkgs.remmina
       ];
+      sessionVariables = {
+        JAVA_HOME = "${temurin-jdk.home}";
+        JAVAFX_HOME = "${javafx-sdk}";
+      };
       # Place the xremap configuration file
       file.".config/xremap/config.yml" = {
         source = ../config.yml;
