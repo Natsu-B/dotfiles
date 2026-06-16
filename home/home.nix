@@ -174,6 +174,14 @@
   programs.zsh = {
     enable = true;
     initContent = lib.mkOrder 1000 ''
+      # Load Home Manager session variables in interactive zsh.
+      # Without this, variables such as JAVAFX_MODULE_PATH may not appear until a full login session.
+      if [[ -f "$HOME/.nix-profile/etc/profile.d/hm-session-vars.sh" ]]; then
+        source "$HOME/.nix-profile/etc/profile.d/hm-session-vars.sh"
+      elif [[ -f "/etc/profiles/per-user/$USER/etc/profile.d/hm-session-vars.sh" ]]; then
+        source "/etc/profiles/per-user/$USER/etc/profile.d/hm-session-vars.sh"
+      fi
+
       typeset -U path PATH
       [[ -d "$HOME/.local/bin" ]] && path=("$HOME/.local/bin" $path)
       [[ -d "/usr/local/bin" ]] && path=("/usr/local/bin" $path)
