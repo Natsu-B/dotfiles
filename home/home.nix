@@ -20,7 +20,6 @@
       gemini-cli = pkgs.callPackage ./app/gemini.nix { };
       temurin-jdk = pkgs.javaPackages.compiler.temurin-bin.jdk-25;
       javafx-sdk = pkgs.openjfx25;
-      javafx-module-path = "${javafx-sdk}/lib";
       javafx-modules = "javafx.controls,javafx.fxml,javafx.swing";
     in
     rec {
@@ -115,15 +114,84 @@
       sessionVariables = {
         JAVA_HOME = "${temurin-jdk.home}";
         JAVAFX_SDK_HOME = "${javafx-sdk}";
-        JAVAFX_HOME = javafx-module-path;
-        PATH_TO_FX = javafx-module-path;
-        JAVAFX_MODULE_PATH = javafx-module-path;
+        JAVAFX_HOME = "${javafx-sdk}";
+        PATH_TO_FX = "${javafx-sdk}";
+        JAVAFX_MODULE_PATH = "${javafx-sdk}";
         JAVAFX_MODULES = javafx-modules;
       };
-      shellAliases = {
-        jfx-javac = "javac --module-path $JAVAFX_MODULE_PATH --add-modules $JAVAFX_MODULES";
-        jfx-java = "java --module-path $JAVAFX_MODULE_PATH --add-modules $JAVAFX_MODULES";
-        jfx-make = "make JAVABIN=$JAVA_HOME/bin/ JAVAFXMODULE=$JAVAFX_MODULE_PATH";
+      file.".local/bin/jfx-module-path" = {
+        executable = true;
+        text = ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+
+          candidates=(
+            "''${JAVAFX_MODULE_PATH:-}"
+            "''${JAVAFX_HOME:-}"
+            "''${PATH_TO_FX:-}"
+            "''${JAVAFX_SDK_HOME:-}/lib"
+            "''${JAVAFX_SDK_HOME:-}/modules"
+            "''${JAVAFX_SDK_HOME:-}"
+            "${javafx-sdk}/lib"
+            "${javafx-sdk}/modules"
+            "${javafx-sdk}"
+          )
+
+          for candidate in "''${candidates[@]}"; do
+            [[ -n "$candidate" && -d "$candidate" ]] || continue
+
+            if ${pkgs.findutils}/bin/find "$candidate" -maxdepth 1 \
+              \( -name 'javafx.controls.jar' -o -name 'javafx.controls.jmod' -o -name 'javafx.controls' \) \
+              -print -quit 2>/dev/null | ${pkgs.gnugrep}/bin/grep -q .; then
+              printf '%s\n' "$candidate"
+              exit 0
+            fi
+
+            found="$(${pkgs.findutils}/bin/find "$candidate" -maxdepth 5 \
+              \( -name 'javafx.controls.jar' -o -name 'javafx.controls.jmod' -o -name 'javafx.controls' \) \
+              -print -quit 2>/dev/null || true)"
+
+            if [[ -n "$found" ]]; then
+              ${pkgs.coreutils}/bin/dirname "$found"
+              exit 0
+            fi
+          done
+
+          echo "jfx-module-path: javafx.controls was not found under JAVAFX_SDK_HOME=${javafx-sdk}" >&2
+          exit 1
+        '';
+      };
+      file.".local/bin/jfx-javac" = {
+        executable = true;
+        text = ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+
+          java_home="''${JAVA_HOME:-${temurin-jdk.home}}"
+          module_path="$($HOME/.local/bin/jfx-module-path)"
+          modules="''${JAVAFX_MODULES:-${javafx-modules}}"
+
+          exec "$java_home/bin/javac" \
+            --module-path "$module_path" \
+            --add-modules "$modules" \
+            "$@"
+        '';
+      };
+      file.".local/bin/jfx-java" = {
+        executable = true;
+        text = ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+
+          java_home="''${JAVA_HOME:-${temurin-jdk.home}}"
+          module_path="$($HOME/.local/bin/jfx-module-path)"
+          modules="''${JAVAFX_MODULES:-${javafx-modules}}"
+
+          exec "$java_home/bin/java" \
+            --module-path "$module_path" \
+            --add-modules "$modules" \
+            "$@"
+        '';
       };
       file.".local/bin/jfx-make" = {
         executable = true;
@@ -131,9 +199,12 @@
           #!${pkgs.bash}/bin/bash
           set -euo pipefail
 
+          java_home="''${JAVA_HOME:-${temurin-jdk.home}}"
+          module_path="$($HOME/.local/bin/jfx-module-path)"
+
           exec ${pkgs.gnumake}/bin/make \
-            JAVABIN="$JAVA_HOME/bin/" \
-            JAVAFXMODULE="$JAVAFX_MODULE_PATH" \
+            JAVABIN="$java_home/bin/" \
+            JAVAFXMODULE="$module_path" \
             "$@"
         '';
       };
@@ -186,6 +257,12 @@
       [[ -d "$HOME/.local/bin" ]] && path=("$HOME/.local/bin" $path)
       [[ -d "/usr/local/bin" ]] && path=("/usr/local/bin" $path)
       [[ -d "/usr/local/sbin" ]] && path=("/usr/local/sbin" $path)
+
+      if [[ -x "$HOME/.local/bin/jfx-module-path" ]]; then
+        export JAVAFX_MODULE_PATH="$("$HOME/.local/bin/jfx-module-path" 2>/dev/null || printf '%s' "$JAVAFX_MODULE_PATH")"
+        export JAVAFX_HOME="$JAVAFX_MODULE_PATH"
+        export PATH_TO_FX="$JAVAFX_MODULE_PATH"
+      fi
     '';
   };
   #  programs.zsh.ohMyZsh = {
