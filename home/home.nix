@@ -123,6 +123,19 @@
       shellAliases = {
         jfx-javac = "javac --module-path $JAVAFX_MODULE_PATH --add-modules $JAVAFX_MODULES";
         jfx-java = "java --module-path $JAVAFX_MODULE_PATH --add-modules $JAVAFX_MODULES";
+        jfx-make = "make JAVABIN=$JAVA_HOME/bin/ JAVAFXMODULE=$JAVAFX_MODULE_PATH";
+      };
+      file.".local/bin/jfx-make" = {
+        executable = true;
+        text = ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+
+          exec ${pkgs.gnumake}/bin/make \
+            JAVABIN="$JAVA_HOME/bin/" \
+            JAVAFXMODULE="$JAVAFX_MODULE_PATH" \
+            "$@"
+        '';
       };
       # Place the xremap configuration file
       file.".config/xremap/config.yml" = {
