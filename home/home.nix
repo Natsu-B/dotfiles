@@ -20,6 +20,8 @@
       gemini-cli = pkgs.callPackage ./app/gemini.nix { };
       temurin-jdk = pkgs.javaPackages.compiler.temurin-bin.jdk-25;
       javafx-sdk = pkgs.openjfx25;
+      javafx-module-path = "${javafx-sdk}/lib";
+      javafx-modules = "javafx.controls,javafx.fxml,javafx.swing";
     in
     rec {
       username = "hotaru";
@@ -112,7 +114,15 @@
       ];
       sessionVariables = {
         JAVA_HOME = "${temurin-jdk.home}";
-        JAVAFX_HOME = "${javafx-sdk}";
+        JAVAFX_SDK_HOME = "${javafx-sdk}";
+        JAVAFX_HOME = javafx-module-path;
+        PATH_TO_FX = javafx-module-path;
+        JAVAFX_MODULE_PATH = javafx-module-path;
+        JAVAFX_MODULES = javafx-modules;
+      };
+      shellAliases = {
+        jfx-javac = "javac --module-path $JAVAFX_MODULE_PATH --add-modules $JAVAFX_MODULES";
+        jfx-java = "java --module-path $JAVAFX_MODULE_PATH --add-modules $JAVAFX_MODULES";
       };
       # Place the xremap configuration file
       file.".config/xremap/config.yml" = {
