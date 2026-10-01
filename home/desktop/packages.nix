@@ -1,9 +1,8 @@
 { pkgs, unstable }:
 let
   wallpaper = pkgs.nixos-artwork.wallpapers.nineish-catppuccin-mocha-alt.gnomeFilePath;
-  # Keep the package's supported feature/install combination. Normalize the
-  # variant executable without rebuilding xremap or changing its Cargo features.
-  # The service selects --desktop=none; application filters are unused.
+  # Preserve the package's supported feature/install combination and normalize
+  # its executable name. Global-only profiles do not query desktop app filters.
   xremap = pkgs.runCommand "dotfiles-xremap-${unstable.xremap.version}" {} ''
     mkdir -p "$out/bin"
     for binary in ${unstable.xremap}/bin/xremap ${unstable.xremap}/bin/xremap-wlroots; do

@@ -16,7 +16,9 @@ write_profile() {
 current=$(read_profile)
 case "${1:-status}" in
   run)
-    exec xremap --desktop=none --watch=device --no-window-logging --allow-launch=false \
+    # Use the CLI supported by the locked binary. No application filters or
+    # command-launch mappings are present in these generated profiles.
+    exec xremap --watch=device --no-window-logging \
       "$DOTFILES_XREMAP_PROFILES/$current.yml"
     ;;
   status) printf '%s\n' "$current" ;;

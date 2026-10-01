@@ -3,18 +3,14 @@ let
   tools = import ../home/desktop/packages.nix { inherit pkgs unstable; };
 in
 pkgs.runCommand "dotfiles-desktop-tools-check" {
-  nativeBuildInputs = [ tools.xremap ];
+  nativeBuildInputs = [ tools.xremap pkgs.python3 ];
 } ''
   export HOME="$TMPDIR/home-test"
   export XDG_STATE_HOME="$HOME/.local/state"
   export XDG_RUNTIME_DIR="$TMPDIR/runtime"
   mkdir -p "$HOME"
   mkdir -m 700 "$XDG_RUNTIME_DIR"
-  xremap --help
-  for profile in ${tools.profiles}/*.yml; do
-    xremap --desktop=none --watch=device --no-window-logging --allow-launch=false \
-      --validate-config "$profile"
-  done
+  python3 ${./validate_xremap.py} ${tools.profiles}
   test "$(${tools.keyboard}/bin/keyboard-profile status)" = dvorak
   # Building these derivations also runs writeShellApplication's ShellCheck.
   for executable in \
