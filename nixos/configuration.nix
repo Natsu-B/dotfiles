@@ -13,6 +13,7 @@
   imports = [
     inputs.nixos-hardware.nixosModules.lenovo-thinkpad-p14s-intel-gen5
     ./hardware-configuration.nix
+    ./codex-usb.nix
   ];
 
   # disable nvidia driver
@@ -24,7 +25,7 @@
     settings = {
       # auto-optimize-store = true;
       experimental-features = ["nix-command" "flakes"];
-      extra-sandbox-paths = [ "/run/media/hotaru/data" ];
+      # extra-sandbox-paths = [ "/mnt/data" ];
     };
     gc = {
       automatic = true;
@@ -78,9 +79,10 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Use stable kernel
-  boot.kernelPackages = pkgs.linuxPackages_latest;
-
+  # Use Linux 7.1+ for the new in-kernel NTFS driver.
+  # nixpkgs 25.11 latest is currently 7.0.x, so use nixpkgs-master here.
+  boot.kernelPackages = master.linuxPackages_latest;
+  boot.supportedFilesystems = [ "ntfs" ];
   boot.kernelModules = [ "e1000e" ];
 
   boot.binfmt.emulatedSystems = [ "aarch64-linux" "riscv64-linux" ];
@@ -99,6 +101,7 @@
 
   # Define a user account
   users.users.hotaru = {
+    uid = 1000;
     isNormalUser = true;
     extraGroups = [ "wheel" "input" "networkmanager" "libvirtd" "serial" "dialout" "plugdev" ]; # Add user to wheel and input groups
     shell = pkgs.zsh;
@@ -108,18 +111,24 @@
     members = [ "hotaru" ];
   };
 
-  fileSystems."/run/media/hotaru/data" = {
-    device = "/dev/disk/by-label/data";
-    fsType = "ntfs3";
-    options = [
-      "nofail"
-      "users"
-      "uid=1000"
-      "gid=100"
-      "umask=002"
-      "exec"
-    ];
-  };
+  # fileSystems."/mnt/data" = {
+  #   device = "/dev/disk/by-label/data";
+  #   fsType = "ntfs";
+  #   options = [
+  #     "rw"
+  #     "nofail"
+  #     "noauto"
+  #     "x-systemd.automount"
+  #     "x-systemd.idle-timeout=60"
+  #     "uid=1000"
+  #     "gid=100"
+  #     "fmask=113"
+  #     "dmask=002"
+  #     "exec"
+  #     "windows_names"
+  #     "sys_immutable"
+  #   ];
+  # };
 
   # Enable Hyprland
   programs.hyprland = {
@@ -179,10 +188,11 @@
   # Enable Docker with rootless
   virtualisation = {
     docker = {
-      enable = true;
+      enable = false;
       rootless = {
         enable = true;
         setSocketVariable = true; # sets $DOCKER_HOST
+        package = pkgs.unstable.docker;
       };
     };
   };
@@ -222,7 +232,6 @@
     vim
     wget
     vscode
-    jetbrains.rust-rover
     dconf
     gnome-extension-manager
     gnome-tweaks
@@ -247,6 +256,25 @@
         email = "natsu.minatomirai@gmail.com";
       };
       init.defaultBranch = "main";
+      core.fileMode = false;
+    };
+  };
+
+  programs.appimage = {
+    enable = true;
+    binfmt = true;
+
+    package = pkgs.appimage-run.override {
+      extraPkgs = pkgs: with pkgs; [
+        webkitgtk_4_1
+        glib
+        glib-networking
+        gst_all_1.gst-plugins-base
+        gst_all_1.gst-plugins-good
+        gst_all_1.gst-plugins-bad
+        cacert
+        curl
+      ];
     };
   };
 

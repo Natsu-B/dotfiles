@@ -21,6 +21,116 @@
       temurin-jdk = pkgs.javaPackages.compiler.temurin-bin.jdk-25;
       javafx-sdk = pkgs.openjfx25;
       javafx-modules = "javafx.controls,javafx.fxml,javafx.swing";
+      codexUsb = pkgs.writeShellApplication {
+        name = "codex-usb";
+        runtimeInputs = with pkgs; [
+          coreutils
+          gnugrep
+          openssh
+          pciutils
+          sudo
+          systemd
+          usbutils
+          util-linux
+        ];
+        text = ''
+          set -euo pipefail
+
+          root_helper=/run/current-system/sw/bin/codex-usb-root
+          ssh_target=codex@vsock/3
+          if [[ "$EUID" -eq 0 && -n "''${SUDO_USER:-}" ]]; then
+            ssh_command=(sudo -u "$SUDO_USER" -H ssh)
+          else
+            ssh_command=(ssh)
+          fi
+          ssh_opts=(
+            -o IdentitiesOnly=yes
+            -o BatchMode=yes
+            -o StrictHostKeyChecking=no
+            -o UserKnownHostsFile=/dev/null
+            -o ConnectTimeout=2
+          )
+
+          wait_for_guest() {
+            local attempt=0
+            while (( attempt < 90 )); do
+              attempt=$((attempt + 1))
+              if "''${ssh_command[@]}" "''${ssh_opts[@]}" "$ssh_target" true >/dev/null 2>&1; then
+                return 0
+              fi
+              sleep 1
+            done
+            echo "codex-usb: guest SSH/VSOCK did not become ready within 90 seconds" >&2
+            sudo "$root_helper" status || true
+            return 1
+          }
+
+          ensure_started() {
+            if ! systemctl is-active --quiet microvm@codex-usb.service; then
+              sudo "$root_helper" start
+            fi
+            wait_for_guest
+          }
+
+          check_rebound() {
+            local controller driver
+            for controller in $(< /etc/codex-usb/pci-devices); do
+              driver=$(basename "$(readlink "/sys/bus/pci/devices/$controller/driver" 2>/dev/null || echo unbound)")
+              if [[ "$driver" == "vfio-pci" || "$driver" == "unbound" ]]; then
+                echo "codex-usb: $controller did not rebind to a host driver; reboot may be required" >&2
+                return 1
+              fi
+              printf '%s: %s\n' "$controller" "$driver"
+            done
+          }
+
+          run_agent() {
+            local remote_args="" arg
+            for arg in "$@"; do
+              printf -v remote_args '%s %q' "$remote_args" "$arg"
+            done
+            exec "''${ssh_command[@]}" -tt "''${ssh_opts[@]}" "$ssh_target" \
+              "cd /workspace && exec codex-usb-agent$remote_args"
+          }
+
+          command_name=$(basename "$0")
+          case "$command_name" in
+            codex-usb-start)
+              sudo "$root_helper" start
+              wait_for_guest
+              sudo "$root_helper" status
+              ;;
+            codex-usb-stop)
+              sudo "$root_helper" stop
+              sleep 1
+              check_rebound
+              ;;
+            codex-usb-shell)
+              wait_for_guest
+              exec "''${ssh_command[@]}" -tt "''${ssh_opts[@]}" "$ssh_target" 'cd /workspace && exec bash -l'
+              ;;
+            codex-usb-status)
+              sudo "$root_helper" status
+              if "''${ssh_command[@]}" "''${ssh_opts[@]}" "$ssh_target" true >/dev/null 2>&1; then
+                echo "guest: reachable over VSOCK"
+              else
+                echo "guest: not reachable over VSOCK"
+              fi
+              ;;
+            codex-usb-diagnose)
+              sudo "$root_helper" diagnose
+              ;;
+            codex-usb)
+              ensure_started
+              run_agent "$@"
+              ;;
+            *)
+              echo "unknown command: $command_name" >&2
+              exit 2
+              ;;
+          esac
+        '';
+      };
     in
     rec {
       username = "hotaru";
@@ -65,8 +175,6 @@
         pkgs.nodejs
         # Gemini cli
         gemini-cli
-        # Codex
-        master.codex
 
         # PDF viewer
         pkgs.kdePackages.okular
@@ -79,7 +187,6 @@
         # llvm-objdump
         pkgs.llvmPackages.bintools-unwrapped
 
-        pkgs.inkscape-with-extensions
         pkgs.zoom-us
         pkgs.libreoffice
         pkgs.typst
@@ -91,11 +198,6 @@
 
         # verilog
         pkgs.gtkwave
-        pkgs.iverilog
-
-        pkgs.racket
-        pkgs.davinci-resolve
-
         pkgs.iverilog
 
         pkgs.obsidian
@@ -110,6 +212,10 @@
         pkgs.gtkterm
 
         pkgs.remmina
+        unstable.anki
+
+        pkgs.tmux
+        codexUsb
       ];
       sessionVariables = {
         JAVA_HOME = "${temurin-jdk.home}";
@@ -220,6 +326,11 @@
       file.".config/nixpkgs/config.nix" = {
         source = ../nixpkgs/config.nix;
       };
+      file.".local/bin/codex-usb-start".source = "${codexUsb}/bin/codex-usb";
+      file.".local/bin/codex-usb-stop".source = "${codexUsb}/bin/codex-usb";
+      file.".local/bin/codex-usb-shell".source = "${codexUsb}/bin/codex-usb";
+      file.".local/bin/codex-usb-status".source = "${codexUsb}/bin/codex-usb";
+      file.".local/bin/codex-usb-diagnose".source = "${codexUsb}/bin/codex-usb";
     };
 
   # Define and enable systemd services for xremap
