@@ -1,7 +1,9 @@
 { pkgs, unstable }:
 let
   wallpaper = pkgs.nixos-artwork.wallpapers.nineish-catppuccin-mocha-alt.gnomeFilePath;
-  xremap = unstable.xremap.overrideAttrs (_: { buildFeatures = []; });
+  # Keep the package's supported feature/install combination. The common
+  # service selects --desktop=none at runtime; application filters are unused.
+  xremap = unstable.xremap;
   profiles = pkgs.runCommand "dotfiles-keyboard-profiles" {
     nativeBuildInputs = [ pkgs.python3 ];
   } ''
