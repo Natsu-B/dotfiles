@@ -10,7 +10,7 @@ pkgs.runCommand "dotfiles-desktop-tools-check" {
   export XDG_RUNTIME_DIR="$TMPDIR/runtime"
   mkdir -p "$HOME"
   mkdir -m 700 "$XDG_RUNTIME_DIR"
-  xremap --version
+  xremap --help
   for profile in ${tools.profiles}/*.yml; do
     xremap --desktop=none --watch=device --no-window-logging --allow-launch=false \
       --validate-config "$profile"
