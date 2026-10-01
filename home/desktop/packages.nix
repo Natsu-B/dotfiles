@@ -1,9 +1,24 @@
 { pkgs, unstable }:
 let
   wallpaper = pkgs.nixos-artwork.wallpapers.nineish-catppuccin-mocha-alt.gnomeFilePath;
-  # Keep the package's supported feature/install combination. The common
-  # service selects --desktop=none at runtime; application filters are unused.
-  xremap = unstable.xremap;
+  # Keep the package's supported feature/install combination. Normalize the
+  # variant executable without rebuilding xremap or changing its Cargo features.
+  # The service selects --desktop=none; application filters are unused.
+  xremap = pkgs.runCommand "dotfiles-xremap-${unstable.xremap.version}" {} ''
+    mkdir -p "$out/bin"
+    for binary in ${unstable.xremap}/bin/xremap ${unstable.xremap}/bin/xremap-wlroots; do
+      if test -x "$binary"; then
+        ln -s "$binary" "$out/bin/xremap"
+        echo "Using xremap executable: $binary"
+        break
+      fi
+    done
+    if ! test -x "$out/bin/xremap"; then
+      echo 'No supported xremap executable was installed' >&2
+      ls -la ${unstable.xremap}/bin >&2
+      exit 1
+    fi
+  '';
   profiles = pkgs.runCommand "dotfiles-keyboard-profiles" {
     nativeBuildInputs = [ pkgs.python3 ];
   } ''
