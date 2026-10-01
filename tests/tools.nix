@@ -10,8 +10,10 @@ pkgs.runCommand "dotfiles-desktop-tools-check" {
   export XDG_RUNTIME_DIR="$TMPDIR/runtime"
   mkdir -p "$HOME"
   mkdir -m 700 "$XDG_RUNTIME_DIR"
+  xremap --version
   for profile in ${tools.profiles}/*.yml; do
-    xremap --validate-config "$profile"
+    xremap --desktop=none --watch=device --no-window-logging --allow-launch=false \
+      --validate-config "$profile"
   done
   test "$(${tools.keyboard}/bin/keyboard-profile status)" = dvorak
   # Building these derivations also runs writeShellApplication's ShellCheck.
