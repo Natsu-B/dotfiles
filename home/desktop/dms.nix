@@ -63,18 +63,6 @@ let
     text = ''exec python3 ${./seed_dms.py} ${defaults}'';
   };
 
-  session = pkgs.writeShellApplication {
-    name = "desktop-dms-session";
-    runtimeInputs = [
-      dms
-      unstable.quickshell
-      pkgs.coreutils
-      pkgs.bash
-      pkgs.glib
-    ];
-    text = ''exec dms run --session'';
-  };
-
   commands = {
     terminal = "${pkgs.uwsm}/bin/uwsm app -- ${pkgs.kitty}/bin/kitty";
     fileManager = "${pkgs.uwsm}/bin/uwsm app -- ${pkgs.nautilus}/bin/nautilus";
@@ -140,23 +128,6 @@ in
       maxEntrySize = 65536;
       maxPinned = 0;
     };
-  };
-
-  systemd.user.services.dms = {
-    Unit = {
-      Description = "DankMaterialShell desktop (Hyprland only)";
-      After = [ "graphical-session.target" ];
-      PartOf = [ target ];
-    };
-    Service = {
-      ExecStartPre = "${configure}/bin/desktop-dms-config";
-      ExecStart = "${session}/bin/desktop-dms-session";
-      Restart = "on-failure";
-      RestartSec = 2;
-      UMask = "0077";
-      LimitCORE = 0;
-    };
-    Install.WantedBy = [ target ];
   };
 
   xdg.desktopEntries = {

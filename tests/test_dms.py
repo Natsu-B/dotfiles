@@ -77,7 +77,16 @@ class MigrationTests(unittest.TestCase):
         self.assertNotIn('./waybar.nix', text)
         for name in ('dotfiles-hyprpaper =', 'dotfiles-notifications =', 'dotfiles-polkit ='):
             self.assertNotIn(name, text)
-        self.assertIn('PartOf = [ target ];', (DESKTOP / 'dms.nix').read_text())
+        # DMS startup belongs to the NixOS module / upstream packaged service.
+        self.assertNotIn('systemd.user.services.dms', (DESKTOP / 'dms.nix').read_text())
+
+    def test_dms_uses_upstream_systemd_service(self):
+        text = (ROOT / 'nixos/desktop.nix').read_text()
+        self.assertIn('programs.dms-shell', text)
+        self.assertIn('systemd = {', text)
+        self.assertIn('enable = true;', text)
+        self.assertIn('target = "wayland-session@Hyprland.target";', text)
+        self.assertNotIn('systemd.enable = false;', text)
     def test_zoom_and_portal_routing(self):
         text = (ROOT / 'nixos/desktop.nix').read_text()
         self.assertIn('programs.zoom-us.enable = true;', text)
