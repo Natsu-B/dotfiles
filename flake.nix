@@ -20,26 +20,30 @@
     };
   };
 
-  outputs = { self, nixpkgs, home-manager, nixpkgs-unstable, nixpkgs-master, rust-overlay, ... }@inputs: {
-    checks.x86_64-linux.desktop-config = import ./tests/checks.nix {
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+  outputs = { self, nixpkgs, home-manager, nixpkgs-unstable, nixpkgs-master, rust-overlay, ... }@inputs:
+    let
+      system = "x86_64-linux";
+      hostName = "nixos";
+    in {
+    checks.${system}.desktop-config = import ./tests/checks.nix {
+      pkgs = nixpkgs.legacyPackages.${system};
     };
-    checks.x86_64-linux.desktop-tools = import ./tests/tools.nix {
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
-      unstable = nixpkgs-unstable.legacyPackages.x86_64-linux;
+    checks.${system}.desktop-tools = import ./tests/tools.nix {
+      pkgs = nixpkgs.legacyPackages.${system};
+      unstable = nixpkgs-unstable.legacyPackages.${system};
     };
-    checks.x86_64-linux.desktop-entries = import ./tests/desktop-entries.nix {
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+    checks.${system}.desktop-entries = import ./tests/desktop-entries.nix {
+      pkgs = nixpkgs.legacyPackages.${system};
       homeConfig = self.nixosConfigurations.nixos.config.home-manager.users.hotaru;
     };
     nixosConfigurations = {
-      nixos = nixpkgs.lib.nixosSystem {
-        system = "x86_64-linux";
+      "${hostName}" = nixpkgs.lib.nixosSystem {
+        inherit system;
         specialArgs = {
-          # Pass unstable packages to the configuration
-          unstable = nixpkgs-unstable.legacyPackages."x86_64-linux";
-          master = nixpkgs-master.legacyPackages."x86_64-linux";
-          inherit inputs self;
+          # Pass host identity and package sets to the configuration.
+          unstable = nixpkgs-unstable.legacyPackages.${system};
+          master = nixpkgs-master.legacyPackages.${system};
+          inherit hostName inputs self;
         };
         modules = [
           ({
@@ -54,7 +58,7 @@
             ];
           })
           inputs.microvm.nixosModules.host
-          ./nixos/configuration.nix
+          ./hosts/${hostName}
           home-manager.nixosModules.home-manager
         ];
       };

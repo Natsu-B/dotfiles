@@ -11,8 +11,6 @@
   ...
 }: {
   imports = [
-    inputs.nixos-hardware.nixosModules.lenovo-thinkpad-p14s-intel-gen5
-    ./hardware-configuration.nix
     ./codex-usb.nix
     ./desktop.nix
   ];
@@ -70,9 +68,6 @@
   boot.kernelModules = [ "e1000e" ];
 
   boot.binfmt.emulatedSystems = [ "aarch64-linux" "riscv64-linux" ];
-
-  # Networking
-  networking.hostName = "nixos"; # Define your hostname
 
   # Enable networking
   networking.networkmanager.enable = true;

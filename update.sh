@@ -1,20 +1,19 @@
 #!/bin/sh
 
-set -e
+set -eu
 
-# --- Configuration ---
-# Get the hostname of the current machine.
-HOSTNAME=$(hostname)
+TARGET_HOST=${1:-${TARGET_HOST:-$(hostname)}}
 
-# --- Main Script ---
-echo "🚀 Updating NixOS system configuration for host: $HOSTNAME..."
+echo "Updating NixOS configuration for host: $TARGET_HOST"
 
-# 1. Pull the latest changes from the git repository.
-echo "Pulling latest changes from git..."
-git pull
+git pull --ff-only
 
-# 2. Rebuild the system with the updated configuration.
-echo "Rebuilding the system..."
-sudo nixos-rebuild switch --flake .#"$HOSTNAME"
+CONFIGURED_HOST=$(nix eval --raw ".#nixosConfigurations.${TARGET_HOST}.config.networking.hostName")
+if [ "$CONFIGURED_HOST" != "$TARGET_HOST" ]; then
+  echo "ERROR: flake key '$TARGET_HOST' configures networking.hostName='$CONFIGURED_HOST'" >&2
+  exit 2
+fi
 
-echo "✅ System update complete!"
+sudo nixos-rebuild switch --flake ".#${TARGET_HOST}"
+
+echo "System update complete."
