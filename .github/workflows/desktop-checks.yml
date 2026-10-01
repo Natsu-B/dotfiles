@@ -35,3 +35,5 @@ jobs:
           nix eval --raw .#nixosConfigurations.nixos.config.system.build.toplevel.drvPath
       - name: Hyprland Lua validation (real pinned compositor)
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-config
+      - name: Desktop helpers and xremap profile validation
+        run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-tools

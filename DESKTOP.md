@@ -1,145 +1,188 @@
-# Hyprland desktop
+# Hyprland + DankMaterialShell
 
-## 構成と適用範囲
+## 構成
 
-GDM の既定セッションを Hyprland (UWSM) にし、GNOME は復旧用に残す。
-Waybar、Rofi、mako、hyprpaper、hypridle、hyprlock と認証エージェントは
-Hyprland セッションだけで起動する。xremap は GNOME / Hyprland 共通の
-ユーザーサービスとしてログイン時に起動し、GDM のログイン画面では起動しない。
+NixOS / Home Manager を 26.05 に更新し、Hyprland 0.55.4 の Lua 設定を使う。
+`flake.lock` は Nix が解決した revision / narHash をコミットしている。
+DMS は既存の unstable pin の 1.6.2 と、その同じ pin の Quickshell を組み合わせる。
+Hyprland と画面共有 portal はともに stable のパッケージを使う。
 
-この変更では `flake.nix` / `flake.lock`、カーネル、開発環境のバージョンを更新しない。
-現在の pin に含まれる Hyprland 0.52.2 に合わせて Hyprlang `.conf` を使う。
-NixOS 25.11 からのサポート対象リリースへの移行と Lua 化は別の変更として扱う。
-`system.stateVersion` と `home.stateVersion` もそのままにする。
+GDM の既定は Hyprland (UWSM)、GNOME は復旧用として維持する。
+バー、アプリ・Action 検索、通知、音声、ネットワーク、Bluetooth、ディスプレイ設定、
+壁紙、電源メニューを DMS にまとめる。Waybar / mako / hyprpaper / hyprpolkitagent
+の個別サービスは起動しない。DMS は Hyprland の UWSM target にだけ紐付ける。
+
+例外として、機密性に関わる部分は既存の実装を維持する。
+Win+V の履歴は cliphist + Rofi、実際の画面ロックは hyprlock。
+DMS のロック操作も `desktop-lock` に転送し、履歴の停止・消去を必ず経由する。
+DMS のアイドル時間は GUI で変更できる。hypridle は logind とサスペンドの橋渡しだけに使い、
+独立したアイドルタイマーは設定しない。
+
+`system.stateVersion = "24.05"` と `home.stateVersion = "25.11"` は変更しない。
+カーネル、Codex USB、開発環境の構成方針と、他の flake 入力の pin は維持する。
+ただし stable の更新に伴う各パッケージのバージョン変更はある。
 
 ## 操作
 
-ここでの英字・数字は JIS キーボードの物理キー位置。Win は Super キー。
+Win は Super。英字・数字のショートカットは JIS キーボードの物理位置。
 
 | キー | 操作 |
 |---|---|
-| Win+Space / Win+D | アプリと Action: 登録コマンドを検索 |
-| Win+F1 | 実際に登録されている Hyprland のショートカット一覧 |
-| Win+F2 | QWERTY / 独自 Programmer Dvorak を切替 |
-| Win+V | 履歴を選んでクリップボードにコピー。貼り付けは別途 Ctrl+V |
-| Win+Shift+V | 履歴の記録を停止・全消去 / 空の状態から再開 |
+| Win+Space / Win+D | DMS のアプリ・Action 検索 |
+| Win+I | DMS 設定 |
+| Win+P | DMS のディスプレイ設定（配置・複製など） |
+| Win+A | DMS クイック設定 |
+| Win+N | 通知 |
+| Win+X | 電源メニュー |
+| Win+F1 | DMS の Hyprland ショートカット一覧 |
+| Win+F2 | QWERTY / 独自 Programmer Dvorak の切替 |
+| Win+V | 一時保存の履歴からコピー。貼り付けは別途 Ctrl+V |
+| Win+Shift+V | 履歴を停止・全消去 / 空の状態から再開 |
 | Win+Ctrl+V | 履歴と現在のクリップボードを全消去 |
-| Win+Enter | Kitty ターミナル |
-| Win+E | ファイルマネージャー |
-| Win+L | ロック。履歴も消去 |
-| Win+Shift+Q | フォーカス中のウィンドウを閉じる |
-| Win+F | 全画面切替 |
-| Win+Shift+Space | フローティング切替 |
+| Win+L | ロックし、履歴も停止・消去 |
+| Win+Ctrl+F5 | DMS を再起動 |
+| Win+Enter / Win+E | Kitty / ファイルマネージャー |
+| Win+Shift+Q | ウィンドウを閉じる |
+| Win+F / Win+Shift+Space | 全画面 / フローティング切替 |
 | Win+矢印 / Win+Shift+矢印 | フォーカス移動 / ウィンドウ移動 |
-| Win+1..0 / Win+Shift+1..0 | ワークスペース切替 / 移動 |
+| Win+1..0 / Win+Shift+1..0 | ワークスペース切替 / ウィンドウを送る |
 | Win+左ドラッグ / Win+右ドラッグ | ウィンドウ移動 / サイズ変更 |
-| Win+Shift+M | GDM にログアウト |
+| Win+Shift+M | UWSM を終了し GDM に戻る |
+| Print | DMS の領域スクリーンショット |
 
-Waybar の配列表示をクリックしても配列を切り替えられる。
-Clip を左クリックで履歴、右クリックで記録停止・再開。
+SandS は Space を離す際に単独 Space を送る。Win+Space は Win を押したまま Space を離す。
+認識されない離し方の場合は Win+D を使う。DMS が起動しない場合も Win+Enter / Win+L は
+DMS を経由しない。`hypr-cheatsheet` で Rofi の復旧用一覧も開ける。
 
-SandS は Space を離した時に単独の Space を出す。Win+Space は Win を押したまま
-Space を押して離す。両キーの離し方で認識されない場合は Win+D を使う。
-SandS の感触や実機イベントの取りこぼしはキーボードごとに確認する。
+Win+P は設定画面を開くキーであり、押すだけで複製へ切り替えるキーではない。
+複製可能なモード、スケーリング、接続先の相性は実機で確認する。
+DMS で選んだ画面配置は次項のローカルファイルに保存し、リビルドは不要。
 
-## キーボードの責任分離
+## GUI の変更を残す仕組み
 
-XKB は Hyprland / GNOME / Fcitx5 とも **jp (JIS/QWERTY) 固定**。
-独自 Dvorak の通常入力と Shift 入力だけを xremap の `exact_match: true`
-で変換する。Ctrl / Alt / Win 付きの英数字・記号は入力変換せず、物理的な
-JIS/QWERTY 位置を維持する。XKB を別途 us(dvp) に切り替えないこと。
+Nix で管理するのは入力・キー操作・基本外観・プログラムのパス。
+次の通常ファイルは初回だけ生成し、その後は DMS の GUI で編集する。
 
-- 独自 Dvorak が初期値。最後に選んだ配列を次回ログインでも使用する。
-- Shift+物理数字列 1..0 は、そのまま数字 1..0。
-- JIS の ] キーは $ / ~、Yen キーは \\ / |。
-- CapsLock / 半角全角は日本語入力切替、Space 長押しは Shift。
-- 無変換+I/J/K/L は上/左/下/右、+; は Enter、+O は Delete、+P は Backspace、
-  +H は Tab、+U は日本語入力切替、+数字列は数字。
-- 数字列変更で失われる % は変換+5 から入力できる。
-- QWERTY モードでも SandS、日本語切替、無変換レイヤーは残す。
-- xremap 停止時は通常の JIS/QWERTY に戻る。アプリ別フィルターは使わない。
+```
+~/.config/DankMaterialShell/settings.json
+~/.local/state/DankMaterialShell/session.json
+~/.config/hypr/dms/outputs.lua
+~/.config/hypr/dms/layout.lua
+~/.config/hypr/dms/colors.lua
+~/.config/hypr/dms/cursor.lua
+~/.config/hypr/dms/windowrules.lua
+```
 
-定義は `home/desktop/generate_xremap.py`。ビルド時に生成した JSON/YAML を
-`~/.config/xremap/profiles/` に配置する。旧 us(dvp) 前提の定義は `legacy/` に保存し、
-現在の設定からは参照しない。
+リビルド・ログインで表示設定や選択した壁紙を上書きしない。
+ロック・ログアウト・アプリ起動の共通コマンドだけは毎回反映し、古い Nix store パスを残さない。
+JSON が壊れている場合は黙って初期化せずエラーにする。バックアップから修復するか、
+DMS を止めて該当ファイルを別名保存し `desktop-dms-config` を実行する。
+
+唯一、`~/.config/DankMaterialShell/clsettings.json` は Nix 管理の読み取り専用ファイル。
+DMS 内蔵の永続クリップボード記録を無効にするためで、GUI から有効化しないこと。
+
+Lua の編集場所は次のとおり。
+
+```
+home/desktop/hypr/hyprland.lua  # 読み込み順
+home/desktop/hypr/input.lua     # jp 固定の入力設定
+home/desktop/hypr/appearance.lua
+home/desktop/hypr/binds.lua     # description 付きキー定義
+home/desktop/dms.nix           # GUI 初期値・DMS 起動・commands.lua の生成
+home/desktop/packages.nix      # 補助プログラム
+nixos/desktop.nix              # GDM / UWSM / GNOME / portal / Zoom
+```
+
+旧 `.conf` は `legacy/hyprland-0.52.conf` に退避し、現在の設定からは読み込まない。
+DMS の標準 binds も読み込まない。Win+V、SandS、配列切替との重複を避けるためである。
+
+## キーボード
+
+XKB は GNOME / Hyprland / Fcitx5 とも **jp 固定**。
+独自 Dvorak の通常入力と Shift 入力だけを xremap の `exact_match: true` で変換する。
+Ctrl / Alt / Win 付きは JIS/QWERTY の物理位置のまま。DMS や GNOME の GUI から
+XKB を us(dvp) に変えると二重変換になるため、切替には Win+F2 を使う。
+
+初期値は独自 Dvorak。選択状態を `~/.local/state/dotfiles/keyboard-profile` に保存する。
+Shift+物理数字列は数字 1..0、JIS の ] は $ / ~、Yen はバックラッシュ / 縦棒。
+CapsLock / 半角全角は日本語入力切替、Space 長押しは Shift。
+無変換+I/J/K/L は上下左右、+; は Enter、+O は Delete、+P は Backspace、
++H は Tab、+U は日本語入力切替、+数字列は数字。変換+5 は %。
+QWERTY モードでも SandS、日本語切替、無変換レイヤーは維持する。
+
+定義は `home/desktop/generate_xremap.py`。選択変更を排他制御し、xremap の起動失敗時は
+以前の選択に戻す。xremap は両デスクトップのログイン時に一つだけ起動し、GDM では起動しない。
+同一ユーザーでの複数 GUI セッション同時使用は想定しない。
 
 ```sh
 keyboard-profile status
 keyboard-profile qwerty
 keyboard-profile dvorak
-systemctl --user status xremap.service
-journalctl --user -u xremap.service -b
+systemctl --user status xremap
 ```
 
-選択状態は `${XDG_STATE_HOME:-~/.local/state}/dotfiles/keyboard-profile` に保存。
-切替処理は排他制御し、起動失敗時は以前の選択に戻す。GNOME でも Win+F2 と
-`keyboard-profile` を使用可能。複数の同一ユーザー GUI セッションの同時使用は想定しない。
-
-## クリップボードの保存方針
+## クリップボードとロック
 
 [cliphist](https://github.com/sentriz/cliphist) と
-[wl-clipboard](https://github.com/bugaevc/wl-clipboard) を利用する。
-cliphist の通常のホーム内キャッシュ保存ではなく、必ず次に保存する。
+[wl-clipboard](https://github.com/bugaevc/wl-clipboard) を使用する。
+履歴は必ず `$XDG_RUNTIME_DIR/dotfiles-clipboard/db` に置き、ユーザー所有・0700・tmpfs
+を確認する。条件に合わなければ停止し、通常ディスクへの代替保存は行わない。
+Rofi の検索キャッシュも同じ一時領域。テキストのみ最大100件、1件64KiB。
+選択内容はコピーするだけで、自動貼り付け・シェル実行・同期は行わない。
 
-```
-$XDG_RUNTIME_DIR/dotfiles-clipboard/db
-# 通常は /run/user/1000/dotfiles-clipboard/db
-```
+wl-clipboard 2.3.0 が伝える sensitive ヒントを除外するが、全アプリが付与するわけではない。
+秘密をコピーする前は Win+Shift+V で停止する。停止・再開時には現在の通常/primary
+クリップボードも消去し、停止中の秘密を再開直後に取り込まない。
 
-`XDG_RUNTIME_DIR` がユーザー所有・0700・tmpfs でない場合は記録を拒否する。
-通常ディスクや `~/.cache` への代替保存はしない。ディレクトリは0700、
-ファイルの作成権限はユーザーだけに限定。Rofi の検索用キャッシュも同じ一時領域に置く。
-テキストのみ、最大100件、1件64KiB。画像は履歴に入れない。
+DMS のメニュー、Win+L、アイドルロック、サスペンド前のロックは `desktop-lock` に集約する。
+履歴を止めて消去し、hyprlock が正常終了した場合だけ logind に解除を通知する。
+ロック前に記録していた場合だけ再開する。ロック失敗時は停止を維持し警告する。
+DMS のロック用カスタムコマンドを別のロッカーに変更するとこの保証は失われる。
 
-保存場所を変更できる cliphist を採用し、永続保存型マネージャーに暗号化を後付けする
-構成は採らない。再起動後までの履歴保持より、データを長く残さないことを優先する。
-この構成自体がデータベースを暗号化するわけではない。
+**暗号化された秘密保管庫ではない。** 同じ UID の悪意あるプロセス、root、侵害された
+compositor、RAM 読み出しを防ぐものではない。tmpfs も swap / ハイバネーションに
+書き出され得る。core dump 無効化と `MemorySwapMax=0` だけで完全な非永続化や
+安全消去を保証しない。強い保護にはディスク・swap・休止領域の暗号化方針も必要。
 
-wl-clipboard は既存の unstable pin の 2.3.0 を使用し、対応するパスワードマネージャーの
-`sensitive` ヒントは除外する。ただし、すべてのアプリがヒントを付けるとは限らない。
-パスワード・トークンなどをコピーする前は **Win+Shift+V で記録停止**する。
-停止時は履歴、開いている履歴画面、現在の通常/primaryクリップボードを消去する。
-再開時も現在のクリップボードを消してから記録するので、停止中にコピーした秘密を
-再開直後に取り込まない。
-
-設定済みのロック経路（Win+L、5分アイドル、サスペンド前）は `desktop-lock` を通り、
-履歴を消去・停止する。正常に解除した場合だけ、ロック前に記録中なら再開する。
-もともと手動停止していた場合は停止のまま。ログアウト、サービス停止、再起動でも
-履歴を残さない。直接別のロッカーを起動する場合はこの処理を経由しないので注意する。
-
-履歴画面からは選択した文字列をクリップボードに戻すだけ。自動貼り付け、シェル実行、
-同期、クラウド送信はしない。サービスの core dump を無効にし、swap 使用を制限する。
-
-### 保護できない範囲
-
-これは暗号化された秘密保管庫ではない。同じユーザーの悪意あるプロセス、root、
-侵害された compositor、RAM の読み出しに対する保護はない。tmpfs は環境によって
-swap やハイバネーションに書き出され得る。`MemorySwapMax=0` だけで完全な
-非永続化を保証しない。強い保護には swap・ハイバネーション保存先・ディスクの
-暗号化方針も確認する必要がある。削除もストレージの安全消去を保証しない。
-
-GNOME ではこの履歴サービスを起動しない。Wayland の clipboard data-control に
-依存するため、GNOME の Win+V 履歴までは実装していない。既存の GNOME
-clipboard-history 拡張は宣言から外し無効化するが、**過去にその拡張や別ツールが
-保存した履歴は自動削除しない**。拡張側の設定から旧履歴を削除し、別の履歴ツールを
-並行起動していないことを確認する。
+DMS 内蔵履歴は disabled=true にするが、DMS 自体は空のキャッシュ DB を作成し得る。
+過去に DMS / GNOME 拡張 / 別ツールが保存した履歴は自動消去しない。
+既存の履歴を確認し、別の記録機能を同時に有効にしないこと。
+GNOME セッションでは今回の Win+V 履歴は起動しない。
 
 ```sh
 desktop-clipboard status
 desktop-clipboard pause
 desktop-clipboard resume
 desktop-clipboard clear
-systemctl --user status dotfiles-clipboard.service
-journalctl --user -u dotfiles-clipboard.service -b
 stat -c '%a %U' "$XDG_RUNTIME_DIR" "$XDG_RUNTIME_DIR/dotfiles-clipboard"
 stat -f -c '%T' "$XDG_RUNTIME_DIR"
 ```
 
-## アプリ・独自 Action の追加
+## Zoom と画面共有
 
-通常のアプリは `.desktop` ファイルから自動取得する。
-`home/desktop/default.nix` の `xdg.desktopEntries` に追加すると同じ検索画面に出る。
-例えば、任意のローカルスクリプトを Nix でパッケージした `myCommand` がある場合:
+Home Manager の単体 `pkgs.zoom-us` ではなく、NixOS の `programs.zoom-us.enable` を使い、
+有効なデスクトップに対応する依存関係を付ける。portal 設定は小文字の `hyprland`。
+ScreenCast / Screenshot は Hyprland、FileChooser は GTK、GNOME では GNOME 用を使う。
+
+これは Zoom のすべての Wayland 機能を保証する修正ではない。
+会議前にモニター共有・ウィンドウ共有・共有停止・再共有を確認する。
+デスクトップ版で問題がある場合に比較できるよう、ランチャーに Zoom Web も登録する。
+ブラウザでも失敗するなら portal / PipeWire 側、Zoom だけならアプリ側を優先して切り分ける。
+
+```sh
+systemctl --user status xdg-desktop-portal xdg-desktop-portal-hyprland pipewire wireplumber
+journalctl --user -b -u xdg-desktop-portal -u xdg-desktop-portal-hyprland
+```
+
+## 壁紙・独自 Action
+
+指定の [nineish Catppuccin Mocha alt](https://github.com/NixOS/nixos-artwork/blob/master/wallpapers/nix-wallpaper-nineish-catppuccin-mocha-alt.svg)
+と同じ絵柄の公式 PNG を、nixpkgs の固定済み artwork パッケージから使う。
+DMS の初期壁紙は `~/.local/share/backgrounds/nix-nineish-mocha-alt.png` を参照する。
+以後 GUI で変更可能。GNOME / hyprlock の既定壁紙にも同じ画像を使う。
+
+DMS は通常の `.desktop` アプリと独自 Action を検索する。
+`home/desktop/default.nix` または `dms.nix` の `xdg.desktopEntries` に追加する。
 
 ```nix
 xdg.desktopEntries.my-action = {
@@ -147,72 +190,63 @@ xdg.desktopEntries.my-action = {
   exec = "${myCommand}/bin/my-command";
   terminal = false;
   categories = [ "Utility" ];
+  settings.OnlyShowIn = "Hyprland;";
 };
 ```
 
-チートシートは `hyprctl -j binds` の description から取得する。`hyprland.conf` では
-`bindd` など description 付き定義を使い、一覧の手動二重管理を避ける。
+## 適用と復旧
 
-## 壁紙
-
-指定された
-[nineish Catppuccin Mocha alt SVG](https://github.com/NixOS/nixos-artwork/blob/master/wallpapers/nix-wallpaper-nineish-catppuccin-mocha-alt.svg)
-と同じ絵柄の **公式 PNG 版**を利用する。SVG の描画対応に依存せず、既存 nixpkgs の
-`nixos-artwork.wallpapers.nineish-catppuccin-mocha-alt.gnomeFilePath` から取得する。
-元画像は既存 pin 内で revision/hash 固定され、ログイン時のネットワーク取得は不要。
-Hyprland、ロック画面、GNOME の背景に適用する。
-
-## 導入と確認
-
-作業中ファイルを保存してから、この PR のブランチを取得する。
-初回は `update.sh` で他の入力まで更新せず、既存 lock のまま確認する。
+作業を保存し、現在の設定・生成をバックアップしてから実行する。
+初回は `update.sh` で他入力まで更新せず、コミット済み lock をそのまま使用する。
 
 ```sh
 git fetch origin
 git switch feat/hyprland-private-desktop
-python3 tests/test_desktop.py -v
+git pull --ff-only
+python3 -m unittest discover -s tests -v
 nix flake check
 sudo nixos-rebuild build --flake .#nixos
 sudo nixos-rebuild test --flake .#nixos
 ```
 
-Home Manager の管理対象になる既存ファイルは `.before-hyprland` にバックアップする。
-同名バックアップが既に存在する場合は、内容を確認して別名で保管してから再実行する。
-Fcitx5 の profile は jp + Mozc に統一するため、独自に追加した入力エンジンがあれば
-バックアップと比較する。
+Home Manager は新しく管理する既存ファイルを `.before-hyprland` に退避する。
+同名バックアップが既にある場合は内容を確認して別名保管する。Fcitx5 の独自設定も確認する。
+`test` は次回起動の既定を変更しないが、現在のサービスやホーム設定は変更する。
+テスト中の表示セッションが切れる可能性があるため、会議・作業の途中で実施しない。
 
-`test` が成功したら作業を保存し、一度ログアウト。GDM で Hyprland (UWSM) を選択する。
-GDM が前回の GNOME 選択を記憶している場合、既定値変更後でも初回は明示選択が必要。
+一度ログアウトし、GDM から Hyprland (UWSM) を選ぶ。
+OS / compositor / Qt 更新を含むため、既存セッションの reload だけで済ませない。
 
 ```sh
+hyprctl version
 hyprctl configerrors
-systemctl --user status xremap.service waybar.service dotfiles-clipboard.service
+systemctl --user status dms xremap dotfiles-clipboard dotfiles-hypridle
 keyboard-profile status
-wev
 ```
 
-Dvorak の文字列・Shift数字列・JIS記号・Ctrl/Alt/Winショートカット、QWERTY切替、
-SandS、Mozc、USBキーボード抜き差しを確認する。秘密でないテスト文字列で履歴の
-記録・選択・停止・ロック後の消去を確認し、GNOME への再ログインも試す。
-問題がなければ `sudo nixos-rebuild switch --flake .#nixos` で永続化する。
-
-入力が壊れた場合は TTY に移り、通常の JIS でログインして:
+配列・Mozc・SandS・USB hotplug、Win+V とロック消去、ディスプレイの複製・拡張・抜き差し、
+Zoom の共有、GNOME への再ログインを実機で確認する。成功後に永続化して再起動する。
 
 ```sh
-systemctl --user stop xremap.service
-keyboard-profile qwerty
-# 必要に応じてシステム世代も戻す
+sudo nixos-rebuild switch --flake .#nixos
+sudo reboot
+```
+
+問題時は GDM で GNOME を選ぶ。入力が壊れたら TTY で `systemctl --user stop xremap`
+を実行すると通常の JIS/QWERTY に戻る。DMS だけなら `systemctl --user restart dms`。
+システムを戻す場合は次を使うか、起動メニューから直前の NixOS generation を選ぶ。
+
+```sh
 sudo nixos-rebuild switch --rollback
 ```
 
-GUI に戻れない場合は再起動して boot menu の以前の NixOS 世代を選ぶ。
-GNOME セッション自体は削除していない。
+GUI が書いた DMS 設定は generation のロールバックでは元に戻らない。
+必要に応じて DMS を停止し、バックアップした settings.json / session.json / dms/*.lua を戻す。
 
-## 検証の範囲
+## 検証範囲
 
-`tests/test_desktop.py` は配列生成、libxkbcommon の実際の jp 定義との照合、
-切替失敗の復元、クリップボードの保存先拒否・サイズ制限・秘密ヒント除外・消去・
-選択キャンセル・文字列を実行しないこと、シェル構文を検証する。
-これは実際の xremap デバイス制御、Hyprland/Rofi 描画、NixOS 評価・ビルドを
-代替しない。PR 作成環境には Nix と稼働中の Wayland セッションがないため、
-これらの実機確認は上記の手順で行う。
+CI でコミット済み lock の一致、Python 回帰テスト、NixOS 全体の評価、Lua の60個の
+キー定義の展開・重複・説明・呼出先、pin した Hyprland の `--verify-config` を実行する。
+Lua チェックの実行コマンド文字列だけはダミーであり、アプリ起動や画面共有の実機テストではない。
+補助スクリプトと DMS パッケージのビルド、実際の xremap による生成プロファイル検証も行う。
+CI の成功は OS 全パッケージのビルドや、実機の GPU / ロック / Zoom の成功を意味しない。

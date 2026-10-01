@@ -24,6 +24,10 @@
     checks.x86_64-linux.desktop-config = import ./tests/checks.nix {
       pkgs = nixpkgs.legacyPackages.x86_64-linux;
     };
+    checks.x86_64-linux.desktop-tools = import ./tests/tools.nix {
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+      unstable = nixpkgs-unstable.legacyPackages.x86_64-linux;
+    };
     nixosConfigurations = {
       nixos = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
