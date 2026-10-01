@@ -65,18 +65,37 @@ in {
       [Groups/0]
       Name=Default
       Default Layout=jp
-      DefaultIM=mozc
+      DefaultIM=karukan
 
       [Groups/0/Items/0]
       Name=keyboard-jp
       Layout=
 
       [Groups/0/Items/1]
-      Name=mozc
+      Name=karukan
       Layout=
 
       [GroupOrder]
       0=Default
+    '';
+    "karukan-im/config.toml".text = ''
+      [conversion]
+      strategy = "adaptive"
+      num_candidates = 9
+      use_context = true
+      context_chars = 10
+      beam_width = 3
+      # The first NPU graph compilation is intentionally slower than steady state.
+      # Do not let that one-time cost permanently switch the adaptive strategy.
+      max_latency_ms = 0
+      model = "jinen-v2-small-q4"
+      light_model = "jinen-v2-xsmall-q4"
+      n_threads = 4
+      live_conversion = true
+
+      [models]
+      jinen-v2-small-q4 = { repo = "togatogah/jinen-v2-small.gguf@94ca7129a677d9f0fc671dd92af1ed4904b50ef6", filename = "jinen-v2-small-Q4_K_M.gguf" }
+      jinen-v2-xsmall-q4 = { repo = "togatogah/jinen-v2-xsmall.gguf@b91eac974998a37423ca8a1198fd7c5631b06e57", filename = "jinen-v2-xsmall-Q4_K_M.gguf" }
     '';
     "xremap/profiles".source = profiles;
   };

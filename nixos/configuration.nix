@@ -9,7 +9,9 @@
   self,
   lib,
   ...
-}: {
+}: let
+  karukan = pkgs.callPackage ./karukan.nix { };
+in {
   imports = [
     ./codex-usb.nix
     ./desktop.nix
@@ -82,7 +84,7 @@
   users.users.hotaru = {
     uid = 1000;
     isNormalUser = true;
-    extraGroups = [ "wheel" "input" "networkmanager" "libvirtd" "serial" "dialout" "plugdev" ]; # Add user to wheel and input groups
+    extraGroups = [ "wheel" "input" "networkmanager" "libvirtd" "serial" "dialout" "plugdev" "render" ]; # Add user to wheel and input groups
     shell = pkgs.zsh;
   };
 
@@ -257,7 +259,7 @@
     enable = true;
     type = "fcitx5";
     fcitx5.addons = [
-      pkgs.fcitx5-mozc
+      karukan
       pkgs.fcitx5-gtk
     ];
   };
@@ -267,6 +269,9 @@
     GTK_IM_MODULE = "fcitx";
     QT_IM_MODULE = "fcitx";
     XMODIFIERS = "@im=fcitx";
+    # Karukan uses OpenVINO NPU for greedy conversion and its own CPU model as fallback.
+    GGML_OPENVINO_DEVICE = "NPU";
+    GGML_OPENVINO_STATEFUL_EXECUTION = "0";
   };
 
   # Enable Steam

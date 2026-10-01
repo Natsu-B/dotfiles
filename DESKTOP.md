@@ -121,6 +121,30 @@ keyboard-profile dvorak
 systemctl --user status xremap
 ```
 
+## 日本語入力
+
+Fcitx5 の日本語エンジンは Karukan のみを使い、Mozc はインストールしない。
+Karukan 本体は `nixos/karukan.nix` で upstream の不変 commit に固定し、同梱の llama.cpp を
+`GGML_OPENVINO=ON` でビルドする。NixOS の Intel NPU ドライバも有効にし、ログイン環境では
+`GGML_OPENVINO_DEVICE=NPU`、stateless 実行を指定する。
+
+通常の1候補 greedy 変換は NPU を優先する。複数候補の beam search は同じ Karukan/Jinen の
+CPU instance で実行する。NPU モデルのロードまたは greedy 推論が失敗した場合も、Karukan 内部で
+同じ GGUF の CPU instance に即時再実行し、その model instance では以後 CPU を使う。
+別 IME への切替は行わない。
+
+モデルは Jinen v2 small / xsmall の Q4_K_M。Hugging Face の repository 名だけでなく
+40桁 revision まで固定する。Karukan に追加した `repo@revision` 解釈により、初回取得は
+ネットワークを使うが mutable な `main` は追わない。取得後は Hugging Face cache を使う。
+`max_latency_ms=0` とし、初回の NPU graph compile の遅さだけで light model に固定降格しない。
+
+実機では次を確認する。
+
+```sh
+ls -l /dev/accel/accel0
+journalctl --user -b | grep -Ei 'karukan|openvino|npu'
+```
+
 ## クリップボードとロック
 
 [cliphist](https://github.com/sentriz/cliphist) と
@@ -224,7 +248,7 @@ systemctl --user status dms xremap dotfiles-clipboard dotfiles-hypridle
 keyboard-profile status
 ```
 
-配列・Mozc・SandS・USB hotplug、Win+V とロック消去、ディスプレイの複製・拡張・抜き差し、
+配列・Karukan（NPU/CPU fallback）・SandS・USB hotplug、Win+V とロック消去、ディスプレイの複製・拡張・抜き差し、
 Zoom の共有、GNOME への再ログインを実機で確認する。成功後に永続化して再起動する。
 
 ```sh

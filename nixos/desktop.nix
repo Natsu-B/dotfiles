@@ -18,6 +18,7 @@
   };
 
   hardware.uinput.enable = true;
+  hardware.cpu.intel.npu.enable = true;
   hardware.bluetooth.enable = true;
   home-manager.backupFileExtension = "before-hyprland";
 
