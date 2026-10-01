@@ -18,6 +18,7 @@
     let
       gef = pkgs.callPackage ./app/gef.nix { };
       gemini-cli = pkgs.callPackage ./app/gemini.nix { };
+      codex-desktop = pkgs.callPackage ./app/codex-desktop.nix { };
       temurin-jdk = pkgs.javaPackages.compiler.temurin-bin.jdk-25;
       javafx-sdk = pkgs.openjfx25;
       javafx-modules = "javafx.controls,javafx.fxml,javafx.swing";
@@ -162,6 +163,7 @@
         pkgs.rustup
 
         # Chat
+        codex-desktop
         pkgs.discord
         pkgs.slack
         pkgs.mattermost
