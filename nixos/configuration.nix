@@ -14,6 +14,7 @@
     inputs.nixos-hardware.nixosModules.lenovo-thinkpad-p14s-intel-gen5
     ./hardware-configuration.nix
     ./codex-usb.nix
+    ./desktop.nix
   ];
 
   # disable nvidia driver
@@ -53,23 +54,6 @@
         unstable = unstablePkgs;
         master = masterPkgs;
         vscode = masterPkgs.vscode;
-
-        # Custom xremap builds to avoid conflicts
-        xremap-gnome = unstablePkgs.xremap.overrideAttrs (oldAttrs: {
-          pname = "xremap-gnome";
-          features = [ "gnome" ];
-          postInstall = ''
-            mv $out/bin/xremap $out/bin/xremap-gnome
-          '';
-        });
-
-        xremap-hypr = unstablePkgs.xremap.overrideAttrs (oldAttrs: {
-          pname = "xremap-hypr";
-          features = [ "hypr" ];
-          postInstall = ''
-            mv $out/bin/xremap $out/bin/xremap-hypr
-          '';
-        });
 
         jdk25 = unstablePkgs.jdk25;
       })
@@ -129,26 +113,6 @@
   #     "sys_immutable"
   #   ];
   # };
-
-  # Enable Hyprland
-  programs.hyprland = {
-    enable = true;
-    xwayland.enable = true;
-  };
-
-  # Enable GNOME
-  services.xserver.enable = true;
-  services.xserver.displayManager.gdm.enable = true;
-  services.xserver.desktopManager.gnome.enable = true;
-
-  # Register the custom XKB layout
-  services.xserver.xkb.extraLayouts = {
-    custom = {
-      description = "Custom Programmer Dvorak";
-      languages = [ "eng" ];
-      symbolsFile = ./custom_dvorak.xkb;
-    };
-  };
 
   # Enable sound
   services.pulseaudio.enable = false; # Use pipwire as a sound module
@@ -236,7 +200,6 @@
     gnome-extension-manager
     gnome-tweaks
     gnomeExtensions.runcat
-    gnomeExtensions.clipboard-history
     gnomeExtensions.kimpanel
     libfprint
     qemu
