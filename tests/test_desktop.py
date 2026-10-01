@@ -199,23 +199,24 @@ class ConfigTests(unittest.TestCase):
         value = cheatsheet.format_binding({'modmask': 64, 'keycode': 55, 'description': 'History'})
         self.assertIn('Win + V', value); self.assertIn('History', value)
     def test_clipboard_menu_owner_is_kept_alive(self):
-        text = (DESKTOP / 'default.nix').read_text()
+        text = (DESKTOP / 'default.nix').read_text() + (DESKTOP / 'packages.nix').read_text()
         self.assertIn('RemainAfterExit = true;', text)
         self.assertIn('restart dotfiles-clipboard-menu.service', text)
         self.assertIn('RuntimeDirectoryMode = "0700";', text)
     def test_same_base_layout(self):
-        self.assertIn('kb_layout = jp', (ROOT / 'hyprland.conf').read_text())
+        self.assertIn('kb_layout = "jp"', (DESKTOP / 'hypr/input.lua').read_text())
         self.assertIn('layout = "jp"', (ROOT / 'nixos/desktop.nix').read_text())
         self.assertIn('Default Layout=jp', (DESKTOP / 'default.nix').read_text())
     def test_no_duplicate_xremap_start(self):
         text = (ROOT / 'home/home.nix').read_text()
         self.assertNotIn('xremap-gnome', text); self.assertNotIn('xremap-hypr', text)
-        self.assertNotIn('exec-once =', (ROOT / 'hyprland.conf').read_text())
+        for path in (DESKTOP / 'hypr').glob('*.lua'):
+            self.assertNotIn('hl.exec_cmd(', path.read_text())
     def test_every_binding_has_a_description(self):
-        bindings = [line for line in (ROOT / 'hyprland.conf').read_text().splitlines() if line.startswith('bind')]
+        bindings = [line.strip() for line in (DESKTOP / 'hypr/binds.lua').read_text().splitlines() if line.strip().startswith('hl.bind(')]
         self.assertGreater(len(bindings), 30)
         for line in bindings:
-            self.assertIn('d', line.split('=')[0]); self.assertTrue(line.split(',')[2].strip())
+            self.assertIn('description =', line)
 
 if __name__ == '__main__':
     unittest.main()

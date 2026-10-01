@@ -10,6 +10,8 @@ touch "$marker"
 # Clipboard cleanup failing must never prevent the screen from locking.
 desktop-clipboard pause || true
 if hyprlock; then
+  # Notify DMS/logind only after the external locker authenticated successfully.
+  loginctl unlock-session || true
   rm -f -- "$marker"
   if "$was_active" && systemctl --user is-active --quiet wayland-session@Hyprland.target; then
     desktop-clipboard resume || true

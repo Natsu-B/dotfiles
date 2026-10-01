@@ -21,6 +21,9 @@
   };
 
   outputs = { self, nixpkgs, home-manager, nixpkgs-unstable, nixpkgs-master, rust-overlay, ... }@inputs: {
+    checks.x86_64-linux.desktop-config = import ./tests/checks.nix {
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+    };
     nixosConfigurations = {
       nixos = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";

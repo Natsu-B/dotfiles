@@ -186,7 +186,7 @@
         # llvm-objdump
         pkgs.llvmPackages.bintools-unwrapped
 
-        pkgs.zoom-us
+        # Zoom is installed by programs.zoom-us with desktop portal support.
         pkgs.libreoffice
         pkgs.typst
         pkgs.tinymist

@@ -31,5 +31,7 @@ jobs:
         run: python3 -m unittest discover -s tests -v
       - name: Nix evaluation
         run: |
-          nix flake check --no-build --show-trace
-          nix eval --raw .#nixosConfigurations.nixos.config.system.build.toplevel.drvPath --show-trace
+          nix flake check --no-build
+          nix eval --raw .#nixosConfigurations.nixos.config.system.build.toplevel.drvPath
+      - name: Hyprland Lua validation (real pinned compositor)
+        run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-config
