@@ -32,6 +32,10 @@ DVP = {
     'RO': ('\\', '_'),
 }
 
+# Linux input-event-codes.h: KEY_KATAKANAHIRAGANA = 93.
+# Numeric evdev notation avoids aliases that differ between xremap builds.
+JAPANESE_TOGGLE = 'CODE_93'
+
 
 def output_key(character):
     for key, chars in JIS.items():
@@ -47,7 +51,7 @@ def profile(name):
     navigation = {
         'F15-J': 'Left', 'F15-L': 'Right', 'F15-I': 'Up', 'F15-K': 'Down',
         'F15-SEMICOLON': 'Enter', 'F15-O': 'Delete', 'F15-P': 'Backspace',
-        'F15-H': 'Tab', 'F15-U': 'KEY_KATAKANAHIRAGANA',
+        'F15-H': 'Tab', 'F15-U': JAPANESE_TOGGLE,
         **{f'F15-{n}': n for n in '1234567890'},
         # Retain access to %, which the custom Shift-number row displaces.
         'F14-5': 'Shift-5',
@@ -56,7 +60,7 @@ def profile(name):
         'virtual_modifiers': ['F15', 'F14'],
         'modmap': [
             {'name': 'Japanese input', 'remap': {
-                'CapsLock': 'KEY_KATAKANAHIRAGANA', 'GRAVE': 'KEY_KATAKANAHIRAGANA',
+                'CapsLock': JAPANESE_TOGGLE, 'GRAVE': JAPANESE_TOGGLE,
                 'MUHENKAN': 'F15', 'HENKAN': 'F14'}},
             {'name': 'SandS', 'remap': {'Space': {
                 'held': 'Shift_L', 'alone': 'Space',
