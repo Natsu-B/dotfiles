@@ -25,16 +25,18 @@
       system = "x86_64-linux";
       hostName = "nixos";
     in {
-    checks.${system}.desktop-config = import ./tests/checks.nix {
-      pkgs = nixpkgs.legacyPackages.${system};
-    };
-    checks.${system}.desktop-tools = import ./tests/tools.nix {
-      pkgs = nixpkgs.legacyPackages.${system};
-      unstable = nixpkgs-unstable.legacyPackages.${system};
-    };
-    checks.${system}.desktop-entries = import ./tests/desktop-entries.nix {
-      pkgs = nixpkgs.legacyPackages.${system};
-      homeConfig = self.nixosConfigurations.nixos.config.home-manager.users.hotaru;
+    checks.${system} = {
+      desktop-config = import ./tests/checks.nix {
+        pkgs = nixpkgs.legacyPackages.${system};
+      };
+      desktop-tools = import ./tests/tools.nix {
+        pkgs = nixpkgs.legacyPackages.${system};
+        unstable = nixpkgs-unstable.legacyPackages.${system};
+      };
+      desktop-entries = import ./tests/desktop-entries.nix {
+        pkgs = nixpkgs.legacyPackages.${system};
+        homeConfig = self.nixosConfigurations.nixos.config.home-manager.users.hotaru;
+      };
     };
     nixosConfigurations = {
       "${hostName}" = nixpkgs.lib.nixosSystem {
