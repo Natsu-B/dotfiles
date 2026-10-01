@@ -16,7 +16,7 @@ write_profile() {
 current=$(read_profile)
 case "${1:-status}" in
   run)
-    exec xremap --watch=device --no-window-logging --allow-launch=false \
+    exec xremap --desktop=none --watch=device --no-window-logging --allow-launch=false \
       "$DOTFILES_XREMAP_PROFILES/$current.yml"
     ;;
   status) printf '%s\n' "$current" ;;
