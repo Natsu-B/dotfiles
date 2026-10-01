@@ -1,4 +1,4 @@
-{ diskDevice ? throw "Pass --argstr diskDevice /dev/disk/by-id/<system-disk>" }:
+{ diskDevice ? throw "Pass --argstr diskDevice /dev/disk/by-id/<system-disk>", ... }:
 {
   # Destructive installation layout.  The filesystem UUIDs intentionally match
   # hardware-configuration.nix so a freshly partitioned machine boots with the
