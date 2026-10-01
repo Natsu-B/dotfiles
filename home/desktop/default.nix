@@ -23,7 +23,7 @@ let
     settings.NotShowIn = "GNOME;";
   };
 in {
-  imports = [ ./dms.nix ];
+  imports = [ ./dms.nix ./cursor.nix ];
   home.packages = [ keyboard clipboard clipboardMenu locker cheatsheet pkgs.kitty pkgs.nautilus pkgs.rofi pkgs.wev ];
 
   xdg.configFile = {
