@@ -66,7 +66,9 @@ let
     inherit name exec icon;
     terminal = false;
     categories = [ "Settings" "Utility" ];
-    settings.OnlyShowIn = "Hyprland;";
+    # Keep these actions visible in DMS, but not in the GNOME fallback.
+    # Do not use OnlyShowIn=Hyprland (unregistered) or X-Hyprland (no match).
+    settings.NotShowIn = "GNOME;";
   };
 in {
   home.packages = [ launcher configure pkgs.brightnessctl ];

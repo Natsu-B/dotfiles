@@ -43,11 +43,11 @@
     (final: prev:
       let
         unstablePkgs = import inputs.nixpkgs-unstable {
-          system = prev.system;
+          system = prev.stdenv.hostPlatform.system;
           config.allowUnfree = true;
         };
         masterPkgs = import inputs.nixpkgs-master {
-          system = prev.system;
+          system = prev.stdenv.hostPlatform.system;
           config.allowUnfree = true;
         };
       in {

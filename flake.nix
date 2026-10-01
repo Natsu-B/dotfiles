@@ -28,6 +28,10 @@
       pkgs = nixpkgs.legacyPackages.x86_64-linux;
       unstable = nixpkgs-unstable.legacyPackages.x86_64-linux;
     };
+    checks.x86_64-linux.desktop-entries = import ./tests/desktop-entries.nix {
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+      homeConfig = self.nixosConfigurations.nixos.config.home-manager.users.hotaru;
+    };
     nixosConfigurations = {
       nixos = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";

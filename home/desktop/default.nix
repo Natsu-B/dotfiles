@@ -17,7 +17,10 @@ let
     inherit name exec icon;
     terminal = false;
     categories = [ "Utility" ];
-    settings.OnlyShowIn = "Hyprland;";
+    # These dotfiles provide Hyprland and GNOME sessions. Hide Hyprland actions
+    # in the GNOME fallback using a registered desktop ID. OnlyShowIn=Hyprland
+    # fails desktop-file-validate; X-Hyprland would not match the real session.
+    settings.NotShowIn = "GNOME;";
   };
 in {
   imports = [ ./dms.nix ];

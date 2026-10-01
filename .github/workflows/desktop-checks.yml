@@ -33,6 +33,8 @@ jobs:
         run: |
           nix flake check --no-build
           nix eval --raw .#nixosConfigurations.nixos.config.system.build.toplevel.drvPath
+      - name: Build and validate Home Manager desktop entries
+        run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-entries
       - name: Hyprland Lua validation (real pinned compositor)
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-config
       - name: Desktop helpers and xremap profile validation
