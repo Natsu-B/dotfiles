@@ -143,8 +143,11 @@ Fcitx5 が Karukan を選択できても、addon の共有ライブラリが読�
 `libkarukan_fcitx5.so` へ静的リンクし、Cargo の一時的な
 `libllama.so.N` / `libggml*.so.N` を Fcitx の実行時依存にしない。
 OpenVINO / oneTBB / OpenCL は通常の共有依存として Nix store から解決する。
-`karukan.so` と `libkarukan_fcitx5.so` の `ldd` に `not found` がある場合、
-または llama / ggml の動的依存が残る場合はビルド自体を失敗させる。
+静的な ggml-openvino の CMake link interface は Cargo へ伝播しないため、
+実際に Fcitx が dlopen する `karukan.so` へ
+`openvino::runtime` / `openvino::threading` / `OpenCL::OpenCL` を明示リンクする。
+`ldd -r karukan.so` で `not found` だけでなく `undefined symbol` も検出し、
+また llama / ggml の動的依存が残る場合もビルド自体を失敗させる。
 
 実機では次を確認する。
 

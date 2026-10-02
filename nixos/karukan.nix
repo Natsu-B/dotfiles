@@ -96,6 +96,10 @@ rustPlatform.buildRustPackage {
       -DCMAKE_INSTALL_PREFIX="$out" \
       -DCMAKE_INSTALL_LIBDIR=lib \
       -DECM_DIR=${kdePackages.extra-cmake-modules}/share/ECM/cmake \
+      -DOpenVINO_DIR="$openvino_cmake_dir" \
+      -DTBB_DIR="$tbb_cmake_dir" \
+      -DOpenCL_INCLUDE_DIR=${opencl-headers}/include \
+      -DOpenCL_LIBRARY=${lib.getLib ocl-icd}/lib/libOpenCL.so \
       -DKARUKAN_NATIVE=OFF
     cmake --build build --parallel "$NIX_BUILD_CORES"
     runHook postBuild
@@ -125,16 +129,31 @@ rustPlatform.buildRustPackage {
     fi
 
     # Catch the exact class of failure that previously survived package build
-    # and only appeared when Fcitx dlopen()ed the addon.
+    # and only appeared when Fcitx dlopen()ed the addon. Plain ldd only checks
+    # that DT_NEEDED files exist; -r also resolves relocations and therefore
+    # catches undefined OpenVINO C++ symbols such as ov::Any::Base RTTI.
     runtime_path="$out/lib/fcitx5:${lib.makeLibraryPath [ openvino onetbb ocl-icd ]}"
-    for library in "$out/lib/fcitx5/karukan.so" "$rustlib"; do
-      missing="$(LD_LIBRARY_PATH="$runtime_path" ldd "$library" | grep 'not found' || true)"
-      if [ -n "$missing" ]; then
-        echo "Unresolved Karukan runtime dependencies in $library:" >&2
-        echo "$missing" >&2
-        exit 1
-      fi
-    done
+    addon="$out/lib/fcitx5/karukan.so"
+
+    if ! patchelf --print-needed "$addon" | grep -Eq '^libopenvino\.so'; then
+      echo "karukan.so does not retain a direct OpenVINO runtime dependency" >&2
+      patchelf --print-needed "$addon" >&2
+      exit 1
+    fi
+
+    missing="$(LD_LIBRARY_PATH="$runtime_path" ldd "$rustlib" | grep 'not found' || true)"
+    if [ -n "$missing" ]; then
+      echo "Unresolved Karukan runtime dependencies in $rustlib:" >&2
+      echo "$missing" >&2
+      exit 1
+    fi
+
+    relocations="$(LD_LIBRARY_PATH="$runtime_path" ldd -r "$addon" 2>&1 || true)"
+    if printf '%s\n' "$relocations" | grep -Eq 'not found|undefined symbol'; then
+      echo "Karukan addon has unresolved runtime relocations:" >&2
+      printf '%s\n' "$relocations" >&2
+      exit 1
+    fi
   '';
 
   passthru.extraLdLibraries = [

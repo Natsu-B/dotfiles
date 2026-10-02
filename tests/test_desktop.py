@@ -218,10 +218,19 @@ class ConfigTests(unittest.TestCase):
         self.assertIn('Default Layout=jp', (DESKTOP / 'default.nix').read_text())
     def test_karukan_runtime_dependencies_are_checked(self):
         package = (ROOT / 'nixos/karukan.nix').read_text()
+        patcher = (ROOT / 'nixos/patch-karukan.py').read_text()
         self.assertIn('LLAMA_BUILD_SHARED_LIBS = "0";', package)
         self.assertIn("patchelf --print-needed \"$rustlib\"", package)
         self.assertIn("grep -E '^lib(llama|ggml)'", package)
-        self.assertIn("ldd \"$library\" | grep 'not found'", package)
+        self.assertIn("ldd -r \"$addon\"", package)
+        self.assertIn("undefined symbol", package)
+        self.assertIn("grep -Eq '^libopenvino", package)
+        self.assertIn('find_package(OpenVINO REQUIRED COMPONENTS Runtime Threading)', patcher)
+        self.assertIn('find_package(OpenCL REQUIRED)', patcher)
+        self.assertIn('openvino::runtime', patcher)
+        self.assertIn('openvino::threading', patcher)
+        self.assertIn('OpenCL::OpenCL', patcher)
+        self.assertIn('LINKER:--no-as-needed', patcher)
         self.assertIn('passthru.extraLdLibraries', package)
 
     def test_karukan_is_the_only_japanese_engine(self):

@@ -48,6 +48,37 @@ def main(root: Path) -> None:
         r"    COMMAND \$\{KARUKAN_CARGO_ENV\} \$\{CARGO\} build --release -p karukan-fcitx5\n",
         "    COMMAND \x24{KARUKAN_CARGO_ENV} \x24{CARGO} build --offline --release -p karukan-fcitx5\n",
     )
+    # ggml-openvino is built as a static archive inside llama-cpp-sys. Cargo
+    # links that archive into libkarukan_fcitx5.so, but it cannot see CMake's
+    # transitive OpenVINO/OpenCL link interface. Make the actual Fcitx addon
+    # carry those shared-library dependencies so dlopen() has a complete lookup
+    # scope for the Rust cdylib.
+    sub(
+        cmake,
+        r"find_package\(PkgConfig REQUIRED\)\n",
+        "find_package(PkgConfig REQUIRED)\n"
+        "find_package(OpenVINO REQUIRED COMPONENTS Runtime Threading)\n"
+        "find_package(OpenCL REQUIRED)\n",
+    )
+    sub(
+        cmake,
+        r"""target_link_libraries\(karukan
+    Fcitx5::Core
+    Fcitx5::Config
+    \$\{KARUKAN_RUST_LIB\}
+    \$\{XKBCommon_LIBRARIES\}
+\)""",
+        """target_link_libraries(karukan
+    Fcitx5::Core
+    Fcitx5::Config
+    ${KARUKAN_RUST_LIB}
+    ${XKBCommon_LIBRARIES}
+    openvino::runtime
+    openvino::threading
+    OpenCL::OpenCL
+)
+target_link_options(karukan PRIVATE "LINKER:--no-as-needed")""",
+    )
 
     hf = root / "karukan-engine/src/kanji/hf_download.rs"
     sub(
