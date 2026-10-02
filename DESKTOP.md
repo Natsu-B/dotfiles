@@ -131,8 +131,11 @@ OS 本体は NixOS 26.05 stable のまま、Karukan の OpenVINO / oneTBB / Open
 flake で固定済みの unstable（OpenVINO 2026.4.x）から揃える。OpenVINO 2026.4 は
 multi-output package のため、CMake metadata/header は `openvino.dev`、実行時ライブラリは
 `openvino.lib` を明示的に使う。CMake config のサブディレクトリ名は決め打ちせず、
-`openvino.dev` 内の `OpenVINOConfig.cmake` を探索して `OpenVINO_DIR` を決める。NixOS の Intel NPU ドライバも有効にし、ログイン環境では
-`GGML_OPENVINO_DEVICE=NPU`、stateless 実行を指定する。
+`openvino.dev` 内の `OpenVINOConfig.cmake` を探索して `OpenVINO_DIR` を決める。NixOS の Intel NPU ドライバは残すが、Karukan の既定アクセラレータは Intel GPU とする。
+OpenVINO GPU inference 用に `intel-compute-runtime` を `hardware.graphics.extraPackages` へ追加し、
+ログイン環境では `GGML_OPENVINO_DEVICE=GPU` と
+`GGML_OPENVINO_STATEFUL_EXECUTION=1` を指定する。GPU は stateful KV cache を利用できるため、
+短いIME変換ではNPUのstateless経路より低レイテンシになる可能性がある。
 
 通常の明示変換は低遅延を優先し、`strategy = "main"` で main model の greedy top-1 だけを
 AI 推論に使う。候補一覧の残りは学習履歴・ユーザー辞書・システム辞書・かな/カナ fallback が
@@ -140,8 +143,9 @@ AI 推論に使う。候補一覧の残りは学習履歴・ユーザー辞書�
 CPU fallback を使うため、live conversion を OFF にしても重くなる。既定ではこの経路を使わない。
 `live_conversion = false` とし、Space を押した時だけモデル推論する。light model の定義は
 比較用に残すが、main strategy では起動時にロードしない。
-NPU モデルのロードまたは greedy 推論が失敗した場合は、Karukan 内部で同じ GGUF の CPU instance
-に再実行する。別 IME への切替は行わない。
+GPU/NPU など指定したアクセラレータのモデルロードまたは推論が失敗した場合は、Karukan 内部で
+同じ GGUF の CPU instance に再実行する。beam search を CPU に固定するのは NPU の場合だけで、
+GPU はアクセラレータ側のmulti-sequence経路を使える。別 IME への切替は行わない。
 
 モデルは Jinen v2 small / xsmall の Q4_K_M。Hugging Face の repository 名だけでなく
 40桁 revision まで固定する。Karukan に追加した `repo@revision` 解釈により、初回取得は
@@ -162,8 +166,10 @@ OpenVINO / oneTBB / OpenCL は通常の共有依存として Nix store から解
 実機では次を確認する。
 
 ```sh
+clinfo -l
+ls -l /dev/dri/renderD*
 ls -l /dev/accel/accel0
-journalctl --user -b | grep -Ei 'karukan|openvino|npu'
+journalctl --user -b | grep -Ei 'karukan|openvino|gpu|npu'
 ```
 
 ## クリップボードとロック

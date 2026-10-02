@@ -31,6 +31,13 @@ in {
   hardware.nvidia.modesetting.enable = lib.mkForce false;
   services.xserver.videoDrivers = lib.mkForce [ "modesetting" ];
 
+  # OpenVINO GPU inference needs Intel's compute runtime in addition to Mesa.
+  # Use the same unstable package family as Karukan's OpenVINO 2026.4 build.
+  hardware.graphics = {
+    enable = true;
+    extraPackages = [ unstable.intel-compute-runtime ];
+  };
+
   # Optimize nix store
   nix = {
     settings = {
@@ -214,6 +221,7 @@ in {
     tailscale
     man-pages
     man-pages-posix
+    clinfo
   ];
 
   services.tailscale.enable = true;
@@ -279,9 +287,11 @@ in {
     GTK_IM_MODULE = "fcitx";
     QT_IM_MODULE = "fcitx";
     XMODIFIERS = "@im=fcitx";
-    # Karukan uses OpenVINO NPU for greedy conversion and its own CPU model as fallback.
-    GGML_OPENVINO_DEVICE = "NPU";
-    GGML_OPENVINO_STATEFUL_EXECUTION = "0";
+    # For short IME inference, Intel GPU is the default accelerator. Unlike
+    # the NPU path, the OpenVINO GPU backend supports stateful KV cache and
+    # upstream recommends stateful execution for better GPU performance.
+    GGML_OPENVINO_DEVICE = "GPU";
+    GGML_OPENVINO_STATEFUL_EXECUTION = "1";
   };
 
   # Enable Steam
