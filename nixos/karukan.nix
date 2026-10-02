@@ -65,6 +65,7 @@ rustPlatform.buildRustPackage {
     runHook preBuild
     export CARGO_TARGET_DIR="$PWD/target"
 
+    # Validation PR marker: nested cmake-rs must resolve OpenVINO and oneTBB package configs.
     openvino_config="$(find ${openvino} -type f -name OpenVINOConfig.cmake -print -quit)"
     if [ -z "$openvino_config" ]; then
       echo "OpenVINOConfig.cmake not found under ${openvino}" >&2
