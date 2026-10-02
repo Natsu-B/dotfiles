@@ -283,6 +283,7 @@ class ConfigTests(unittest.TestCase):
         self.assertIn('cpu_fallback', patcher)
         self.assertIn('accelerator_device', patcher)
         self.assertIn('!device.eq_ignore_ascii_case("CPU")', patcher)
+        self.assertIn('Karukan {} model loaded', patcher)
         self.assertIn('num_candidates > 1 && npu', patcher)
         self.assertIn("rsplit_once('@')", patcher)
         self.assertRegex(home, r'jinen-v2-small\.gguf@[0-9a-f]{40}')

@@ -145,9 +145,13 @@ AI 推論に使う。候補一覧の残りは学習履歴・ユーザー辞書�
 CPU fallback を使うため、live conversion を OFF にしても重くなる。既定ではこの経路を使わない。
 `live_conversion = false` とし、Space を押した時だけモデル推論する。light model の定義は
 比較用に残すが、main strategy では起動時にロードしない。
-GPU/NPU など指定したアクセラレータのモデルロードまたは推論が失敗した場合は、Karukan 内部で
-同じ GGUF の CPU instance に再実行する。beam search を CPU に固定するのは NPU の場合だけで、
-GPU はアクセラレータ側のmulti-sequence経路を使える。別 IME への切替は行わない。
+GPU/NPU など `GGML_OPENVINO_DEVICE` で CPU 以外を指定した場合は、Karukan が
+`from_file_accelerated` を使って実際にアクセラレータへモデルをoffloadする。以前はこの判定が
+NPU固定だったため、`GPU` を指定してもCPUモデルしかロードされず、高いCPU使用率と遅延の原因に
+なっていた。ロード成功時は journal に `Karukan GPU model loaded` を記録する。
+アクセラレータのモデルロードまたは推論が失敗した場合は同じ GGUF の CPU instance に再実行する。
+beam search を CPU に固定するのは NPU の場合だけで、GPU はアクセラレータ側を使える。
+別 IME への切替は行わない。
 
 モデルは Jinen v2 small / xsmall の Q4_K_M。Hugging Face の repository 名だけでなく
 40桁 revision まで固定する。Karukan に追加した `repo@revision` 解釈により、初回取得は
