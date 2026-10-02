@@ -12,7 +12,7 @@ stdenvNoCC.mkDerivation {
   # hash. Pin the immutable package from OpenAI's APT pool instead.
   src = fetchurl {
     url = "https://persistent.oaistatic.com/codex-app-prod/linux/deb/pool/main/c/chatgpt/chatgpt_${version}_amd64.deb";
-    hash = "sha256-gJQATxy8zzXe797RWWGqQrTbiJEhpdlSxfMM+CvYrTA=";
+    hash = "sha256-xGNyfx7V3O14M4yOKmXYib0VMnb/Nz/XdpjMua8y0YE=";
   };
   nativeBuildInputs = [ dpkg makeWrapper ];
   unpackPhase = ''
