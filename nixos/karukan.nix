@@ -69,6 +69,8 @@ rustPlatform.buildRustPackage {
       exit 1
     fi
     openvino_cmake_dir="$(dirname "$openvino_config")"
+    export OpenVINO_DIR="$openvino_cmake_dir"
+    export OpenVINO_ROOT="${openvino}"
     export CMAKE_PREFIX_PATH="$openvino_cmake_dir''${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
     echo "Using OpenVINO CMake package: $openvino_config"
 
