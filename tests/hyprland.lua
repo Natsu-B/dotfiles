@@ -28,7 +28,7 @@ for _, name in ipairs({'close','fullscreen','float','move','drag','resize'}) do
     hl.dsp.window[name] = dispatcher(name)
 end
 require('hyprland')
-assert(count == 60, 'Expected 60 bindings, got ' .. count)
+assert(count == 61, 'Expected 61 bindings, got ' .. count)
 assert(bindings['SUPER + code:55'].action.argument == 'clipboard')
 assert(bindings['SUPER + space'].action.argument == 'launcher')
 assert(bindings['SUPER + F2'].options.release)
@@ -38,4 +38,4 @@ for i = 1, 10 do
     assert(bindings['SUPER + code:' .. code].action.argument.workspace == i)
     assert(bindings['SUPER + SHIFT + code:' .. code].action.argument.workspace == i)
 end
-print('Lua: 60 unique, described bindings; keyboard, clipboard and lock routing verified')
+print('Lua: 61 unique, described bindings; keyboard, clipboard and lock routing verified')
