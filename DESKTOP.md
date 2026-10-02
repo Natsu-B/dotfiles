@@ -139,10 +139,12 @@ CPU instance で実行する。NPU モデルのロードまたは greedy 推論�
 `max_latency_ms=0` とし、初回の NPU graph compile の遅さだけで light model に固定降格しない。
 
 Fcitx5 が Karukan を選択できても、addon の共有ライブラリが読み込めなければ
-入力イベントは Karukan エンジンへ届かない。Nix パッケージは llama.cpp / ggml の
-ELF SONAME（例: `libllama.so.0`）を同梱ディレクトリに再生成し、
-`karukan.so` と `libkarukan_fcitx5.so` の `ldd` に `not found` があれば
-ビルド自体を失敗させる。
+入力イベントは Karukan エンジンへ届かない。llama.cpp / ggml は
+`libkarukan_fcitx5.so` へ静的リンクし、Cargo の一時的な
+`libllama.so.N` / `libggml*.so.N` を Fcitx の実行時依存にしない。
+OpenVINO / oneTBB / OpenCL は通常の共有依存として Nix store から解決する。
+`karukan.so` と `libkarukan_fcitx5.so` の `ldd` に `not found` がある場合、
+または llama / ggml の動的依存が残る場合はビルド自体を失敗させる。
 
 実機では次を確認する。
 
