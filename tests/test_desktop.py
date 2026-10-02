@@ -232,6 +232,12 @@ class ConfigTests(unittest.TestCase):
         self.assertIn('OpenCL::OpenCL', patcher)
         self.assertIn('LINKER:--no-as-needed', patcher)
         self.assertIn('passthru.extraLdLibraries', package)
+        self.assertIn('assert lib.versionAtLeast openvino.version "2026.4.0";', package)
+
+    def test_karukan_openvino_family_comes_from_unstable(self):
+        nixos = (ROOT / 'nixos/configuration.nix').read_text()
+        for attr in ('openvino', 'onetbb', 'ocl-icd', 'opencl-headers', 'opencl-clhpp'):
+            self.assertIn(f'{attr} = unstable.{attr};', nixos)
 
     def test_karukan_is_the_only_japanese_engine(self):
         nixos = (ROOT / 'nixos/configuration.nix').read_text()

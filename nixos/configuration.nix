@@ -10,7 +10,17 @@
   lib,
   ...
 }: let
-  karukan = pkgs.callPackage ./karukan.nix { };
+  # The pinned Karukan/llama.cpp OpenVINO backend uses internal ops
+  # (GatherMatmul, GatedDeltaNet, MOECompressed) that landed after OpenVINO
+  # 2026.1.2. Keep the OS on stable 26.05, but build this addon against the
+  # already-pinned unstable OpenVINO 2026.4.x dependency family.
+  karukan = pkgs.callPackage ./karukan.nix {
+    openvino = unstable.openvino;
+    onetbb = unstable.onetbb;
+    ocl-icd = unstable.ocl-icd;
+    opencl-headers = unstable.opencl-headers;
+    opencl-clhpp = unstable.opencl-clhpp;
+  };
 in {
   imports = [
     ./codex-usb.nix

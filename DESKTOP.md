@@ -125,7 +125,10 @@ systemctl --user status xremap
 
 Fcitx5 の日本語エンジンは Karukan のみを使い、Mozc はインストールしない。
 Karukan 本体は `nixos/karukan.nix` で upstream の不変 commit に固定し、同梱の llama.cpp を
-`GGML_OPENVINO=ON` でビルドする。NixOS の Intel NPU ドライバも有効にし、ログイン環境では
+`GGML_OPENVINO=ON` でビルドする。この llama.cpp の OpenVINO backend は
+`GatherMatmul` / `GatedDeltaNet` / `MOECompressed` など 2026.1.2 にはない internal op を使うため、
+OS 本体は NixOS 26.05 stable のまま、Karukan の OpenVINO / oneTBB / OpenCL 依存だけは
+flake で固定済みの unstable（OpenVINO 2026.4.x）から揃える。NixOS の Intel NPU ドライバも有効にし、ログイン環境では
 `GGML_OPENVINO_DEVICE=NPU`、stateless 実行を指定する。
 
 通常の1候補 greedy 変換は NPU を優先する。複数候補の beam search は同じ Karukan/Jinen の

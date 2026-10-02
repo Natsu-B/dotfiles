@@ -23,6 +23,7 @@ let
     inherit rev;
   };
 in
+assert lib.versionAtLeast openvino.version "2026.4.0";
 rustPlatform.buildRustPackage {
   pname = "fcitx5-karukan";
   version = "0-unstable-2026-09-29";
