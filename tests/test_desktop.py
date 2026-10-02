@@ -222,6 +222,7 @@ class ConfigTests(unittest.TestCase):
         self.assertIn('GGML_OPENVINO_DEVICE = "NPU";', nixos)
         self.assertIn('GGML_OPENVINO_STATEFUL_EXECUTION = "0";', nixos)
         self.assertIn('GGML_OPENVINO = "ON";', package)
+        self.assertIn('-DECM_DIR=${kdePackages.extra-cmake-modules}/share/ECM/cmake', package)
         self.assertRegex(package, r'rev = "[0-9a-f]{40}";')
         self.assertIn('cpu_fallback', patcher)
         self.assertIn('num_candidates > 1', patcher)
