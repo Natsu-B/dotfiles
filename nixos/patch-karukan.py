@@ -4,15 +4,29 @@ import re
 import sys
 
 
-def sub(path: Path, pattern: str, replacement: str) -> None:
+def sub(path: Path, pattern: str, replacement: str, expected: int = 1) -> None:
     text = path.read_text()
-    text, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
-    if count != 1:
-        raise SystemExit(f"{path}: patch pattern did not match exactly once")
+    text, count = re.subn(pattern, replacement, text, flags=re.S)
+    if count != expected:
+        raise SystemExit(f"{path}: patch pattern matched {count} times, expected {expected}")
     path.write_text(text)
 
 
 def main(root: Path) -> None:
+    # Upstream silently discards inference errors and displays kana fallback.
+    sub(
+        root / "karukan-im/core/src/core/engine/model.rs",
+        r"(\.convert\([^\n]+\)\n)(\s*)\.unwrap_or_default\(\)",
+        r'\1\2.unwrap_or_else(|error| { tracing::warn!(%error, "Karukan conversion failed"); Vec::new() })',
+        expected=3,
+    )
+    # Hidden suggestions must not block typing when explicit conversion is used.
+    sub(
+        root / "karukan-im/core/src/core/engine/input.rs",
+        r"        let convert = !self\.suppress_suggest\n",
+        "        let convert = !self.suppress_suggest\n"
+        "            && (self.live.enabled || self.config.candidate_window == CandidateWindow::Always)\n",
+    )
     # Upstream forces CPU for GPT-2/Metal. Restore llama.cpp's default (-1,
     # all layers); OpenVINO selects its own device through the environment.
     sub(

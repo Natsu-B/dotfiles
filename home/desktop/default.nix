@@ -25,6 +25,9 @@ let
 in {
   imports = [ ./dms.nix ./cursor.nix ];
   home.packages = [ keyboard clipboard clipboardMenu locker cheatsheet pkgs.kitty pkgs.nautilus pkgs.rofi pkgs.wev ];
+  home.sessionVariables = {
+    GGML_OPENVINO_COMPILED_MODEL_CACHE_DIR = "${config.xdg.cacheHome}/karukan-im/openvino-compiled";
+  };
 
   xdg.configFile = {
     # Rofi is only a private clipboard picker and an emergency shortcut viewer.

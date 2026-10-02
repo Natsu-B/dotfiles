@@ -5,15 +5,18 @@
   fcitx5,
   kdePackages,
   libxkbcommon,
+  level-zero,
   ocl-icd,
   opencl-headers,
   opencl-clhpp,
   openssl,
   openvino,
   onetbb,
+  npuRuntime,
   patchelf,
   pkg-config,
   python3,
+  openvinoSupport ? true,
 }:
 
 let
@@ -30,6 +33,21 @@ rustPlatform.buildRustPackage {
   inherit src;
 
   cargoLock.lockFile = "${src}/Cargo.lock";
+  # Drop incompatible NPU cache mode; unavailable devices select GPU before load.
+  cargoDeps = (rustPlatform.importCargoLock { lockFile = "${src}/Cargo.lock"; }).overrideAttrs (old: {
+    buildCommand = old.buildCommand + ''
+      # OpenVINO 2026.4 rejects this obsolete NPU compiler option before inference.
+      crate="$out/llama-cpp-sys-2-0.1.157"
+      original="$(readlink -f "$crate")"
+      rm "$crate"
+      cp -r --no-preserve=mode "$original" "$crate"
+      substituteInPlace "$crate/llama.cpp/ggml/src/ggml-openvino/ggml-openvino-extra.cpp" \
+        --replace-fail '{"NPU_COMPILER_DYNAMIC_QUANTIZATION", "YES"   },' "" \
+        --replace-fail 'is not available, fallback to CPU' 'is not available, fallback to GPU' \
+        --replace-fail 'device_name = "CPU";' 'device_name = "GPU";' \
+        --replace-fail '            compile_config.insert(ov::cache_mode(ov::CacheMode::OPTIMIZE_SIZE));' ""
+    '';
+  });
 
   nativeBuildInputs = [
     cmake
@@ -54,7 +72,7 @@ rustPlatform.buildRustPackage {
 
   env = {
     CARGO_NET_OFFLINE = "true";
-    GGML_OPENVINO = "ON";
+    GGML_OPENVINO = if openvinoSupport then "ON" else "OFF";
     # Keep llama.cpp/ggml private to the Karukan Rust cdylib. Forcing shared
     # libraries makes fcitx depend on transient libllama.so.N SONAME files
     # produced inside Cargo's target tree, which are not a stable Nix runtime
@@ -142,7 +160,7 @@ rustPlatform.buildRustPackage {
     runtime_path="$out/lib/fcitx5:${lib.makeLibraryPath [ openvino.lib onetbb ocl-icd ]}"
     addon="$out/lib/fcitx5/karukan.so"
 
-    if ! patchelf --print-needed "$addon" | grep -Eq '^libopenvino\.so'; then
+    if ${lib.boolToString openvinoSupport} && ! patchelf --print-needed "$addon" | grep -Eq '^libopenvino\.so'; then
       echo "karukan.so does not retain a direct OpenVINO runtime dependency" >&2
       patchelf --print-needed "$addon" >&2
       exit 1
@@ -167,10 +185,12 @@ rustPlatform.buildRustPackage {
     openvino.lib
     onetbb
     ocl-icd
+    level-zero
+    npuRuntime
   ];
 
   meta = {
-    description = "Karukan Fcitx5 Japanese IME with OpenVINO GPU acceleration";
+    description = "Karukan Fcitx5 Japanese IME with optional OpenVINO acceleration";
     homepage = "https://github.com/togatoga/karukan";
     license = with lib.licenses; [ mit asl20 ];
     platforms = lib.platforms.linux;

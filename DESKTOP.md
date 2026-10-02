@@ -124,62 +124,74 @@ systemctl --user status xremap
 ## 日本語入力
 
 Fcitx5 の日本語エンジンは Karukan のみを使い、Mozc はインストールしない。
-Karukan 本体は `nixos/karukan.nix` で upstream の不変 commit に固定し、同梱の llama.cpp を
-`GGML_OPENVINO=ON` でビルドする。この llama.cpp の OpenVINO backend は
-`GatherMatmul` / `GatedDeltaNet` / `MOECompressed` など 2026.1.2 にはない internal op を使うため、
-OS 本体は NixOS 26.05 stable のまま、Karukan の OpenVINO / oneTBB / OpenCL 依存だけは
-flake で固定済みの unstable（OpenVINO 2026.4.x）から揃える。OpenVINO 2026.4 は
-multi-output package のため、CMake metadata/header は `openvino.dev`、実行時ライブラリは
-`openvino.lib` を明示的に使う。CMake config のサブディレクトリ名は決め打ちせず、
-`openvino.dev` 内の `OpenVINOConfig.cmake` を探索して `OpenVINO_DIR` を決める。NixOS の Intel NPU ドライバは残すが、Karukan の既定アクセラレータは Intel GPU とする。
-ThinkPad の nixos-hardware モジュールは既に `pkgs.intel-compute-runtime` を
-`hardware.graphics.extraPackages` に追加するため、同じパスを持つ stable/unstable 2版を
-並べない。dotfiles の overlay で `pkgs.intel-compute-runtime` 自体を unstable の 26.31 系へ
-差し替え、GPU compute runtime を1系統に揃える。ログイン環境では `GGML_OPENVINO_DEVICE=GPU` と
-`GGML_OPENVINO_STATEFUL_EXECUTION=1` を指定する。GPU は stateful KV cache を利用できるため、
-短いIME変換ではNPUのstateless経路より低レイテンシになる可能性がある。
+通常の入力はOpenVINOを有効にしてNPUを優先する。NPUが利用できない場合は、
+モデルのロード前にGPUへ切り替える。CPUへの再推論は追加しない。
+GPUを優先する場合は `GGML_OPENVINO_DEVICE=GPU` を指定する。
+GPUは `GGML_OPENVINO_STATEFUL_EXECUTION=1`、NPUはbackendの固定形状経路を使う。
+NPUではこのstateful設定は参照されず、GPUへ切り替わった場合に有効になる。
 
-通常の明示変換は低遅延を優先し、`strategy = "main"` で main model の greedy top-1 だけを
-AI 推論に使う。候補一覧の残りは学習履歴・ユーザー辞書・システム辞書・かな/カナ fallback が
-埋める。adaptive の Space 変換は main greedy と light beam の両方を待つため、
-live conversion を OFF にしても重くなる可能性がある。既定ではこの経路を使わない。
-`live_conversion = false` とし、入力中のpreeditはかな表示にする。light model の定義は
-比較用に残すが、main strategy では起動時にロードしない。
-固定した upstream `fbe9927548b75435bd43410aaaad742e39f579c8` の読み込み経路は
-`KanaKanjiConverter::from_source` → `LlamaCppModel::from_file` → `from_file_with_n_ctx`。
-最後で `.with_n_gpu_layers(0)` を明示し、モデル層のoffloadは要求していない。
-ただしOpenVINO有効ビルドでは層数0でも演算offloadでGPU処理が発生するため、
-この値だけを根拠に「推論はすべてCPU」と判断できない。
-`nixos/patch-karukan.py` はこの層数固定だけを外し、`LlamaModelParams::default()` を使う。
-Cargo.lock の `llama-cpp-2` / `llama-cpp-sys-2` はともに 0.1.157 で、Rust の既定値は
-同梱 llama.cpp の `llama_model_default_params()` を呼ぶ。`n_gpu_layers=-1` は出力層を含む
-全層へのoffload要求を意味する。OpenVINO backend のデバイス選択は環境変数へ任せる。
-`KanaKanjiConverter` は upstream のままで、CPU instance の追加ロード、独自デバイス判定、
-推論失敗時のCPU再実行、NPU beam のCPU固定は削除した。失敗は upstream のエラー処理へ返す。
-ただし同梱 OpenVINO backend 自体は指定デバイスが利用不可ならCPUを選び、
-`device GPU is not available, fallback to CPU` を出す。また未対応演算はCPUで処理され得る。
-この変更はKarukan側の再実行を削除するもので、backend内部のCPU使用を禁止するものではない。
-以前の独自ログ `Karukan GPU model loaded` は出なくなる。実機では `clinfo -l` に加えて
-llama.cpp/OpenVINO のデバイス・offloadログと変換中の `intel_gpu_top` を確認する。
-ビルド成功だけではGPU実行、変換の正確さ、レイテンシは保証されない。
+Karukan upstreamは `fbe9927548b75435bd43410aaaad742e39f579c8` に固定する。
+`KanaKanjiConverter::from_source` → `LlamaCppModel::from_file` → `from_file_with_n_ctx`
+はupstreamで `.with_n_gpu_layers(0)` を指定するため、その固定だけを外して
+`LlamaModelParams::default()` を使う。固定済みllama-cpp-2 / llama-cpp-sys-2 0.1.157の
+既定は `n_gpu_layers=-1`、出力層を含む全層offload要求である。
+環境変数とbackend有効化だけでは、upstreamの層数指定は変わらない。
+`KanaKanjiConverter` はupstreamのまま、独自accelerator選択やCPU fallbackは追加しない。
 
-2026-10-02の実機測定（Core Ultra 9 185H / Intel Arc、同じsmall Q4_K_M、4 threads）では、
-この構成のGPU実行を `OpenVINO: using device GPU` とプロセスのDRM compute時間で確認した。
-それでも推論を伴う入力キーの中央値は約5785ms。OpenVINOの
-`GGML_OPENVINO_COMPILED_MODEL_CACHE_DIR` を一時ディレクトリで有効化し、
-別プロセスで既存コンパイルキャッシュを使うと約587msまで短縮したが、
-OpenVINOを無効にしたCPU専用比較ビルドの約88msより遅かった。
-「にほんご」「きょうはいいてんきです」の2文ではGPU全層offload・CPU専用とも正しく変換した。
-層数0の既存ビルドをGPU指定で試すと「にほんご」に約28秒かかり、ひらがなのままだった。
-これらはFcitx addonのFFIを別プロセスから呼ぶ小規模試験で、通常デスクトップの操作遅延全体ではない。
+`strategy = "main"` のgreedy top-1を使い、残りの候補は学習・辞書・かな/カナで埋める。
+`live_conversion = false` と `candidate_window = "conversion"` でもupstreamは入力中に
+推論していたため、`refresh_input_state` の共通処理で止めてSpaceで推論する。
+live conversionや入力中の候補表示を明示した場合の推論は維持する。
+main strategyではlight modelをロードせず、推論失敗は `Karukan conversion failed` として記録する。
 
-upstreamの `refresh_input_state` は `live_conversion=false` でも
-`chunked_auto_suggest` を呼ぶ。`candidate_window="conversion"` も候補表示を隠すだけで、
-入力中の推論を止めない。従って「Spaceを押した時だけモデル推論」という前提は成立しない。
-またgreedy推論は毎回新しいllama contextを作る。コンパイルキャッシュで大きく改善した結果から、
-GPU計算だけでなくグラフ準備・コンパイル・context生成の負担を調べる必要がある。
-同じ文の単純な再入力はKarukan自身の変換結果キャッシュに当たり、GPU推論なしで速くなる。
-性能比較ではエンジンを作り直して、この結果キャッシュとコンパイルキャッシュを区別する。
+NixOS 26.05 stable上で、OpenVINO 2026.4 / oneTBB / OpenCL / Level Zeroは固定済みunstableを使う。
+NPUのカーネルドライバは `hardware.cpu.intel.npu.enable = true` で維持する。
+Intel公式のユーザードライバとNPUコンパイラ1.38.0をhash固定で追加し、Fcitxのlibrary pathへ
+含める。`ZE_ENABLE_ALT_DRIVERS` でこのドライバを選ぶ。既存1.28ドライバとコンパイラの
+組み合わせでは変換誤りを再現したため、そのまま使用しない。
+同梱llama.cppの旧 `NPU_COMPILER_DYNAMIC_QUANTIZATION` はOpenVINO 2026.4が拒否するので除く。
+NPUの `CacheMode::OPTIMIZE_SIZE` も必要なメタデータがないため除く。
+コンパイルキャッシュには `GGML_OPENVINO_COMPILED_MODEL_CACHE_DIR` を使う。
+
+2026-10-02、Core Ultra 9 185H / Intel Arc / Meteor Lake NPU、small Q4_K_Mで実機検証した。
+最終版は5入力を各3回、NPU・GPUとも正しく変換できた。Space待ちはNPU約1.47〜2.96秒
+（中央値2.20秒）、GPU stateful約0.29〜1.67秒（中央値0.31秒）。
+入力中にはモデル推論が走らないことも確認した。
+NPUは `/dev/accel/accel0` と新ドライバのロード、GPUはDRM compute時間増加を確認した。
+これは独立プロセスからFcitx addonのFFIを呼んだ測定で、画面表示までの遅延ではない。
+NPU使用でもモデル準備などのCPU処理は残り、CPU負荷ゼロや非同期変換を保証しない。
+電力比較は中断したため、省電力順位は確定していない。
+
+GPUへの切替は「NPUがデバイス一覧にない場合」に限る。NPU推論途中の失敗をGPUで
+自動再実行する処理はない。NPUWの演算単位GPU切替は実機で誤変換を起こしたため採用しない。
+推論失敗が続く場合はGPUを指定して再起動する。
+
+### 独立した実機試験
+
+`scripts/karukan-benchmark.py` は稼働中のFcitxを変更せず、ローカルGGUFと同じ場所の
+`tokenizer.json` を使う。一時設定で学習を無効にし、`BENCH_FRESH_ENGINE=1` で
+変換結果キャッシュを避ける。`BENCH_REQUIRE_CORRECT=1` は5入力の期待値・AI候補・
+入力中の推論停止を検証する。GPU初回コンパイルは温まったキャッシュと区別する。
+
+```sh
+repo="$PWD"
+ov_package=$(nix build --impure --no-link --print-out-paths --expr \
+  "builtins.head (builtins.getFlake \"path:$repo\").nixosConfigurations.nixos.config.i18n.inputMethod.fcitx5.addons")
+# 単独実行にもFcitxと同じ実行環境を渡す。
+export LD_LIBRARY_PATH=$(nix eval --impure --raw --expr \
+  "builtins.concatStringsSep \":\" (map (p: \"\${p}/lib\") (builtins.head (builtins.getFlake \"path:$repo\").nixosConfigurations.nixos.config.i18n.inputMethod.fcitx5.addons).extraLdLibraries)"):/run/opengl-driver/lib
+export ZE_ENABLE_ALT_DRIVERS=$(nix eval --impure --raw --expr \
+  "(builtins.getFlake \"path:$repo\").nixosConfigurations.nixos.config.environment.variables.ZE_ENABLE_ALT_DRIVERS")
+BENCH_PACKAGE="$ov_package" BENCH_MODEL="/absolute/path/to/model.gguf" \
+  BENCH_LOG=/tmp/karukan-npu.log BENCH_FRESH_ENGINE=1 BENCH_REQUIRE_CORRECT=1 \
+  GGML_OPENVINO_DEVICE=NPU GGML_OPENVINO_STATEFUL_EXECUTION=1 \
+  GGML_OPENVINO_COMPILED_MODEL_CACHE_DIR=/tmp/karukan-npu-compiled \
+  python3 scripts/karukan-benchmark.py > /tmp/karukan-npu.jsonl
+```
+
+GPU比較は `GGML_OPENVINO_DEVICE=GPU` と別のコンパイルキャッシュを指定する。
+CPU専用比較を行う場合だけ、addonに `.override { openvinoSupport = false; }` を指定する。
+OpenVINO有効時は層数0でも演算offloadがあるため、CPU専用比較として扱わない。
 
 モデルは Jinen v2 small / xsmall の Q4_K_M。Hugging Face の repository 名だけでなく
 40桁 revision まで固定する。Karukan に追加した `repo@revision` 解釈により、初回取得は
@@ -327,7 +339,7 @@ systemctl --user status dms xremap dotfiles-clipboard dotfiles-hypridle
 keyboard-profile status
 ```
 
-配列・Karukan（Intel GPU stateful推論）・SandS・USB hotplug、Win+V とロック消去、ディスプレイの複製・拡張・抜き差し、
+配列・Karukan（NPU優先、利用不可時GPU）・SandS・USB hotplug、Win+V とロック消去、ディスプレイの複製・拡張・抜き差し、
 Zoom の共有、GNOME への再ログインを実機で確認する。成功後に永続化して再起動する。
 
 ```sh

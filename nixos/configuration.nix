@@ -14,12 +14,15 @@
   # (GatherMatmul, GatedDeltaNet, MOECompressed) that landed after OpenVINO
   # 2026.1.2. Keep the OS on stable 26.05, but build this addon against the
   # already-pinned unstable OpenVINO 2026.4.x dependency family.
+  npuRuntime = pkgs.callPackage ./intel-npu-runtime.nix { onetbb = unstable.onetbb; };
   karukan = pkgs.callPackage ./karukan.nix {
     openvino = unstable.openvino;
     onetbb = unstable.onetbb;
     ocl-icd = unstable.ocl-icd;
     opencl-headers = unstable.opencl-headers;
     opencl-clhpp = unstable.opencl-clhpp;
+    level-zero = unstable.level-zero;
+    inherit npuRuntime;
   };
 in {
   imports = [
@@ -285,11 +288,11 @@ in {
     GTK_IM_MODULE = "fcitx";
     QT_IM_MODULE = "fcitx";
     XMODIFIERS = "@im=fcitx";
-    # For short IME inference, Intel GPU is the default accelerator. Unlike
-    # the NPU path, the OpenVINO GPU backend supports stateful KV cache and
-    # upstream recommends stateful execution for better GPU performance.
-    GGML_OPENVINO_DEVICE = "GPU";
+    # Prefer NPU; if unavailable, the backend selects the GPU before model load.
+    GGML_OPENVINO_DEVICE = "NPU";
+    # NPU uses its static/stateless path internally; this enables stateful GPU fallback.
     GGML_OPENVINO_STATEFUL_EXECUTION = "1";
+    ZE_ENABLE_ALT_DRIVERS = "${npuRuntime}/lib/libze_intel_npu.so";
   };
 
   # Enable Steam
