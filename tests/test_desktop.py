@@ -223,6 +223,7 @@ class ConfigTests(unittest.TestCase):
         self.assertIn('GGML_OPENVINO_STATEFUL_EXECUTION = "0";', nixos)
         self.assertIn('GGML_OPENVINO = "ON";', package)
         self.assertIn('-DECM_DIR=${kdePackages.extra-cmake-modules}/share/ECM/cmake', package)
+        self.assertIn('-DCMAKE_INSTALL_LIBDIR=lib', package)
         self.assertIn('openvino_config="$(find ${openvino} -type f -name OpenVINOConfig.cmake -print -quit)"', package)
         self.assertIn('export OpenVINO_DIR="$openvino_cmake_dir"', package)
         self.assertIn('export OpenVINO_ROOT="${openvino}"', package)
