@@ -48,7 +48,6 @@ rustPlatform.buildRustPackage {
 
   env = {
     CARGO_NET_OFFLINE = "true";
-    CMAKE_PREFIX_PATH = "${openvino}";
     GGML_OPENVINO = "ON";
     LLAMA_BUILD_SHARED_LIBS = "1";
   };
@@ -63,6 +62,16 @@ rustPlatform.buildRustPackage {
   buildPhase = ''
     runHook preBuild
     export CARGO_TARGET_DIR="$PWD/target"
+
+    openvino_config="$(find ${openvino} -type f -name OpenVINOConfig.cmake -print -quit)"
+    if [ -z "$openvino_config" ]; then
+      echo "OpenVINOConfig.cmake not found under ${openvino}" >&2
+      exit 1
+    fi
+    openvino_cmake_dir="$(dirname "$openvino_config")"
+    export CMAKE_PREFIX_PATH="$openvino_cmake_dir''${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
+    echo "Using OpenVINO CMake package: $openvino_config"
+
     cmake -S karukan-im/fcitx5/fcitx5-addon -B build \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX="$out" \
