@@ -9,6 +9,7 @@
   opencl-headers,
   openssl,
   openvino,
+  onetbb,
   patchelf,
   pkg-config,
   python3,
@@ -44,6 +45,7 @@ rustPlatform.buildRustPackage {
     opencl-headers
     openssl
     openvino
+    onetbb
   ];
 
   env = {
@@ -71,7 +73,16 @@ rustPlatform.buildRustPackage {
     openvino_cmake_dir="$(dirname "$openvino_config")"
     export OpenVINO_DIR="$openvino_cmake_dir"
     export OpenVINO_ROOT="${openvino}"
-    export CMAKE_PREFIX_PATH="$openvino_cmake_dir''${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
+
+    tbb_config="$(find ${onetbb.dev} -type f -name TBBConfig.cmake -print -quit)"
+    if [ -z "$tbb_config" ]; then
+      echo "TBBConfig.cmake not found under ${onetbb.dev}" >&2
+      exit 1
+    fi
+    tbb_cmake_dir="$(dirname "$tbb_config")"
+    export TBB_DIR="$tbb_cmake_dir"
+    export TBB_ROOT="${onetbb}"
+    echo "Using TBB CMake package: $tbb_config"
     echo "Using OpenVINO CMake package: $openvino_config"
 
     cmake -S karukan-im/fcitx5/fcitx5-addon -B build \
