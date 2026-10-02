@@ -132,8 +132,10 @@ flake で固定済みの unstable（OpenVINO 2026.4.x）から揃える。OpenVI
 multi-output package のため、CMake metadata/header は `openvino.dev`、実行時ライブラリは
 `openvino.lib` を明示的に使う。CMake config のサブディレクトリ名は決め打ちせず、
 `openvino.dev` 内の `OpenVINOConfig.cmake` を探索して `OpenVINO_DIR` を決める。NixOS の Intel NPU ドライバは残すが、Karukan の既定アクセラレータは Intel GPU とする。
-OpenVINO GPU inference 用に `intel-compute-runtime` を `hardware.graphics.extraPackages` へ追加し、
-ログイン環境では `GGML_OPENVINO_DEVICE=GPU` と
+ThinkPad の nixos-hardware モジュールは既に `pkgs.intel-compute-runtime` を
+`hardware.graphics.extraPackages` に追加するため、同じパスを持つ stable/unstable 2版を
+並べない。dotfiles の overlay で `pkgs.intel-compute-runtime` 自体を unstable の 26.31 系へ
+差し替え、GPU compute runtime を1系統に揃える。ログイン環境では `GGML_OPENVINO_DEVICE=GPU` と
 `GGML_OPENVINO_STATEFUL_EXECUTION=1` を指定する。GPU は stateful KV cache を利用できるため、
 短いIME変換ではNPUのstateless経路より低レイテンシになる可能性がある。
 

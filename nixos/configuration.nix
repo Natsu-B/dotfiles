@@ -31,13 +31,6 @@ in {
   hardware.nvidia.modesetting.enable = lib.mkForce false;
   services.xserver.videoDrivers = lib.mkForce [ "modesetting" ];
 
-  # OpenVINO GPU inference needs Intel's compute runtime in addition to Mesa.
-  # Use the same unstable package family as Karukan's OpenVINO 2026.4 build.
-  hardware.graphics = {
-    enable = true;
-    extraPackages = [ unstable.intel-compute-runtime ];
-  };
-
   # Optimize nix store
   nix = {
     settings = {
@@ -71,6 +64,11 @@ in {
         unstable = unstablePkgs;
         master = masterPkgs;
         vscode = masterPkgs.vscode;
+
+        # nixos-hardware's Intel GPU module already adds pkgs.intel-compute-runtime
+        # to hardware.graphics.extraPackages. Replace that package in-place
+        # instead of appending a second version with the same OpenCL ICD path.
+        intel-compute-runtime = unstablePkgs.intel-compute-runtime;
 
         jdk25 = unstablePkgs.jdk25;
       })
