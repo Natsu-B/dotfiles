@@ -55,6 +55,17 @@ class KeyboardTests(unittest.TestCase):
     def test_jis_brackets_and_yen(self):
         self.assertEqual(keys.DVP['BACKSLASH'], ('$', '~'))
         self.assertEqual(keys.DVP['YEN'], ('\\', '|'))
+    def test_japanese_toggle_matches_fcitx_default_trigger(self):
+        # On the jp XKB map the physical GRAVE key is Zenkaku_Hankaku, one of
+        # Fcitx5's default trigger keys. KEY_KATAKANAHIRAGANA is not.
+        self.assertEqual(keys.JAPANESE_TOGGLE, 'GRAVE')
+        for name in ('qwerty', 'dvorak'):
+            profile = keys.profile(name)
+            japanese = profile['modmap'][0]['remap']
+            self.assertEqual(japanese['CapsLock'], 'GRAVE')
+            self.assertNotIn('GRAVE', japanese)
+            self.assertEqual(profile['keymap'][0]['remap']['F15-U'], 'GRAVE')
+
     def test_generator_output_is_valid_json_yaml(self):
         with tempfile.TemporaryDirectory() as directory:
             subprocess.run([sys.executable, str(DESKTOP / 'generate_xremap.py'), directory], check=True)
@@ -258,6 +269,13 @@ class ConfigTests(unittest.TestCase):
         self.assertNotIn('/latest/', text)
         self.assertIn('/pool/main/c/chatgpt/chatgpt_${version}_amd64.deb', text)
         self.assertRegex(text, r'hash = "sha256-[A-Za-z0-9+/=]+";')
+
+    def test_chatgpt_uses_native_wayland_and_wayland_ime(self):
+        text = (ROOT / 'home/app/codex-desktop.nix').read_text()
+        self.assertIn('--ozone-platform=wayland', text)
+        self.assertIn('--enable-features=UseOzonePlatform', text)
+        self.assertIn('--enable-wayland-ime', text)
+        self.assertNotIn('--force-device-scale-factor=', text)
 
     def test_no_duplicate_xremap_start(self):
         text = (ROOT / 'home/home.nix').read_text()

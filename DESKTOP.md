@@ -105,9 +105,9 @@ XKB を us(dvp) に変えると二重変換になるため、切替には Win+F2
 
 初期値は独自 Dvorak。選択状態を `~/.local/state/dotfiles/keyboard-profile` に保存する。
 Shift+物理数字列は数字 1..0、JIS の ] は $ / ~、Yen はバックラッシュ / 縦棒。
-CapsLock / 半角全角は日本語入力切替、Space 長押しは Shift。
+CapsLock / 半角全角は Fcitx5 の既定トリガー `Zenkaku_Hankaku` として日本語入力を切り替える。Space 長押しは Shift。
 無変換+I/J/K/L は上下左右、+; は Enter、+O は Delete、+P は Backspace、
-+H は Tab、+U は日本語入力切替、+数字列は数字。変換+5 は %。
++H は Tab、+U は `Zenkaku_Hankaku`（日本語入力切替）、+数字列は数字。変換+5 は %。
 QWERTY モードでも SandS、日本語切替、無変換レイヤーは維持する。
 
 定義は `home/desktop/generate_xremap.py`。選択変更を排他制御し、xremap の起動失敗時は
@@ -180,6 +180,24 @@ desktop-clipboard resume
 desktop-clipboard clear
 stat -c '%a %U' "$XDG_RUNTIME_DIR" "$XDG_RUNTIME_DIR/dotfiles-clipboard"
 stat -f -c '%T' "$XDG_RUNTIME_DIR"
+```
+
+## ChatGPT デスクトップ
+
+公式 Linux アプリは Wayland セッションでも既定では XWayland を使う。内蔵ディスプレイは
+fractional scale を使うため、XWayland ではぼやけ・倍率ずれが出やすい。また Chromium/Electron
+の XWayland 経路では Fcitx の preedit が不安定になる。
+
+そのため dotfiles の `chatgpt` wrapper は
+`--enable-features=UseOzonePlatform --ozone-platform=wayland --enable-wayland-ime`
+を常時付け、native Wayland で起動する。倍率を `--force-device-scale-factor` で固定しないので、
+DMS でモニター倍率を変えてもアプリ側が追従できる。
+
+確認:
+
+```sh
+hyprctl clients | grep -A8 -i 'chatgpt'
+fcitx5-remote -n
 ```
 
 ## Zoom と画面共有

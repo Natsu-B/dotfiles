@@ -24,8 +24,14 @@ stdenvNoCC.mkDerivation {
     mkdir -p "$out/lib" "$out/bin"
     cp -r usr/lib/chatgpt "$out/lib/chatgpt"
     cp -r usr/share "$out/share"
+    # ChatGPT defaults to XWayland. On fractional-scale Hyprland that makes
+    # the Chromium surface blurry/incorrectly scaled, and Fcitx preedit is
+    # unreliable. Use the app's documented native Wayland path explicitly.
     makeWrapper ${runtime}/bin/steam-run "$out/bin/chatgpt" \
-      --add-flags "$out/lib/chatgpt/ChatGPT"
+      --add-flags "$out/lib/chatgpt/ChatGPT" \
+      --add-flags "--enable-features=UseOzonePlatform" \
+      --add-flags "--ozone-platform=wayland" \
+      --add-flags "--enable-wayland-ime"
     ln -s chatgpt "$out/bin/codex-desktop"
     substituteInPlace "$out/share/applications/chatgpt.desktop" \
       --replace-fail 'Exec=chatgpt' "Exec=$out/bin/chatgpt"
