@@ -224,6 +224,8 @@ class ConfigTests(unittest.TestCase):
         self.assertIn('GGML_OPENVINO = "ON";', package)
         self.assertIn('-DECM_DIR=${kdePackages.extra-cmake-modules}/share/ECM/cmake', package)
         self.assertIn('openvino_config="$(find ${openvino} -type f -name OpenVINOConfig.cmake -print -quit)"', package)
+        self.assertIn('export OpenVINO_DIR="$openvino_cmake_dir"', package)
+        self.assertIn('export OpenVINO_ROOT="${openvino}"', package)
         self.assertRegex(package, r'rev = "[0-9a-f]{40}";')
         self.assertIn('cpu_fallback', patcher)
         self.assertIn('num_candidates > 1', patcher)
