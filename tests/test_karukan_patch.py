@@ -26,9 +26,10 @@ class KarukanPatchTests(unittest.TestCase):
         input_source = 'karukan-im/core/src/core/engine/input.rs'
         model_source = 'karukan-im/core/src/core/engine/model.rs'
         buffer_source = 'karukan-im/core/src/core/engine/input_buffer.rs'
+        conversion_source = 'karukan-im/core/src/core/engine/conversion.rs'
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for name in (loader, converter, hf, cmake, input_source, model_source, buffer_source):
+            for name in (loader, converter, hf, cmake, input_source, model_source, buffer_source, conversion_source):
                 target = root / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes((source / name).read_bytes())
@@ -50,6 +51,7 @@ class KarukanPatchTests(unittest.TestCase):
             self.assertEqual((root / input_source).read_text(), expected_input)
             self.assertEqual((root / model_source).read_text().count('Karukan conversion failed'), 3)
             self.assertIn("let ch = if ch.eq_ignore_ascii_case(&'c') { 'k' } else { ch };", (root / buffer_source).read_text())
+            self.assertIn('result.actions.extend(self.process_key_empty(key).actions);', (root / conversion_source).read_text())
 
 
 if __name__ == '__main__':

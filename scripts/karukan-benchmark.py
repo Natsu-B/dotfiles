@@ -84,6 +84,7 @@ key = bind('process_key', C.c_int, [C.c_void_p, C.c_uint, C.c_uint, C.c_int])
 candidate = bind('get_candidate', C.c_char_p, [C.c_void_p, C.c_uint])
 aux = bind('get_aux', C.c_char_p, [C.c_void_p])
 preedit = bind('get_preedit', C.c_char_p, [C.c_void_p])
+commit = bind('get_commit', C.c_char_p, [C.c_void_p])
 conversion_ms = bind('get_last_conversion_ms', C.c_uint64, [C.c_void_p])
 
 log = Path(os.environ['BENCH_LOG'])
@@ -178,6 +179,18 @@ try:
                   'engine_inference_ms': conversion_ms(engine),
                   'gpu_ms': {k: (v - before_gpu.get(k, 0)) / 1e6 for k, v in after_gpu.items()},
                   'maxrss_kib': resource.getrusage(resource.RUSAGE_SELF).ru_maxrss})
+            if os.environ.get('BENCH_TYPE_TO_COMMIT') == '1':
+                assert key(engine, ord(' '), 0, 0) == 1  # Select the next candidate.
+                selected = (candidate(engine, 1) or b'').decode()
+                # The FFI exposes the full list; Space has advanced to index 1.
+                assert selected
+                assert key(engine, ord('c'), 0, 0) == 1
+                committed = (commit(engine) or b'').decode()
+                assert committed == selected, (committed, selected)
+                assert (preedit(engine) or b'').decode() == 'k'
+                assert key(engine, ord('a'), 0, 0) == 1
+                assert (preedit(engine) or b'').decode() == 'か'
+                emit({'kind': 'type_to_commit', 'committed': committed, 'next_preedit': 'か'})
 finally:
     free(engine)
     if isolated is not None:

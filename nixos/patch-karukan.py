@@ -13,6 +13,22 @@ def sub(path: Path, pattern: str, replacement: str, expected: int = 1) -> None:
 
 
 def main(root: Path) -> None:
+    # Typing after candidate selection commits it and starts a new composition.
+    sub(
+        root / "karukan-im/core/src/core/engine/conversion.rs",
+        r"                // A printable character refines instead of committing:\n"
+        r"                // the reading grows and the suggestion rewrites in place,\n"
+        r"                // keeping any active source filter\.\n"
+        r"                if key\.to_char\(\)\.is_some\(\) && !key\.modifiers\.control_key \{\n"
+        r"                    return self\.refine_through_composing\(key\);\n"
+        r"                }",
+        "                // Commit the selected candidate, then handle the next character normally.\n"
+        "                if key.to_char().is_some() && !key.modifiers.control_key {\n"
+        "                    let mut result = self.commit_conversion();\n"
+        "                    result.actions.extend(self.process_key_empty(key).actions);\n"
+        "                    return result;\n"
+        "                }",
+    )
     # Normalize kana input in the shared buffer; direct alphabet input is unchanged.
     sub(
         root / "karukan-im/core/src/core/engine/input_buffer.rs",
