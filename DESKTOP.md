@@ -130,7 +130,8 @@ Karukan 本体は `nixos/karukan.nix` で upstream の不変 commit に固定し
 OS 本体は NixOS 26.05 stable のまま、Karukan の OpenVINO / oneTBB / OpenCL 依存だけは
 flake で固定済みの unstable（OpenVINO 2026.4.x）から揃える。OpenVINO 2026.4 は
 multi-output package のため、CMake metadata/header は `openvino.dev`、実行時ライブラリは
-`openvino.lib` を明示的に使う。NixOS の Intel NPU ドライバも有効にし、ログイン環境では
+`openvino.lib` を明示的に使う。CMake config のサブディレクトリ名は決め打ちせず、
+`openvino.dev` 内の `OpenVINOConfig.cmake` を探索して `OpenVINO_DIR` を決める。NixOS の Intel NPU ドライバも有効にし、ログイン環境では
 `GGML_OPENVINO_DEVICE=NPU`、stateless 実行を指定する。
 
 通常の1候補 greedy 変換は NPU を優先する。複数候補の beam search は同じ Karukan/Jinen の

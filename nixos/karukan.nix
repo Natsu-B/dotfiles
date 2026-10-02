@@ -73,12 +73,17 @@ rustPlatform.buildRustPackage {
     runHook preBuild
     export CARGO_TARGET_DIR="$PWD/target"
 
-    openvino_cmake_dir="${openvino.dev}/lib/cmake/OpenVINO"
-    openvino_config="$openvino_cmake_dir/OpenVINOConfig.cmake"
-    if [ ! -f "$openvino_config" ]; then
-      echo "OpenVINOConfig.cmake not found at $openvino_config" >&2
+    # OpenVINO 2026.4 is split into multiple outputs. The CMake metadata is in
+    # the dev output, but nixpkgs' install-path patch currently uses a lowercase
+    # lib/cmake/openvino directory. Discover the config inside the correct output
+    # instead of depending on upstream/nixpkgs directory capitalization.
+    openvino_config="$(find ${openvino.dev} -type f -name OpenVINOConfig.cmake -print -quit)"
+    if [ -z "$openvino_config" ]; then
+      echo "OpenVINOConfig.cmake not found under ${openvino.dev}" >&2
+      find ${openvino.dev} -maxdepth 4 -type f -name '*.cmake' -print >&2 || true
       exit 1
     fi
+    openvino_cmake_dir="$(dirname "$openvino_config")"
     export OpenVINO_DIR="$openvino_cmake_dir"
     export OpenVINO_ROOT="${openvino.dev}"
 
