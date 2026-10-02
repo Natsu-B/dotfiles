@@ -48,6 +48,7 @@ rustPlatform.buildRustPackage {
 
   env = {
     CARGO_NET_OFFLINE = "true";
+    CMAKE_PREFIX_PATH = "${openvino}";
     GGML_OPENVINO = "ON";
     LLAMA_BUILD_SHARED_LIBS = "1";
   };
