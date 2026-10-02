@@ -1,0 +1,70 @@
+name: Desktop configuration
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Reclaim runner disk space
+        shell: bash
+        run: |
+          set -euxo pipefail
+          df -h /
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL
+          sudo apt-get clean
+          df -h /
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            keep-outputs = false
+            keep-derivations = false
+      - name: Resolve and check the committed lock
+        run: |
+          nix flake lock
+          echo '::group::Resolved flake.lock'
+          cat flake.lock
+          echo '::endgroup::'
+          git diff --exit-code -- flake.lock
+      - name: Shell syntax
+        run: sh -n install.sh update.sh
+      - name: Python regression tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Nix evaluation
+        run: |
+          nix flake check --no-build
+          nix eval --raw .#nixosConfigurations.nixos.config.system.build.toplevel.drvPath
+          test "$(nix eval --raw .#nixosConfigurations.nixos.config.networking.hostName)" = nixos
+      - name: Validate declarative disk layout
+        run: |
+          nix run github:nix-community/disko/de5708739256238fb912c62f03988815db89ec9a -- \
+            --dry-run \
+            --mode destroy,format,mount \
+            --argstr diskDevice /dev/disk/by-id/dotfiles-ci \
+            ./hosts/nixos/disko.nix
+      - name: Build and validate Home Manager desktop entries
+        run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-entries
+      - name: Hyprland Lua validation (real pinned compositor)
+        run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-config
+      - name: Desktop helpers and xremap profile validation
+        run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-tools
+      - name: Build complete NixOS system
+        run: nix build --no-link --print-build-logs .#nixosConfigurations.nixos.config.system.build.toplevel
+      - name: Report system closure size
+        run: nix path-info -Sh .#nixosConfigurations.nixos.config.system.build.toplevel

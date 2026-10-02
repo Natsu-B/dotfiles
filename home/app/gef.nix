@@ -25,13 +25,16 @@ let
 in
 stdenv.mkDerivation rec {
   pname = "gef";
-  version = "dev";
+  version = "unstable-2026-09-30";
 
+  # Do not follow the moving "dev" branch here. A floating ref together with a
+  # fixed-output hash makes unrelated system rebuilds fail whenever upstream
+  # advances.
   src = fetchFromGitHub {
     owner = "bata24";
     repo = "gef";
-    rev = version;
-    sha256 = "sha256-rrhFwu/0JHGEQvbY7JahFkn4DfehcFyiODBN/g5JHxc=";
+    rev = "cdd87c117827b00a643eb6a841889ccdc2da5694";
+    hash = "sha256-om7dLCHWocsGs6M2FEfGe4yiHOITXkhziG2r8XMvqZY=";
   };
 
   dontBuild = true;
@@ -44,7 +47,7 @@ stdenv.mkDerivation rec {
     makeWrapper ${gdb}/bin/gdb $out/bin/gef \
       --add-flags "-q -x $out/share/gef/gef.py" \
       --set NIX_PYTHONPATH ${pythonPath} \
-      --prefix PATH : ${
+      --prefix PATH : ${ 
         lib.makeBinPath [
           python3
           bintools-unwrapped # for readelf

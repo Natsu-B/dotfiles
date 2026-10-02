@@ -9,11 +9,25 @@
   self,
   lib,
   ...
-}: {
+}: let
+  # The pinned Karukan/llama.cpp OpenVINO backend uses internal ops
+  # (GatherMatmul, GatedDeltaNet, MOECompressed) that landed after OpenVINO
+  # 2026.1.2. Keep the OS on stable 26.05, but build this addon against the
+  # already-pinned unstable OpenVINO 2026.4.x dependency family.
+  npuRuntime = pkgs.callPackage ./intel-npu-runtime.nix { onetbb = unstable.onetbb; };
+  karukan = pkgs.callPackage ./karukan.nix {
+    openvino = unstable.openvino;
+    onetbb = unstable.onetbb;
+    ocl-icd = unstable.ocl-icd;
+    opencl-headers = unstable.opencl-headers;
+    opencl-clhpp = unstable.opencl-clhpp;
+    level-zero = unstable.level-zero;
+    inherit npuRuntime;
+  };
+in {
   imports = [
-    inputs.nixos-hardware.nixosModules.lenovo-thinkpad-p14s-intel-gen5
-    ./hardware-configuration.nix
     ./codex-usb.nix
+    ./desktop.nix
   ];
 
   # disable nvidia driver
@@ -42,11 +56,11 @@
     (final: prev:
       let
         unstablePkgs = import inputs.nixpkgs-unstable {
-          system = prev.system;
+          system = prev.stdenv.hostPlatform.system;
           config.allowUnfree = true;
         };
         masterPkgs = import inputs.nixpkgs-master {
-          system = prev.system;
+          system = prev.stdenv.hostPlatform.system;
           config.allowUnfree = true;
         };
       in {
@@ -54,22 +68,10 @@
         master = masterPkgs;
         vscode = masterPkgs.vscode;
 
-        # Custom xremap builds to avoid conflicts
-        xremap-gnome = unstablePkgs.xremap.overrideAttrs (oldAttrs: {
-          pname = "xremap-gnome";
-          features = [ "gnome" ];
-          postInstall = ''
-            mv $out/bin/xremap $out/bin/xremap-gnome
-          '';
-        });
-
-        xremap-hypr = unstablePkgs.xremap.overrideAttrs (oldAttrs: {
-          pname = "xremap-hypr";
-          features = [ "hypr" ];
-          postInstall = ''
-            mv $out/bin/xremap $out/bin/xremap-hypr
-          '';
-        });
+        # nixos-hardware's Intel GPU module already adds pkgs.intel-compute-runtime
+        # to hardware.graphics.extraPackages. Replace that package in-place
+        # instead of appending a second version with the same OpenCL ICD path.
+        intel-compute-runtime = unstablePkgs.intel-compute-runtime;
 
         jdk25 = unstablePkgs.jdk25;
       })
@@ -87,9 +89,6 @@
 
   boot.binfmt.emulatedSystems = [ "aarch64-linux" "riscv64-linux" ];
 
-  # Networking
-  networking.hostName = "nixos"; # Define your hostname
-
   # Enable networking
   networking.networkmanager.enable = true;
 
@@ -103,7 +102,7 @@
   users.users.hotaru = {
     uid = 1000;
     isNormalUser = true;
-    extraGroups = [ "wheel" "input" "networkmanager" "libvirtd" "serial" "dialout" "plugdev" ]; # Add user to wheel and input groups
+    extraGroups = [ "wheel" "input" "networkmanager" "libvirtd" "serial" "dialout" "plugdev" "render" ]; # Add user to wheel and input groups
     shell = pkgs.zsh;
   };
 
@@ -129,26 +128,6 @@
   #     "sys_immutable"
   #   ];
   # };
-
-  # Enable Hyprland
-  programs.hyprland = {
-    enable = true;
-    xwayland.enable = true;
-  };
-
-  # Enable GNOME
-  services.xserver.enable = true;
-  services.xserver.displayManager.gdm.enable = true;
-  services.xserver.desktopManager.gnome.enable = true;
-
-  # Register the custom XKB layout
-  services.xserver.xkb.extraLayouts = {
-    custom = {
-      description = "Custom Programmer Dvorak";
-      languages = [ "eng" ];
-      symbolsFile = ./custom_dvorak.xkb;
-    };
-  };
 
   # Enable sound
   services.pulseaudio.enable = false; # Use pipwire as a sound module
@@ -236,7 +215,6 @@
     gnome-extension-manager
     gnome-tweaks
     gnomeExtensions.runcat
-    gnomeExtensions.clipboard-history
     gnomeExtensions.kimpanel
     libfprint
     qemu
@@ -244,6 +222,7 @@
     tailscale
     man-pages
     man-pages-posix
+    clinfo
   ];
 
   services.tailscale.enable = true;
@@ -299,7 +278,7 @@
     enable = true;
     type = "fcitx5";
     fcitx5.addons = [
-      pkgs.fcitx5-mozc
+      karukan
       pkgs.fcitx5-gtk
     ];
   };
@@ -309,6 +288,11 @@
     GTK_IM_MODULE = "fcitx";
     QT_IM_MODULE = "fcitx";
     XMODIFIERS = "@im=fcitx";
+    # GPU reduces synchronous live-conversion latency; NPU remains selectable.
+    GGML_OPENVINO_DEVICE = "GPU";
+    # NPU uses its static/stateless path internally; this enables stateful GPU fallback.
+    GGML_OPENVINO_STATEFUL_EXECUTION = "1";
+    ZE_ENABLE_ALT_DRIVERS = "${npuRuntime}/lib/libze_intel_npu.so";
   };
 
   # Enable Steam
