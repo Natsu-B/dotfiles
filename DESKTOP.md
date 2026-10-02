@@ -143,12 +143,14 @@ ThinkPad の nixos-hardware モジュールは既に `pkgs.intel-compute-runtime
 AI 推論に使う。候補一覧の残りは学習履歴・ユーザー辞書・システム辞書・かな/カナ fallback が
 埋める。adaptive の Space 変換は main greedy と light beam の両方を待つため、
 live conversion を OFF にしても重くなる可能性がある。既定ではこの経路を使わない。
-`live_conversion = false` とし、Space を押した時だけモデル推論する。light model の定義は
+`live_conversion = false` とし、入力中のpreeditはかな表示にする。light model の定義は
 比較用に残すが、main strategy では起動時にロードしない。
 固定した upstream `fbe9927548b75435bd43410aaaad742e39f579c8` の読み込み経路は
 `KanaKanjiConverter::from_source` → `LlamaCppModel::from_file` → `from_file_with_n_ctx`。
-最後で `.with_n_gpu_layers(0)` を明示しているため、環境変数だけではGPUへoffloadしない。
-`nixos/patch-karukan.py` はこのCPU固定だけを外し、`LlamaModelParams::default()` を使う。
+最後で `.with_n_gpu_layers(0)` を明示し、モデル層のoffloadは要求していない。
+ただしOpenVINO有効ビルドでは層数0でも演算offloadでGPU処理が発生するため、
+この値だけを根拠に「推論はすべてCPU」と判断できない。
+`nixos/patch-karukan.py` はこの層数固定だけを外し、`LlamaModelParams::default()` を使う。
 Cargo.lock の `llama-cpp-2` / `llama-cpp-sys-2` はともに 0.1.157 で、Rust の既定値は
 同梱 llama.cpp の `llama_model_default_params()` を呼ぶ。`n_gpu_layers=-1` は出力層を含む
 全層へのoffload要求を意味する。OpenVINO backend のデバイス選択は環境変数へ任せる。
@@ -160,6 +162,24 @@ Cargo.lock の `llama-cpp-2` / `llama-cpp-sys-2` はともに 0.1.157 で、Rust
 以前の独自ログ `Karukan GPU model loaded` は出なくなる。実機では `clinfo -l` に加えて
 llama.cpp/OpenVINO のデバイス・offloadログと変換中の `intel_gpu_top` を確認する。
 ビルド成功だけではGPU実行、変換の正確さ、レイテンシは保証されない。
+
+2026-10-02の実機測定（Core Ultra 9 185H / Intel Arc、同じsmall Q4_K_M、4 threads）では、
+この構成のGPU実行を `OpenVINO: using device GPU` とプロセスのDRM compute時間で確認した。
+それでも推論を伴う入力キーの中央値は約5785ms。OpenVINOの
+`GGML_OPENVINO_COMPILED_MODEL_CACHE_DIR` を一時ディレクトリで有効化し、
+別プロセスで既存コンパイルキャッシュを使うと約587msまで短縮したが、
+OpenVINOを無効にしたCPU専用比較ビルドの約88msより遅かった。
+「にほんご」「きょうはいいてんきです」の2文ではGPU全層offload・CPU専用とも正しく変換した。
+層数0の既存ビルドをGPU指定で試すと「にほんご」に約28秒かかり、ひらがなのままだった。
+これらはFcitx addonのFFIを別プロセスから呼ぶ小規模試験で、通常デスクトップの操作遅延全体ではない。
+
+upstreamの `refresh_input_state` は `live_conversion=false` でも
+`chunked_auto_suggest` を呼ぶ。`candidate_window="conversion"` も候補表示を隠すだけで、
+入力中の推論を止めない。従って「Spaceを押した時だけモデル推論」という前提は成立しない。
+またgreedy推論は毎回新しいllama contextを作る。コンパイルキャッシュで大きく改善した結果から、
+GPU計算だけでなくグラフ準備・コンパイル・context生成の負担を調べる必要がある。
+同じ文の単純な再入力はKarukan自身の変換結果キャッシュに当たり、GPU推論なしで速くなる。
+性能比較ではエンジンを作り直して、この結果キャッシュとコンパイルキャッシュを区別する。
 
 モデルは Jinen v2 small / xsmall の Q4_K_M。Hugging Face の repository 名だけでなく
 40桁 revision まで固定する。Karukan に追加した `repo@revision` 解釈により、初回取得は
