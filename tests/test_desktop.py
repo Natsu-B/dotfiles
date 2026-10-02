@@ -229,6 +229,19 @@ class ConfigTests(unittest.TestCase):
         self.assertRegex(home, r'jinen-v2-small\.gguf@[0-9a-f]{40}')
         self.assertRegex(home, r'jinen-v2-xsmall\.gguf@[0-9a-f]{40}')
 
+    def test_uwsm_target_matches_real_hyprland_desktop_instance(self):
+        target = 'wayland-session@hyprland.desktop.target'
+        files = [
+            ROOT / 'nixos/desktop.nix',
+            DESKTOP / 'default.nix',
+            DESKTOP / 'clipboard.py',
+            DESKTOP / 'lock.sh',
+        ]
+        for path in files:
+            text = path.read_text()
+            self.assertIn(target, text, path)
+            self.assertNotIn('wayland-session@Hyprland.target', text, path)
+
     def test_no_duplicate_xremap_start(self):
         text = (ROOT / 'home/home.nix').read_text()
         self.assertNotIn('xremap-gnome', text); self.assertNotIn('xremap-hypr', text)

@@ -36,7 +36,7 @@
     quickshell.package = unstable.quickshell;
     systemd = {
       enable = true;
-      target = "wayland-session@Hyprland.target";
+      target = "wayland-session@hyprland.desktop.target";
       restartIfChanged = true;
     };
     enableCalendarEvents = false;

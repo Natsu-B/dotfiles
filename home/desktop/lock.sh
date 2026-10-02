@@ -13,7 +13,7 @@ if hyprlock; then
   # Notify DMS/logind only after the external locker authenticated successfully.
   loginctl unlock-session || true
   rm -f -- "$marker"
-  if "$was_active" && systemctl --user is-active --quiet wayland-session@Hyprland.target; then
+  if "$was_active" && systemctl --user is-active --quiet wayland-session@hyprland.desktop.target; then
     desktop-clipboard resume || true
   fi
 else

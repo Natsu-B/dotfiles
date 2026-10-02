@@ -1,6 +1,6 @@
 { config, pkgs, unstable, lib, ... }:
 let
-  target = "wayland-session@Hyprland.target";
+  target = "wayland-session@hyprland.desktop.target";
   tools = import ./packages.nix { inherit pkgs unstable; };
   inherit (tools) wallpaper keyboard clipboard clipboardMenu locker cheatsheet profiles;
   clipboardHardening = {

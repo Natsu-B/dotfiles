@@ -10,7 +10,7 @@ Hyprland と画面共有 portal はともに stable のパッケージを使う�
 GDM の既定は Hyprland (UWSM)、GNOME は復旧用として維持する。
 バー、アプリ・Action 検索、通知、音声、ネットワーク、Bluetooth、ディスプレイ設定、
 壁紙、電源メニューを DMS にまとめる。Waybar / mako / hyprpaper / hyprpolkitagent
-の個別サービスは起動しない。DMS は Hyprland の UWSM target にだけ紐付ける。
+の個別サービスは起動しない。DMS は Hyprland の UWSM target `wayland-session@hyprland.desktop.target` にだけ紐付ける。
 
 例外として、機密性に関わる部分は既存の実装を維持する。
 Win+V の履歴は cliphist + Rofi、実際の画面ロックは hyprlock。
@@ -214,7 +214,7 @@ xdg.desktopEntries.my-action = {
   exec = "${myCommand}/bin/my-command";
   terminal = false;
   categories = [ "Utility" ];
-  settings.OnlyShowIn = "Hyprland;";
+  settings.NotShowIn = "GNOME;";
 };
 ```
 

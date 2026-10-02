@@ -80,7 +80,7 @@ def purge():
 def resume():
     if (runtime() / 'dotfiles-screen-locked').exists():
         raise RuntimeError('Clipboard recording cannot be resumed while locked')
-    if not active('wayland-session@Hyprland.target'):
+    if not active('wayland-session@hyprland.desktop.target'):
         raise RuntimeError('Clipboard history is only enabled in the Hyprland session')
     run(['systemctl', '--user', 'start', UNIT])
 

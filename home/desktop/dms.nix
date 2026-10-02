@@ -6,7 +6,7 @@
   ...
 }:
 let
-  target = "wayland-session@Hyprland.target";
+  target = "wayland-session@hyprland.desktop.target";
   tools = import ./packages.nix { inherit pkgs unstable; };
   inherit (tools)
     dms
