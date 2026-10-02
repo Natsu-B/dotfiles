@@ -1,12 +1,13 @@
 { pkgs, lib, stdenvNoCC, fetchurl, dpkg, makeWrapper }:
 let
+  version = "26.928.31416";
   runtime = (pkgs.steam.override {
     extraPkgs = p: with p; [ gtk3 nss libsecret libnotify tpm2-tss xdg-utils ];
   }).run-free;
 in
 stdenvNoCC.mkDerivation {
   pname = "codex-desktop";
-  version = "26.928.31416";
+  inherit version;
   # "latest" is overwritten in place and cannot be used with a Nix fixed-output
   # hash. Pin the immutable package from OpenAI's APT pool instead.
   src = fetchurl {
