@@ -65,6 +65,7 @@ rustPlatform.buildRustPackage {
     cmake -S karukan-im/fcitx5/fcitx5-addon -B build \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX="$out" \
+      -DECM_DIR=${kdePackages.extra-cmake-modules}/share/ECM/cmake \
       -DKARUKAN_NATIVE=OFF
     cmake --build build --parallel "$NIX_BUILD_CORES"
     runHook postBuild
