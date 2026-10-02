@@ -170,7 +170,7 @@ rustPlatform.buildRustPackage {
   ];
 
   meta = {
-    description = "Karukan Fcitx5 Japanese IME with OpenVINO NPU acceleration and CPU fallback";
+    description = "Karukan Fcitx5 Japanese IME with OpenVINO GPU acceleration";
     homepage = "https://github.com/togatoga/karukan";
     license = with lib.licenses; [ mit asl20 ];
     platforms = lib.platforms.linux;

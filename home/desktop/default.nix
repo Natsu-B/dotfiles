@@ -81,9 +81,8 @@ in {
     "karukan-im/config.toml".text = ''
       [conversion]
       # Explicit conversion must stay interactive. Adaptive mode runs a main
-      # greedy inference and a light-model beam in parallel, and our beam path
-      # intentionally falls back to CPU. That means Space waits for CPU even
-      # when live conversion is disabled. Main mode keeps AI to one greedy
+      # greedy inference and a light-model beam in parallel. That means Space
+      # waits for both even when live conversion is disabled. Main mode keeps AI to one greedy
       # candidate; learning/dictionaries/fallbacks fill the rest of the list.
       strategy = "main"
       num_candidates = 9

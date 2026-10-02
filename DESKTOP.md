@@ -141,17 +141,25 @@ ThinkPad の nixos-hardware モジュールは既に `pkgs.intel-compute-runtime
 
 通常の明示変換は低遅延を優先し、`strategy = "main"` で main model の greedy top-1 だけを
 AI 推論に使う。候補一覧の残りは学習履歴・ユーザー辞書・システム辞書・かな/カナ fallback が
-埋める。adaptive の Space 変換は main greedy と light beam の両方を待ち、現在の beam 経路は
-CPU fallback を使うため、live conversion を OFF にしても重くなる。既定ではこの経路を使わない。
+埋める。adaptive の Space 変換は main greedy と light beam の両方を待つため、
+live conversion を OFF にしても重くなる可能性がある。既定ではこの経路を使わない。
 `live_conversion = false` とし、Space を押した時だけモデル推論する。light model の定義は
 比較用に残すが、main strategy では起動時にロードしない。
-GPU/NPU など `GGML_OPENVINO_DEVICE` で CPU 以外を指定した場合は、Karukan が
-`from_file_accelerated` を使って実際にアクセラレータへモデルをoffloadする。以前はこの判定が
-NPU固定だったため、`GPU` を指定してもCPUモデルしかロードされず、高いCPU使用率と遅延の原因に
-なっていた。ロード成功時は journal に `Karukan GPU model loaded` を記録する。
-アクセラレータのモデルロードまたは推論が失敗した場合は同じ GGUF の CPU instance に再実行する。
-beam search を CPU に固定するのは NPU の場合だけで、GPU はアクセラレータ側を使える。
-別 IME への切替は行わない。
+固定した upstream `fbe9927548b75435bd43410aaaad742e39f579c8` の読み込み経路は
+`KanaKanjiConverter::from_source` → `LlamaCppModel::from_file` → `from_file_with_n_ctx`。
+最後で `.with_n_gpu_layers(0)` を明示しているため、環境変数だけではGPUへoffloadしない。
+`nixos/patch-karukan.py` はこのCPU固定だけを外し、`LlamaModelParams::default()` を使う。
+Cargo.lock の `llama-cpp-2` / `llama-cpp-sys-2` はともに 0.1.157 で、Rust の既定値は
+同梱 llama.cpp の `llama_model_default_params()` を呼ぶ。`n_gpu_layers=-1` は出力層を含む
+全層へのoffload要求を意味する。OpenVINO backend のデバイス選択は環境変数へ任せる。
+`KanaKanjiConverter` は upstream のままで、CPU instance の追加ロード、独自デバイス判定、
+推論失敗時のCPU再実行、NPU beam のCPU固定は削除した。失敗は upstream のエラー処理へ返す。
+ただし同梱 OpenVINO backend 自体は指定デバイスが利用不可ならCPUを選び、
+`device GPU is not available, fallback to CPU` を出す。また未対応演算はCPUで処理され得る。
+この変更はKarukan側の再実行を削除するもので、backend内部のCPU使用を禁止するものではない。
+以前の独自ログ `Karukan GPU model loaded` は出なくなる。実機では `clinfo -l` に加えて
+llama.cpp/OpenVINO のデバイス・offloadログと変換中の `intel_gpu_top` を確認する。
+ビルド成功だけではGPU実行、変換の正確さ、レイテンシは保証されない。
 
 モデルは Jinen v2 small / xsmall の Q4_K_M。Hugging Face の repository 名だけでなく
 40桁 revision まで固定する。Karukan に追加した `repo@revision` 解釈により、初回取得は
@@ -299,7 +307,7 @@ systemctl --user status dms xremap dotfiles-clipboard dotfiles-hypridle
 keyboard-profile status
 ```
 
-配列・Karukan（NPU/CPU fallback）・SandS・USB hotplug、Win+V とロック消去、ディスプレイの複製・拡張・抜き差し、
+配列・Karukan（Intel GPU stateful推論）・SandS・USB hotplug、Win+V とロック消去、ディスプレイの複製・拡張・抜き差し、
 Zoom の共有、GNOME への再ログインを実機で確認する。成功後に永続化して再起動する。
 
 ```sh
