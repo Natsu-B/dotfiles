@@ -134,15 +134,19 @@ multi-output package のため、CMake metadata/header は `openvino.dev`、実�
 `openvino.dev` 内の `OpenVINOConfig.cmake` を探索して `OpenVINO_DIR` を決める。NixOS の Intel NPU ドライバも有効にし、ログイン環境では
 `GGML_OPENVINO_DEVICE=NPU`、stateless 実行を指定する。
 
-通常の1候補 greedy 変換は NPU を優先する。複数候補の beam search は同じ Karukan/Jinen の
-CPU instance で実行する。NPU モデルのロードまたは greedy 推論が失敗した場合も、Karukan 内部で
-同じ GGUF の CPU instance に即時再実行し、その model instance では以後 CPU を使う。
-別 IME への切替は行わない。
+通常の明示変換は低遅延を優先し、`strategy = "main"` で main model の greedy top-1 だけを
+AI 推論に使う。候補一覧の残りは学習履歴・ユーザー辞書・システム辞書・かな/カナ fallback が
+埋める。adaptive の Space 変換は main greedy と light beam の両方を待ち、現在の beam 経路は
+CPU fallback を使うため、live conversion を OFF にしても重くなる。既定ではこの経路を使わない。
+`live_conversion = false` とし、Space を押した時だけモデル推論する。light model の定義は
+比較用に残すが、main strategy では起動時にロードしない。
+NPU モデルのロードまたは greedy 推論が失敗した場合は、Karukan 内部で同じ GGUF の CPU instance
+に再実行する。別 IME への切替は行わない。
 
 モデルは Jinen v2 small / xsmall の Q4_K_M。Hugging Face の repository 名だけでなく
 40桁 revision まで固定する。Karukan に追加した `repo@revision` 解釈により、初回取得は
 ネットワークを使うが mutable な `main` は追わない。取得後は Hugging Face cache を使う。
-`max_latency_ms=0` とし、初回の NPU graph compile の遅さだけで light model に固定降格しない。
+`max_latency_ms=0` は残すが、既定の main strategy では adaptive 判定自体を使わない。
 
 Fcitx5 が Karukan を選択できても、addon の共有ライブラリが読み込めなければ
 入力イベントは Karukan エンジンへ届かない。llama.cpp / ggml は

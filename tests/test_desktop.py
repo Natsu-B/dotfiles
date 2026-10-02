@@ -216,6 +216,13 @@ class ConfigTests(unittest.TestCase):
         self.assertIn('kb_layout = "jp"', (DESKTOP / 'hypr/input.lua').read_text())
         self.assertIn('layout = "jp"', (ROOT / 'nixos/desktop.nix').read_text())
         self.assertIn('Default Layout=jp', (DESKTOP / 'default.nix').read_text())
+    def test_karukan_defaults_to_low_latency_main_strategy(self):
+        home = (DESKTOP / 'default.nix').read_text()
+        self.assertIn('strategy = "main"', home)
+        self.assertIn('live_conversion = false', home)
+        self.assertIn('candidate_window = "conversion"', home)
+        self.assertIn('light_model = "jinen-v2-xsmall-q4"', home)
+
     def test_karukan_runtime_dependencies_are_checked(self):
         package = (ROOT / 'nixos/karukan.nix').read_text()
         patcher = (ROOT / 'nixos/patch-karukan.py').read_text()

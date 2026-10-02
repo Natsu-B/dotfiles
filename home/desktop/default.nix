@@ -80,18 +80,25 @@ in {
     '';
     "karukan-im/config.toml".text = ''
       [conversion]
-      strategy = "adaptive"
+      # Explicit conversion must stay interactive. Adaptive mode runs a main
+      # greedy inference and a light-model beam in parallel, and our beam path
+      # intentionally falls back to CPU. That means Space waits for CPU even
+      # when live conversion is disabled. Main mode keeps AI to one greedy
+      # candidate; learning/dictionaries/fallbacks fill the rest of the list.
+      strategy = "main"
       num_candidates = 9
       use_context = true
       context_chars = 10
       beam_width = 3
-      # The first NPU graph compilation is intentionally slower than steady state.
-      # Do not let that one-time cost permanently switch the adaptive strategy.
       max_latency_ms = 0
       model = "jinen-v2-small-q4"
+      # Kept for manual experiments. StrategyMode::Main does not load it.
       light_model = "jinen-v2-xsmall-q4"
       n_threads = 4
-      live_conversion = true
+      live_conversion = false
+
+      [display]
+      candidate_window = "conversion"
 
       [models]
       jinen-v2-small-q4 = { repo = "togatogah/jinen-v2-small.gguf@94ca7129a677d9f0fc671dd92af1ed4904b50ef6", filename = "jinen-v2-small-Q4_K_M.gguf" }
