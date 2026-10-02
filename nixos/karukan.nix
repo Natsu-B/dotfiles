@@ -7,6 +7,7 @@
   libxkbcommon,
   ocl-icd,
   opencl-headers,
+  opencl-clhpp,
   openssl,
   openvino,
   onetbb,
@@ -43,6 +44,7 @@ rustPlatform.buildRustPackage {
     libxkbcommon
     ocl-icd
     opencl-headers
+    opencl-clhpp
     openssl
     openvino
     onetbb
