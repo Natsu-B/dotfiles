@@ -32,10 +32,10 @@ DVP = {
     'RO': ('\\', '_'),
 }
 
-# With XKB jp, the physical GRAVE event is the Zenkaku_Hankaku keysym.
-# Fcitx5 includes Zenkaku_Hankaku in its default trigger list. KEY_93 instead
-# becomes Hiragana_Katakana and therefore does not toggle the input method.
-JAPANESE_TOGGLE = 'GRAVE'
+# Linux input-event-codes.h: KEY_KATAKANAHIRAGANA = 93.
+# Keep the existing Japanese-mode key behavior: the real issue was that the
+# Karukan addon failed to dlopen, not this event mapping.
+JAPANESE_TOGGLE = 'CODE_93'
 
 
 def output_key(character):
@@ -61,7 +61,7 @@ def profile(name):
         'virtual_modifiers': ['F15', 'F14'],
         'modmap': [
             {'name': 'Japanese input', 'remap': {
-                'CapsLock': JAPANESE_TOGGLE,
+                'CapsLock': JAPANESE_TOGGLE, 'GRAVE': JAPANESE_TOGGLE,
                 'MUHENKAN': 'F15', 'HENKAN': 'F14'}},
             {'name': 'SandS', 'remap': {'Space': {
                 'held': 'Shift_L', 'alone': 'Space',

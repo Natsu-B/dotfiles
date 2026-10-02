@@ -55,16 +55,14 @@ class KeyboardTests(unittest.TestCase):
     def test_jis_brackets_and_yen(self):
         self.assertEqual(keys.DVP['BACKSLASH'], ('$', '~'))
         self.assertEqual(keys.DVP['YEN'], ('\\', '|'))
-    def test_japanese_toggle_matches_fcitx_default_trigger(self):
-        # On the jp XKB map the physical GRAVE key is Zenkaku_Hankaku, one of
-        # Fcitx5's default trigger keys. KEY_KATAKANAHIRAGANA is not.
-        self.assertEqual(keys.JAPANESE_TOGGLE, 'GRAVE')
+    def test_japanese_toggle_preserves_existing_mapping(self):
+        self.assertEqual(keys.JAPANESE_TOGGLE, 'CODE_93')
         for name in ('qwerty', 'dvorak'):
             profile = keys.profile(name)
             japanese = profile['modmap'][0]['remap']
-            self.assertEqual(japanese['CapsLock'], 'GRAVE')
-            self.assertNotIn('GRAVE', japanese)
-            self.assertEqual(profile['keymap'][0]['remap']['F15-U'], 'GRAVE')
+            self.assertEqual(japanese['CapsLock'], 'CODE_93')
+            self.assertEqual(japanese['GRAVE'], 'CODE_93')
+            self.assertEqual(profile['keymap'][0]['remap']['F15-U'], 'CODE_93')
 
     def test_generator_output_is_valid_json_yaml(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -218,6 +216,13 @@ class ConfigTests(unittest.TestCase):
         self.assertIn('kb_layout = "jp"', (DESKTOP / 'hypr/input.lua').read_text())
         self.assertIn('layout = "jp"', (ROOT / 'nixos/desktop.nix').read_text())
         self.assertIn('Default Layout=jp', (DESKTOP / 'default.nix').read_text())
+    def test_karukan_runtime_dependencies_are_checked(self):
+        package = (ROOT / 'nixos/karukan.nix').read_text()
+        self.assertIn('patchelf --print-soname', package)
+        self.assertIn('ln -sfn', package)
+        self.assertIn("ldd \"$library\" | grep 'not found'", package)
+        self.assertIn('passthru.extraLdLibraries', package)
+
     def test_karukan_is_the_only_japanese_engine(self):
         nixos = (ROOT / 'nixos/configuration.nix').read_text()
         desktop = (ROOT / 'nixos/desktop.nix').read_text()

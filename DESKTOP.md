@@ -105,9 +105,9 @@ XKB を us(dvp) に変えると二重変換になるため、切替には Win+F2
 
 初期値は独自 Dvorak。選択状態を `~/.local/state/dotfiles/keyboard-profile` に保存する。
 Shift+物理数字列は数字 1..0、JIS の ] は $ / ~、Yen はバックラッシュ / 縦棒。
-CapsLock / 半角全角は Fcitx5 の既定トリガー `Zenkaku_Hankaku` として日本語入力を切り替える。Space 長押しは Shift。
+CapsLock / 半角全角は従来どおり xremap の `CODE_93` で日本語モードを切り替える。Space 長押しは Shift。
 無変換+I/J/K/L は上下左右、+; は Enter、+O は Delete、+P は Backspace、
-+H は Tab、+U は `Zenkaku_Hankaku`（日本語入力切替）、+数字列は数字。変換+5 は %。
++H は Tab、+U は日本語入力切替、+数字列は数字。変換+5 は %。
 QWERTY モードでも SandS、日本語切替、無変換レイヤーは維持する。
 
 定義は `home/desktop/generate_xremap.py`。選択変更を排他制御し、xremap の起動失敗時は
@@ -137,6 +137,12 @@ CPU instance で実行する。NPU モデルのロードまたは greedy 推論�
 40桁 revision まで固定する。Karukan に追加した `repo@revision` 解釈により、初回取得は
 ネットワークを使うが mutable な `main` は追わない。取得後は Hugging Face cache を使う。
 `max_latency_ms=0` とし、初回の NPU graph compile の遅さだけで light model に固定降格しない。
+
+Fcitx5 が Karukan を選択できても、addon の共有ライブラリが読み込めなければ
+入力イベントは Karukan エンジンへ届かない。Nix パッケージは llama.cpp / ggml の
+ELF SONAME（例: `libllama.so.0`）を同梱ディレクトリに再生成し、
+`karukan.so` と `libkarukan_fcitx5.so` の `ldd` に `not found` があれば
+ビルド自体を失敗させる。
 
 実機では次を確認する。
 
