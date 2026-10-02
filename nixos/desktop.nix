@@ -36,12 +36,19 @@
     quickshell.package = unstable.quickshell;
     systemd = {
       enable = true;
-      target = "wayland-session@hyprland.desktop.target";
+      # DMS upstream unit is After/Requisite=graphical-session.target.
+      # Targeting the earlier UWSM wayland-session target creates an ordering
+      # cycle, so start it from graphical-session and gate it by desktop below.
+      target = "graphical-session.target";
       restartIfChanged = true;
     };
     enableCalendarEvents = false;
     enableClipboardPaste = false;
   };
+
+  # Keep DMS out of the GNOME fallback without fighting UWSM ordering.
+  systemd.user.services.dms.unitConfig.ConditionEnvironment =
+    "XDG_CURRENT_DESKTOP=Hyprland";
 
   # This module selects Zoom's portal dependencies for the enabled desktops.
   programs.zoom-us.enable = true;

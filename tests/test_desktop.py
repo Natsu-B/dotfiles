@@ -238,18 +238,20 @@ class ConfigTests(unittest.TestCase):
         self.assertRegex(home, r'jinen-v2-small\.gguf@[0-9a-f]{40}')
         self.assertRegex(home, r'jinen-v2-xsmall\.gguf@[0-9a-f]{40}')
 
-    def test_uwsm_target_matches_real_hyprland_desktop_instance(self):
+    def test_uwsm_target_is_detection_stop_boundary_not_start_target(self):
         target = 'wayland-session@hyprland.desktop.target'
-        files = [
-            ROOT / 'nixos/desktop.nix',
-            DESKTOP / 'default.nix',
-            DESKTOP / 'clipboard.py',
-            DESKTOP / 'lock.sh',
-        ]
-        for path in files:
+        for path in (DESKTOP / 'default.nix', DESKTOP / 'clipboard.py', DESKTOP / 'lock.sh'):
             text = path.read_text()
             self.assertIn(target, text, path)
             self.assertNotIn('wayland-session@Hyprland.target', text, path)
+
+        nixos = (ROOT / 'nixos/desktop.nix').read_text()
+        home = (DESKTOP / 'default.nix').read_text()
+        self.assertIn('target = "graphical-session.target";', nixos)
+        self.assertIn('ConditionEnvironment =', nixos)
+        self.assertIn('"XDG_CURRENT_DESKTOP=Hyprland"', nixos)
+        self.assertNotIn('Install.WantedBy = [ target ];', home)
+        self.assertGreaterEqual(home.count('Install.WantedBy = [ "graphical-session.target" ];'), 3)
 
     def test_codex_desktop_uses_immutable_release(self):
         text = (ROOT / 'home/app/codex-desktop.nix').read_text()

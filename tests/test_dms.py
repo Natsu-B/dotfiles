@@ -85,7 +85,9 @@ class MigrationTests(unittest.TestCase):
         self.assertIn('programs.dms-shell', text)
         self.assertIn('systemd = {', text)
         self.assertIn('enable = true;', text)
-        self.assertIn('target = "wayland-session@hyprland.desktop.target";', text)
+        self.assertIn('target = "graphical-session.target";', text)
+        self.assertIn('ConditionEnvironment =', text)
+        self.assertIn('"XDG_CURRENT_DESKTOP=Hyprland"', text)
         self.assertNotIn('systemd.enable = false;', text)
     def test_zoom_and_portal_routing(self):
         text = (ROOT / 'nixos/desktop.nix').read_text()

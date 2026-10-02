@@ -146,6 +146,7 @@ in {
         Description = "Text clipboard history in private tmpfs";
         After = [ "graphical-session.target" ];
         PartOf = [ target ];
+        ConditionEnvironment = "XDG_CURRENT_DESKTOP=Hyprland";
       };
       Service = clipboardHardening // {
         Type = "exec";
@@ -157,7 +158,7 @@ in {
         RestartSec = 2;
         TimeoutStopSec = 5;
       };
-      Install.WantedBy = [ target ];
+      Install.WantedBy = [ "graphical-session.target" ];
     };
     dotfiles-clipboard-menu = {
       Unit = {
@@ -178,9 +179,10 @@ in {
         Description = "Secure lock/suspend bridge (idle timers belong to DMS)";
         After = [ "graphical-session.target" ];
         PartOf = [ target ];
+        ConditionEnvironment = "XDG_CURRENT_DESKTOP=Hyprland";
       };
       Service = { ExecStart = "${pkgs.hypridle}/bin/hypridle"; Restart = "on-failure"; RestartSec = 2; };
-      Install.WantedBy = [ target ];
+      Install.WantedBy = [ "graphical-session.target" ];
     };
   };
 
