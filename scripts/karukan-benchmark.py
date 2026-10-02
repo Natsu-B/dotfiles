@@ -8,6 +8,7 @@ import tempfile
 import time
 
 isolated = None
+live = os.environ.get('BENCH_LIVE') == '1'
 if os.environ.get('BENCH_MODEL'):
     model = Path(os.environ['BENCH_MODEL']).expanduser().absolute()
     assert model.is_file() and model.with_name('tokenizer.json').is_file()
@@ -18,7 +19,7 @@ if os.environ.get('BENCH_MODEL'):
     config = Path(os.environ['XDG_CONFIG_HOME']) / 'karukan-im/config.toml'
     config.parent.mkdir(parents=True)
     config.write_text('[conversion]\nmodel = "bench"\nstrategy = "main"\nn_threads = 4\n'
-                      'num_candidates = 9\nlive_conversion = false\nmax_latency_ms = 0\n'
+                      'num_candidates = 9\nlive_conversion = ' + str(live).lower() + '\nmax_latency_ms = 0\n'
                       'use_context = true\ncontext_chars = 10\n'
                       '[learning]\nenabled = false\n'
                       '[display]\ncandidate_window = "conversion"\n'
@@ -82,6 +83,7 @@ reset = bind('reset', None, [C.c_void_p])
 key = bind('process_key', C.c_int, [C.c_void_p, C.c_uint, C.c_uint, C.c_int])
 candidate = bind('get_candidate', C.c_char_p, [C.c_void_p, C.c_uint])
 aux = bind('get_aux', C.c_char_p, [C.c_void_p])
+preedit = bind('get_preedit', C.c_char_p, [C.c_void_p])
 conversion_ms = bind('get_last_conversion_ms', C.c_uint64, [C.c_void_p])
 
 log = Path(os.environ['BENCH_LOG'])
@@ -107,6 +109,17 @@ def create_engine():
 
 
 engine = create_engine()
+if os.environ.get('BENCH_C_ALIAS') == '1':
+    for raw, expected_preedit in [('ca', 'か'), ('ci', 'き'), ('cu', 'く'), ('ce', 'け'),
+                                 ('co', 'こ'), ('cya', 'きゃ'), ('cca', 'っか'),
+                                 ('cka', 'っか'), ('Cc', 'Cc')]:
+        reset(engine)
+        for character in raw:
+            assert key(engine, ord(character), 0, 0) == 1
+        shown = (preedit(engine) or b'').decode()
+        assert shown == expected_preedit, (raw, shown, expected_preedit)
+        emit({'kind': 'alias', 'raw': raw, 'preedit': shown})
+    reset(engine)
 phrases = [('nihongo', 'にほんご'), ('kyouhaiitenkidesu', 'きょうはいいてんきです'),
            ('watashihanihongowobenkyoushiteimasu', 'わたしはにほんごをべんきょうしています'),
            ('toukyou', 'とうきょう'), ('arigatougozaimasu', 'ありがとうございます')]
@@ -114,6 +127,8 @@ expected = {'にほんご': '日本語', 'きょうはいいてんきです': '�
             'わたしはにほんごをべんきょうしています': 'わたしは日本語を勉強しています',
             'とうきょう': '東京', 'ありがとうございます': 'ありがとうございます'}
 phrases = phrases[:int(os.environ.get('BENCH_PHRASE_LIMIT', '5'))]
+if os.environ.get('BENCH_C_ALIAS') == '1':
+    phrases = [(raw.replace('k', 'c'), reading) for raw, reading in phrases]
 try:
     seconds = float(os.environ.get('BENCH_SECONDS', '0'))
     deadline = time.monotonic() + seconds
@@ -149,7 +164,8 @@ try:
             if os.environ.get('BENCH_REQUIRE_CORRECT') == '1':
                 assert converted == expected[reading], (reading, converted)
                 assert model_used, auxiliary
-                assert all(e['engine_inference_ms'] == 0 for e in events[:-1]), events
+                if not live:
+                    assert all(e['engine_inference_ms'] == 0 for e in events[:-1]), events
             emit({'kind': 'sample', 'repetition': repetition, 'reading': reading,
                   'candidate': converted, 'model_used': model_used,
                   'correct': converted == expected[reading] and model_used,

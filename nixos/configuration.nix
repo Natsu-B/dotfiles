@@ -288,8 +288,8 @@ in {
     GTK_IM_MODULE = "fcitx";
     QT_IM_MODULE = "fcitx";
     XMODIFIERS = "@im=fcitx";
-    # Prefer NPU; if unavailable, the backend selects the GPU before model load.
-    GGML_OPENVINO_DEVICE = "NPU";
+    # GPU reduces synchronous live-conversion latency; NPU remains selectable.
+    GGML_OPENVINO_DEVICE = "GPU";
     # NPU uses its static/stateless path internally; this enables stateful GPU fallback.
     GGML_OPENVINO_STATEFUL_EXECUTION = "1";
     ZE_ENABLE_ALT_DRIVERS = "${npuRuntime}/lib/libze_intel_npu.so";

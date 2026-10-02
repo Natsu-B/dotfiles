@@ -124,9 +124,9 @@ systemctl --user status xremap
 ## 日本語入力
 
 Fcitx5 の日本語エンジンは Karukan のみを使い、Mozc はインストールしない。
-通常の入力はOpenVINOを有効にしてNPUを優先する。NPUが利用できない場合は、
+通常の入力はOpenVINOを有効にしてGPUを優先する（`GGML_OPENVINO_DEVICE=GPU`）。
+NPUを使う場合は `GGML_OPENVINO_DEVICE=NPU` を指定する。NPUが利用できない場合は、
 モデルのロード前にGPUへ切り替える。CPUへの再推論は追加しない。
-GPUを優先する場合は `GGML_OPENVINO_DEVICE=GPU` を指定する。
 GPUは `GGML_OPENVINO_STATEFUL_EXECUTION=1`、NPUはbackendの固定形状経路を使う。
 NPUではこのstateful設定は参照されず、GPUへ切り替わった場合に有効になる。
 
@@ -143,6 +143,16 @@ Karukan upstreamは `fbe9927548b75435bd43410aaaad742e39f579c8` に固定する�
 推論していたため、`refresh_input_state` の共通処理で止めてSpaceで推論する。
 live conversionや入力中の候補表示を明示した場合の推論は維持する。
 main strategyではlight modelをロードせず、推論失敗は `Karukan conversion failed` として記録する。
+
+日本語入力では `c` を `k` と同じキーとして扱う。`ca/ci/cu/ce/co` は
+「か/き/く/け/こ」、`cya` は「きゃ」、`cca` と `cka` は「っか」。
+英字直接入力とShiftによる一時英字入力は変更しない。
+live変換はキー処理中に同期推論するため、GPUへ変更しても待ちは残る。
+GPUはNPUより短い待ちを確認しており、live変換で使う場合もGPUを優先する。
+2026-10-02の同一実機・モデルで `nihongo` を各3回live変換した試験では、
+待ちが発生した12キーの中央値はNPU約1.77秒、GPU約0.30秒。
+文字入力にかかった累積待ちはNPU約6.6〜7.0秒、GPU約1.2〜1.3秒で、双方3回とも「日本語」。
+GPUでも約300msの同期待ちが残るため、引っかかりを完全に解消する変更ではない。
 
 NixOS 26.05 stable上で、OpenVINO 2026.4 / oneTBB / OpenCL / Level Zeroは固定済みunstableを使う。
 NPUのカーネルドライバは `hardware.cpu.intel.npu.enable = true` で維持する。
@@ -172,6 +182,9 @@ GPUへの切替は「NPUがデバイス一覧にない場合」に限る。NPU�
 `tokenizer.json` を使う。一時設定で学習を無効にし、`BENCH_FRESH_ENGINE=1` で
 変換結果キャッシュを避ける。`BENCH_REQUIRE_CORRECT=1` は5入力の期待値・AI候補・
 入力中の推論停止を検証する。GPU初回コンパイルは温まったキャッシュと区別する。
+`BENCH_LIVE=1` はlive変換でキーごとの待ちを測る。この場合、入力中の推論停止は検証しない。
+`BENCH_C_ALIAS=1` は明示変換でc/k・促音・直接英字の表示を検証し、
+5入力のkをcに置き換えてAI変換も確認する。
 
 ```sh
 repo="$PWD"
@@ -339,7 +352,7 @@ systemctl --user status dms xremap dotfiles-clipboard dotfiles-hypridle
 keyboard-profile status
 ```
 
-配列・Karukan（NPU優先、利用不可時GPU）・SandS・USB hotplug、Win+V とロック消去、ディスプレイの複製・拡張・抜き差し、
+配列・Karukan（GPU優先、NPU選択可）・SandS・USB hotplug、Win+V とロック消去、ディスプレイの複製・拡張・抜き差し、
 Zoom の共有、GNOME への再ログインを実機で確認する。成功後に永続化して再起動する。
 
 ```sh

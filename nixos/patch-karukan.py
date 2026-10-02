@@ -13,6 +13,13 @@ def sub(path: Path, pattern: str, replacement: str, expected: int = 1) -> None:
 
 
 def main(root: Path) -> None:
+    # Normalize kana input in the shared buffer; direct alphabet input is unchanged.
+    sub(
+        root / "karukan-im/core/src/core/engine/input_buffer.rs",
+        r"    pub fn push_romaji\(&mut self, ch: char, romaji: &RomajiConverter\) \{\n",
+        "    pub fn push_romaji(&mut self, ch: char, romaji: &RomajiConverter) {\n"
+        "        let ch = if ch.eq_ignore_ascii_case(&'c') { 'k' } else { ch };\n",
+    )
     # Upstream silently discards inference errors and displays kana fallback.
     sub(
         root / "karukan-im/core/src/core/engine/model.rs",

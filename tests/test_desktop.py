@@ -264,7 +264,7 @@ class ConfigTests(unittest.TestCase):
         self.assertIn('Name=karukan', home)
         self.assertNotIn('Name=mozc', home)
         self.assertIn('hardware.cpu.intel.npu.enable = true;', desktop)
-        self.assertIn('GGML_OPENVINO_DEVICE = "NPU";', nixos)
+        self.assertIn('GGML_OPENVINO_DEVICE = "GPU";', nixos)
         self.assertIn('GGML_OPENVINO_STATEFUL_EXECUTION = "1";', nixos)
         self.assertIn('intel-compute-runtime = unstablePkgs.intel-compute-runtime;', nixos)
         self.assertNotIn('extraPackages = [ unstable.intel-compute-runtime ]', nixos)
