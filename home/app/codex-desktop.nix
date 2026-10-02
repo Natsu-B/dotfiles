@@ -7,9 +7,11 @@ in
 stdenvNoCC.mkDerivation {
   pname = "codex-desktop";
   version = "26.928.31416";
+  # "latest" is overwritten in place and cannot be used with a Nix fixed-output
+  # hash. Pin the immutable package from OpenAI's APT pool instead.
   src = fetchurl {
-    url = "https://persistent.oaistatic.com/codex-app-prod/linux/deb/latest/chatgpt_amd64.deb";
-    sha256 = "10fi6apvkk4qfvbkydzzfqr1bgc9v1jjm3lc6dwfvp6m3rzp4qy4";
+    url = "https://persistent.oaistatic.com/codex-app-prod/linux/deb/pool/main/c/chatgpt/chatgpt_${version}_amd64.deb";
+    hash = "sha256-gJQATxy8zzXe797RWWGqQrTbiJEhpdlSxfMM+CvYrTA=";
   };
   nativeBuildInputs = [ dpkg makeWrapper ];
   unpackPhase = ''

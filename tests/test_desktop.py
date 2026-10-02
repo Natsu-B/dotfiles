@@ -242,6 +242,12 @@ class ConfigTests(unittest.TestCase):
             self.assertIn(target, text, path)
             self.assertNotIn('wayland-session@Hyprland.target', text, path)
 
+    def test_codex_desktop_uses_immutable_release(self):
+        text = (ROOT / 'home/app/codex-desktop.nix').read_text()
+        self.assertNotIn('/latest/', text)
+        self.assertIn('/pool/main/c/chatgpt/chatgpt_${version}_amd64.deb', text)
+        self.assertRegex(text, r'hash = "sha256-[A-Za-z0-9+/=]+";')
+
     def test_no_duplicate_xremap_start(self):
         text = (ROOT / 'home/home.nix').read_text()
         self.assertNotIn('xremap-gnome', text); self.assertNotIn('xremap-hypr', text)
