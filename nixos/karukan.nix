@@ -47,7 +47,8 @@ rustPlatform.buildRustPackage {
     opencl-headers
     opencl-clhpp
     openssl
-    openvino
+    openvino.dev
+    openvino.lib
     onetbb
   ];
 
@@ -72,14 +73,14 @@ rustPlatform.buildRustPackage {
     runHook preBuild
     export CARGO_TARGET_DIR="$PWD/target"
 
-    openvino_config="$(find ${openvino} -type f -name OpenVINOConfig.cmake -print -quit)"
-    if [ -z "$openvino_config" ]; then
-      echo "OpenVINOConfig.cmake not found under ${openvino}" >&2
+    openvino_cmake_dir="${openvino.dev}/lib/cmake/OpenVINO"
+    openvino_config="$openvino_cmake_dir/OpenVINOConfig.cmake"
+    if [ ! -f "$openvino_config" ]; then
+      echo "OpenVINOConfig.cmake not found at $openvino_config" >&2
       exit 1
     fi
-    openvino_cmake_dir="$(dirname "$openvino_config")"
     export OpenVINO_DIR="$openvino_cmake_dir"
-    export OpenVINO_ROOT="${openvino}"
+    export OpenVINO_ROOT="${openvino.dev}"
 
     tbb_config="$(find ${onetbb.dev} -type f -name TBBConfig.cmake -print -quit)"
     if [ -z "$tbb_config" ]; then
@@ -133,7 +134,7 @@ rustPlatform.buildRustPackage {
     # and only appeared when Fcitx dlopen()ed the addon. Plain ldd only checks
     # that DT_NEEDED files exist; -r also resolves relocations and therefore
     # catches undefined OpenVINO C++ symbols such as ov::Any::Base RTTI.
-    runtime_path="$out/lib/fcitx5:${lib.makeLibraryPath [ openvino onetbb ocl-icd ]}"
+    runtime_path="$out/lib/fcitx5:${lib.makeLibraryPath [ openvino.lib onetbb ocl-icd ]}"
     addon="$out/lib/fcitx5/karukan.so"
 
     if ! patchelf --print-needed "$addon" | grep -Eq '^libopenvino\.so'; then
@@ -158,7 +159,7 @@ rustPlatform.buildRustPackage {
   '';
 
   passthru.extraLdLibraries = [
-    openvino
+    openvino.lib
     onetbb
     ocl-icd
   ];
