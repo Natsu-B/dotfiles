@@ -39,6 +39,27 @@ class SeedTests(unittest.TestCase):
             seed.seed(config, state, defaults)
             self.assertEqual(json.loads(path.read_text()), data)
 
+    def test_power_policy_migrates_once_and_keeps_later_gui_choices(self):
+        policy = {'acProfileName': '1', 'batteryProfileName': '0',
+                  'batteryAutoPowerSaver': True, 'lowerDisplayRefreshRateOnBattery': True,
+                  'batteryPostLockMonitorTimeout': 30}
+        defaults = dict(DEFAULTS, settings=dict(DEFAULTS['settings'], **policy))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); config = root / 'config'; state = root / 'state'
+            path = config / 'DankMaterialShell/settings.json'
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({'acProfileName': '', 'batteryProfileName': '2',
+                                        'batteryPostLockMonitorTimeout': 0, 'theme': 'mine'}))
+            seed.seed(config, state, defaults)
+            data = json.loads(path.read_text())
+            self.assertEqual({key: data[key] for key in policy}, policy)
+            self.assertEqual(data['theme'], 'mine')
+            data.update(acProfileName='2', batteryProfileName='1', batteryAutoPowerSaver=False,
+                        lowerDisplayRefreshRateOnBattery=False, batteryPostLockMonitorTimeout=120)
+            path.write_text(json.dumps(data))
+            seed.seed(config, state, defaults)
+            self.assertEqual(json.loads(path.read_text()), data)
+
     def test_shortcut_plugin_enables_initially_and_keeps_gui_preferences(self):
         defaults = dict(DEFAULTS, plugins={'dotfilesAppShortcuts': {'enabled': True}})
         with tempfile.TemporaryDirectory() as directory:

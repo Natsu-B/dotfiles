@@ -56,6 +56,14 @@ def seed(config_home: Path, state_home: Path, defaults: dict) -> None:
     apps = read_object(apps_path)
     if not apps.get("applied"):
         migrate_running_apps(settings)
+    # Replace the old unset power policy once; later Power & Sleep choices survive.
+    power_path = state_home / "dotfiles/dms-power-v1.json"
+    power = read_object(power_path)
+    if not power.get("applied"):
+        for key in ("acProfileName", "batteryProfileName", "batteryAutoPowerSaver",
+                    "lowerDisplayRefreshRateOnBattery", "batteryPostLockMonitorTimeout"):
+            if key in defaults["settings"]:
+                settings[key] = defaults["settings"][key]
     sleep_path = state_home / "dotfiles/dms-s4-v1.json"
     sleep = read_object(sleep_path)
     sleep_options = {key: defaults["settings"][key]
@@ -68,6 +76,8 @@ def seed(config_home: Path, state_home: Path, defaults: dict) -> None:
         write_object(motion_path, {"applied": True})
     if not apps.get("applied"):
         write_object(apps_path, {"applied": True})
+    if not power.get("applied"):
+        write_object(power_path, {"applied": True})
     if sleep_options and not sleep.get("applied"):
         write_object(sleep_path, {"applied": True})
 

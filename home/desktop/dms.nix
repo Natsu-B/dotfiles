@@ -60,6 +60,14 @@ let
       batterySuspendBehavior = 1;
       fadeToLockEnabled = false;
 
+      # Use DMS's existing UPower events; no additional polling daemon.
+      # Quickshell profile strings: 0 = power-saver, 1 = balanced, 2 = performance.
+      acProfileName = "1";
+      batteryProfileName = "0";
+      batteryAutoPowerSaver = true;
+      lowerDisplayRefreshRateOnBattery = true;
+      batteryPostLockMonitorTimeout = 30;
+
       # hypridle holds the suspend inhibitor until hyprlock is ready.
       lockBeforeSuspend = false;
       loginctlLockIntegration = true;
