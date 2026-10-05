@@ -59,6 +59,13 @@ let
     runtimeInputs = [ dms ];
     text = ''exec dms ipc call spotlight toggle'';
   };
+  # Rofi's native Wayland window mode tracks all toplevels and activates the
+  # selected existing window, including hidden special workspaces.
+  windowSwitcher = pkgs.writeShellApplication {
+    name = "desktop-window-switcher";
+    runtimeInputs = [ pkgs.rofi ];
+    text = ''exec rofi -show window -modi window -display-window '起動中のアプリ' -me-select-entry "" -me-accept-entry MousePrimary -theme-str 'entry { placeholder: "起動中のアプリを検索"; }' "$@"'';
+  };
 in {
-  inherit wallpaper xremap profiles keyboard clipboard clipboardMenu locker cheatsheet dms launcher;
+  inherit wallpaper xremap profiles keyboard clipboard clipboardMenu locker cheatsheet dms launcher windowSwitcher;
 }

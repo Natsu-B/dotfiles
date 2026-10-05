@@ -23,6 +23,7 @@ with lib.hm.gvariant;
     };
     "org/gnome/desktop/peripherals/touchpad" = {
       send-events = "disabled";
+      disable-while-typing = true;
       two-finger-scrolling-enabled = true;
     };
     "org/gnome/settings-daemon/plugins/power" = {

@@ -45,6 +45,17 @@ def seed(config_home: Path, state_home: Path, defaults: dict) -> None:
     # Reapply the deliberately shared lock/logout paths before DMS starts.
     # Other settings remain writable and survive rebuilds.
     settings.update(defaults["policy"])
+    # Apply the requested motion fix to existing profiles once, then keep GUI choices.
+    motion_path = state_home / "dotfiles/dms-motion-v1.json"
+    motion = read_object(motion_path)
+    if not motion.get("applied"):
+        for key in ("syncComponentAnimationSpeeds", "modalAnimationSpeed"):
+            if key in defaults["settings"]:
+                settings[key] = defaults["settings"][key]
+    apps_path = state_home / "dotfiles/dms-running-apps-v1.json"
+    apps = read_object(apps_path)
+    if not apps.get("applied"):
+        migrate_running_apps(settings)
     sleep_path = state_home / "dotfiles/dms-s4-v1.json"
     sleep = read_object(sleep_path)
     sleep_options = {key: defaults["settings"][key]
@@ -53,6 +64,10 @@ def seed(config_home: Path, state_home: Path, defaults: dict) -> None:
     if sleep_options and not sleep.get("applied"):
         settings.update(sleep_options)
     write_object(settings_path, settings)
+    if not motion.get("applied"):
+        write_object(motion_path, {"applied": True})
+    if not apps.get("applied"):
+        write_object(apps_path, {"applied": True})
     if sleep_options and not sleep.get("applied"):
         write_object(sleep_path, {"applied": True})
 
@@ -61,6 +76,17 @@ def seed(config_home: Path, state_home: Path, defaults: dict) -> None:
     for key, value in defaults["session"].items():
         session.setdefault(key, value)
     write_object(session_path, session)
+
+    # Plugin preferences are stored separately by DMS. Enable this extension
+    # initially, while preserving later GUI choices and other plugins.
+    if defaults.get("plugins"):
+        plugins_path = config_home / "DankMaterialShell/plugin_settings.json"
+        plugins = read_object(plugins_path)
+        for name, options in defaults["plugins"].items():
+            current = plugins.setdefault(name, {})
+            for key, value in options.items():
+                current.setdefault(key, value)
+        write_object(plugins_path, plugins)
 
     dms_dir = config_home / "hypr/dms"
     dms_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -76,6 +102,33 @@ def seed(config_home: Path, state_home: Path, defaults: dict) -> None:
         else:
             with os.fdopen(fd, "w", encoding="utf-8") as stream:
                 stream.write("-- Managed interactively by DankMaterialShell.\n")
+
+
+def migrate_running_apps(settings: dict) -> None:
+    """Change the existing bars once; later GUI customization survives rebuilds."""
+    options = {"runningAppsCurrentWorkspace": False, "runningAppsCurrentMonitor": False,
+               "runningAppsGroupByApp": True, "runningAppsCompactMode": True}
+    settings.update(options)
+    for bar in settings.get("barConfigs", []):
+        groups = [bar.setdefault(key, []) for key in ("leftWidgets", "centerWidgets", "rightWidgets")]
+        def widget_id(widget):
+            return widget if isinstance(widget, str) else widget.get("id", widget.get("widgetId"))
+        present = any(widget_id(w) == "runningApps" for group in groups for w in group)
+        for group in groups:
+            replacement = []
+            for widget in group:
+                name = widget_id(widget)
+                if name == "focusedWindow":
+                    if present:
+                        continue
+                    widget = "runningApps"
+                    present = True
+                elif name == "runningApps" and isinstance(widget, dict):
+                    widget.update(options)
+                replacement.append(widget)
+            group[:] = replacement
+        if not present:
+            groups[0].append("runningApps")
 
 
 def main() -> None:

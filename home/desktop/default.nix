@@ -41,7 +41,7 @@ in {
       # Nix's Electron wrappers enable native Wayland + text-input-v3 here.
       export NIXOS_OZONE_WL=1
     '';
-    # Rofi is only a private clipboard picker and an emergency shortcut viewer.
+    # Rofi provides running-window selection, the private clipboard picker and recovery shortcuts.
     "rofi/config.rasi".source = ./rofi.rasi;
     "hypr/hyprlock.conf".text = ''
       general {

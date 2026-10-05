@@ -12,7 +12,8 @@ DESKTOP = ROOT / 'home/desktop'
 spec = importlib.util.spec_from_file_location('seed_dms', DESKTOP / 'seed_dms.py')
 seed = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(seed)
-DEFAULTS = {'settings': {'acLockTimeout': 300, 'showWeather': False},
+DEFAULTS = {'settings': {'acLockTimeout': 300, 'showWeather': False,
+                         'syncComponentAnimationSpeeds': False, 'modalAnimationSpeed': 0},
             'policy': {'customPowerActionLock': '/bin/desktop-lock'},
             'session': {'wallpaperPath': '/home/u/wallpaper.png'}}
 
@@ -38,6 +39,74 @@ class SeedTests(unittest.TestCase):
             seed.seed(config, state, defaults)
             self.assertEqual(json.loads(path.read_text()), data)
 
+    def test_shortcut_plugin_enables_initially_and_keeps_gui_preferences(self):
+        defaults = dict(DEFAULTS, plugins={'dotfilesAppShortcuts': {'enabled': True}})
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); config = root / 'config'; state = root / 'state'
+            path = config / 'DankMaterialShell/plugin_settings.json'
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({'otherPlugin': {'enabled': True, 'custom': 7}}))
+            seed.seed(config, state, defaults)
+            data = json.loads(path.read_text())
+            self.assertTrue(data['dotfilesAppShortcuts']['enabled'])
+            self.assertEqual(data['otherPlugin'], {'enabled': True, 'custom': 7})
+            data['dotfilesAppShortcuts']['enabled'] = False
+            path.write_text(json.dumps(data))
+            seed.seed(config, state, defaults)
+            self.assertEqual(json.loads(path.read_text()), data)
+
+    def test_running_apps_migrates_all_bars_once_without_duplicates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); config = root / 'config'; state = root / 'state'
+            path = config / 'DankMaterialShell/settings.json'
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({'theme': 'my-theme', 'runningAppsCurrentWorkspace': True,
+                'barConfigs': [
+                    {'id': 'main', 'position': 2, 'leftWidgets': ['clock', 'focusedWindow'],
+                     'centerWidgets': [], 'rightWidgets': ['systemTray']},
+                    {'id': 'other', 'leftWidgets': ['focusedWindow'],
+                     'centerWidgets': [{'id': 'runningApps', 'runningAppsCurrentWorkspace': True,
+                                        'runningAppsCurrentMonitor': True, 'custom': 5}]},
+                    {'id': 'minimal', 'leftWidgets': ['launcherButton']}] }))
+            seed.seed(config, state, DEFAULTS)
+            data = json.loads(path.read_text())
+            self.assertFalse(data['runningAppsCurrentWorkspace'])
+            self.assertFalse(data['runningAppsCurrentMonitor'])
+            self.assertTrue(data['runningAppsGroupByApp'])
+            self.assertEqual(data['theme'], 'my-theme')
+            bars = data['barConfigs']
+            self.assertEqual(bars[0]['position'], 2)
+            self.assertEqual(bars[0]['leftWidgets'], ['clock', 'runningApps'])
+            self.assertEqual(bars[0]['rightWidgets'], ['systemTray'])
+            self.assertEqual(bars[1]['leftWidgets'], [])
+            widget = bars[1]['centerWidgets'][0]
+            self.assertFalse(widget['runningAppsCurrentWorkspace'])
+            self.assertFalse(widget['runningAppsCurrentMonitor'])
+            self.assertEqual(widget['custom'], 5)
+            self.assertEqual(bars[2]['leftWidgets'], ['launcherButton', 'runningApps'])
+            data['runningAppsCurrentWorkspace'] = True
+            bars[0]['leftWidgets'] = ['clock']
+            path.write_text(json.dumps(data))
+            seed.seed(config, state, DEFAULTS)
+            self.assertEqual(json.loads(path.read_text()), data)
+
+    def test_motion_migrates_once_and_then_keeps_gui_choice(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); config = root / 'config'; state = root / 'state'
+            path = config / 'DankMaterialShell/settings.json'
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({'syncComponentAnimationSpeeds': True,
+                                        'modalAnimationSpeed': 1, 'theme': 'my-theme'}))
+            seed.seed(config, state, DEFAULTS)
+            data = json.loads(path.read_text())
+            self.assertFalse(data['syncComponentAnimationSpeeds'])
+            self.assertEqual(data['modalAnimationSpeed'], 0)
+            self.assertEqual(data['theme'], 'my-theme')
+            data.update(syncComponentAnimationSpeeds=True, modalAnimationSpeed=2)
+            path.write_text(json.dumps(data))
+            seed.seed(config, state, DEFAULTS)
+            self.assertEqual(json.loads(path.read_text())['modalAnimationSpeed'], 2)
+            self.assertTrue(json.loads(path.read_text())['syncComponentAnimationSpeeds'])
     def test_first_start_creates_writable_state(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

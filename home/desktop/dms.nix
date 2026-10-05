@@ -11,6 +11,7 @@ let
   inherit (tools)
     dms
     launcher
+    windowSwitcher
     wallpaper
     keyboard
     clipboard
@@ -28,6 +29,24 @@ let
       showClipboard = false;
       clipboardClickToPaste = false;
       clipboardEnterToPaste = false;
+      # No shell-side fade tail after closing blurred modals. Keep bar/popout motion.
+      syncComponentAnimationSpeeds = false;
+      modalAnimationSpeed = 0;
+      runningAppsCurrentWorkspace = false;
+      runningAppsCurrentMonitor = false;
+      runningAppsGroupByApp = true;
+      runningAppsCompactMode = true;
+      barConfigs = [ {
+        id = "default";
+        name = "Main Bar";
+        enabled = true;
+        position = 0;
+        screenPreferences = [ "all" ];
+        showOnLastDisplay = true;
+        leftWidgets = [ "launcherButton" "workspaceSwitcher" "runningApps" ];
+        centerWidgets = [ "music" "clock" "weather" ];
+        rightWidgets = [ "systemTray" "clipboard" "cpuUsage" "memUsage" "notificationButton" "battery" "controlCenterButton" ];
+      } ];
 
       # DMS's idle timers are adjustable in Settings > Power & Sleep.
       acLockTimeout = 300;
@@ -58,6 +77,7 @@ let
       isLightMode = false;
       terminalOverride = "kitty";
     };
+    plugins.dotfilesAppShortcuts.enabled = true;
   });
 
   configure = pkgs.writeShellApplication {
@@ -70,6 +90,7 @@ let
     terminal = "${pkgs.uwsm}/bin/uwsm app -- ${pkgs.kitty}/bin/kitty";
     fileManager = "${pkgs.uwsm}/bin/uwsm app -- ${pkgs.nautilus}/bin/nautilus";
     launcher = "${launcher}/bin/desktop-launcher";
+    windowSwitcher = "${windowSwitcher}/bin/desktop-window-switcher";
     dms = "${dms}/bin/dms";
     cheatsheet = "${dms}/bin/dms ipc call keybinds toggle hyprland";
     keyboard = "${keyboard}/bin/keyboard-profile toggle";
@@ -100,6 +121,7 @@ in
 {
   home.packages = [
     launcher
+    windowSwitcher
     configure
     pkgs.brightnessctl
   ];
@@ -111,6 +133,9 @@ in
   '';
 
   xdg.configFile = {
+    "DankMaterialShell/plugins/dotfilesAppShortcuts/plugin.json".source = ./dms-app-shortcuts/plugin.json;
+    "DankMaterialShell/plugins/dotfilesAppShortcuts/AppShortcuts.qml".source = ./dms-app-shortcuts/AppShortcuts.qml;
+    "DankMaterialShell/plugins/dotfilesAppShortcuts/AppIndex.js".source = ./dms-app-shortcuts/AppIndex.js;
     "hypr/hyprland.lua".source = ./hypr/hyprland.lua;
     "hypr/input.lua".source = ./hypr/input.lua;
     "hypr/appearance.lua".source = ./hypr/appearance.lua;
