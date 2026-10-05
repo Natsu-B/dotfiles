@@ -71,7 +71,10 @@ in {
       in {
         unstable = unstablePkgs;
         master = masterPkgs;
-        vscode = masterPkgs.vscode;
+        # Hyprland is not recognized by Electron's automatic keyring selection.
+        vscode = masterPkgs.vscode.override {
+          commandLineArgs = "--password-store=gnome-libsecret";
+        };
 
         # nixos-hardware's Intel GPU module already adds pkgs.intel-compute-runtime
         # to hardware.graphics.extraPackages. Replace that package in-place

@@ -29,7 +29,18 @@ in {
     GGML_OPENVINO_COMPILED_MODEL_CACHE_DIR = "${config.xdg.cacheHome}/karukan-im/openvino-compiled";
   };
 
+  # GTK reads these for X11, while native Wayland uses text-input-v3.
+  gtk.gtk2.extraConfig = ''gtk-im-module="fcitx"'';
+  gtk.gtk3.extraConfig.gtk-im-module = "fcitx";
+  gtk.gtk4.extraConfig.gtk-im-module = "fcitx";
+
   xdg.configFile = {
+    # Keep GNOME's module setup and Qt5 support; only Hyprland unsets GTK's override.
+    "uwsm/env-hyprland".text = ''
+      unset GTK_IM_MODULE
+      # Nix's Electron wrappers enable native Wayland + text-input-v3 here.
+      export NIXOS_OZONE_WL=1
+    '';
     # Rofi is only a private clipboard picker and an emergency shortcut viewer.
     "rofi/config.rasi".source = ./rofi.rasi;
     "hypr/hyprlock.conf".text = ''

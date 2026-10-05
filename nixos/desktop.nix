@@ -3,7 +3,18 @@
     enable = true;
     withUWSM = true;
     xwayland.enable = true;
+    # Export every DMA-BUF plane; Intel/AMD compressed buffers need more than one.
+    # ponytail: remove this backport when the locked portal includes upstream #427.
+    portalPackage = pkgs.xdg-desktop-portal-hyprland.overrideAttrs (old: {
+      patches = (old.patches or [ ]) ++ [ (pkgs.fetchurl {
+        url = "https://github.com/hyprwm/xdg-desktop-portal-hyprland/commit/ba31964ee42b56bcb0d3b78a64ead5d8a1c3c6f6.patch";
+        hash = "sha256-S5gO1cT+5AdoUvFbQHWGcYviYi1axNvFmyp98iVLOjk=";
+      }) ];
+    });
   };
+
+  # The screenshot portal invokes grim from the session PATH.
+  environment.systemPackages = [ pkgs.grim ];
 
   services.xserver.enable = true;
   services.displayManager = {
