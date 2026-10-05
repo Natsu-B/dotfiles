@@ -28,6 +28,7 @@ in {
   imports = [
     ./codex-usb.nix
     ./desktop.nix
+    ./hibernate.nix
   ];
 
   # disable nvidia driver

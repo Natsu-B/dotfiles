@@ -36,6 +36,9 @@ let
       batteryMonitorTimeout = 600;
       acSuspendTimeout = 0;
       batterySuspendTimeout = 0;
+      # The idle action explicitly saves RAM to disk; idle timeouts stay opt-in.
+      acSuspendBehavior = 1;
+      batterySuspendBehavior = 1;
       fadeToLockEnabled = false;
 
       # hypridle holds the suspend inhibitor until hyprlock is ready.

@@ -26,6 +26,10 @@
       hostName = "nixos";
     in {
     checks.${system} = {
+      hibernate-policy = import ./tests/hibernate.nix {
+        pkgs = nixpkgs.legacyPackages.${system};
+        config = self.nixosConfigurations.nixos.config;
+      };
       desktop-config = import ./tests/checks.nix {
         pkgs = nixpkgs.legacyPackages.${system};
       };

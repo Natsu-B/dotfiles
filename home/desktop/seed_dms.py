@@ -45,7 +45,16 @@ def seed(config_home: Path, state_home: Path, defaults: dict) -> None:
     # Reapply the deliberately shared lock/logout paths before DMS starts.
     # Other settings remain writable and survive rebuilds.
     settings.update(defaults["policy"])
+    sleep_path = state_home / "dotfiles/dms-s4-v1.json"
+    sleep = read_object(sleep_path)
+    sleep_options = {key: defaults["settings"][key]
+                     for key in ("acSuspendBehavior", "batterySuspendBehavior")
+                     if key in defaults["settings"]}
+    if sleep_options and not sleep.get("applied"):
+        settings.update(sleep_options)
     write_object(settings_path, settings)
+    if sleep_options and not sleep.get("applied"):
+        write_object(sleep_path, {"applied": True})
 
     session_path = state_home / "DankMaterialShell/session.json"
     session = read_object(session_path)

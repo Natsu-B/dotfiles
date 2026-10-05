@@ -17,6 +17,27 @@ DEFAULTS = {'settings': {'acLockTimeout': 300, 'showWeather': False},
             'session': {'wallpaperPath': '/home/u/wallpaper.png'}}
 
 class SeedTests(unittest.TestCase):
+    def test_hibernate_policy_migrates_without_enabling_idle_suspend(self):
+        defaults = dict(DEFAULTS, settings=dict(DEFAULTS['settings'], acSuspendBehavior=1,
+                        batterySuspendBehavior=1, acSuspendTimeout=0, batterySuspendTimeout=0))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); config = root / 'config'; state = root / 'state'
+            path = config / 'DankMaterialShell/settings.json'
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({'acSuspendBehavior': 0, 'batterySuspendBehavior': 0,
+                                        'acSuspendTimeout': 1200, 'theme': 'mine'}))
+            seed.seed(config, state, defaults)
+            data = json.loads(path.read_text())
+            self.assertEqual(data['acSuspendBehavior'], 1)
+            self.assertEqual(data['batterySuspendBehavior'], 1)
+            self.assertEqual(data['acSuspendTimeout'], 1200)
+            self.assertEqual(data['batterySuspendTimeout'], 0)
+            self.assertEqual(data['theme'], 'mine')
+            data['batterySuspendBehavior'] = 2
+            path.write_text(json.dumps(data))
+            seed.seed(config, state, defaults)
+            self.assertEqual(json.loads(path.read_text()), data)
+
     def test_first_start_creates_writable_state(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
