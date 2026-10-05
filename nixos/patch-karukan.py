@@ -43,6 +43,23 @@ def main(root: Path) -> None:
         r'\1\2.unwrap_or_else(|error| { tracing::warn!(%error, "Karukan conversion failed"); Vec::new() })',
         expected=3,
     )
+    # Do not infer on an unfinished romaji syllable. Preserve valid live chunks,
+    # but hide selectable suggestions until the reading is complete again.
+    sub(
+        root / "karukan-im/core/src/core/engine/input.rs",
+        r"        let full_reading = self\.input_buf\.reading\(\);\n",
+        "        let full_reading = self.input_buf.reading();\n"
+        "        if !self.input_buf.pending().is_empty() {\n"
+        "            let chunk_reading: String = self.chunks.iter().map(|c| c.reading.as_str()).collect();\n"
+        "            self.live.shown = self.live.shown && chunk_reading == full_reading;\n"
+        "            self.shown_suggestions = CandidateList::default();\n"
+        "            let preedit = self.set_composing_state();\n"
+        "            return EngineResult::consumed()\n"
+        "                .with_action(EngineAction::UpdatePreedit(preedit))\n"
+        "                .with_action(EngineAction::HideCandidates)\n"
+        "                .with_action(EngineAction::UpdateAuxText(self.format_aux_composing()));\n"
+        "        }\n",
+    )
     # Hidden suggestions must not block typing when explicit conversion is used.
     sub(
         root / "karukan-im/core/src/core/engine/input.rs",
@@ -74,8 +91,11 @@ def main(root: Path) -> None:
         cmake,
         r"find_package\(PkgConfig REQUIRED\)\n",
         "find_package(PkgConfig REQUIRED)\n"
-        "find_package(OpenVINO REQUIRED COMPONENTS Runtime Threading)\n"
-        "find_package(OpenCL REQUIRED)\n",
+        "option(KARUKAN_OPENVINO \"Link the OpenVINO backend runtime\" ON)\n"
+        "if(KARUKAN_OPENVINO)\n"
+        "    find_package(OpenVINO REQUIRED COMPONENTS Runtime Threading)\n"
+        "    find_package(OpenCL REQUIRED)\n"
+        "endif()\n",
     )
     sub(
         cmake,
@@ -90,11 +110,11 @@ def main(root: Path) -> None:
     Fcitx5::Config
     ${KARUKAN_RUST_LIB}
     ${XKBCommon_LIBRARIES}
-    openvino::runtime
-    openvino::threading
-    OpenCL::OpenCL
 )
-target_link_options(karukan PRIVATE "LINKER:--no-as-needed")""",
+if(KARUKAN_OPENVINO)
+    target_link_libraries(karukan openvino::runtime openvino::threading OpenCL::OpenCL)
+    target_link_options(karukan PRIVATE "LINKER:--no-as-needed")
+endif()""",
     )
 
     hf = root / "karukan-engine/src/kanji/hf_download.rs"

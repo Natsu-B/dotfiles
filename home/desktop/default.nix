@@ -97,7 +97,7 @@ in {
       # Kept for manual experiments. StrategyMode::Main does not load it.
       light_model = "jinen-v2-xsmall-q4"
       n_threads = 4
-      live_conversion = false
+      live_conversion = true
 
       [display]
       candidate_window = "conversion"

@@ -16,6 +16,10 @@
   # already-pinned unstable OpenVINO 2026.4.x dependency family.
   npuRuntime = pkgs.callPackage ./intel-npu-runtime.nix { onetbb = unstable.onetbb; };
   karukan = pkgs.callPackage ./karukan.nix {
+    # Intel Arc uses llama.cpp's Vulkan backend: measured faster than OpenVINO
+    # on this machine without replacing the contextual conversion model.
+    openvinoSupport = false;
+    vulkanSupport = true;
     openvino = unstable.openvino;
     onetbb = unstable.onetbb;
     ocl-icd = unstable.ocl-icd;
@@ -289,6 +293,8 @@ in {
     GTK_IM_MODULE = "fcitx";
     QT_IM_MODULE = "fcitx";
     XMODIFIERS = "@im=fcitx";
+    # Live AI inference stays off the Fcitx key-event thread; no typing debounce.
+    KARUKAN_ASYNC_LIVE = "1";
     # GPU reduces synchronous live-conversion latency; NPU remains selectable.
     GGML_OPENVINO_DEVICE = "GPU";
     # NPU uses its static/stateless path internally; this enables stateful GPU fallback.

@@ -219,7 +219,7 @@ class ConfigTests(unittest.TestCase):
     def test_karukan_defaults_to_low_latency_main_strategy(self):
         home = (DESKTOP / 'default.nix').read_text()
         self.assertIn('strategy = "main"', home)
-        self.assertIn('live_conversion = false', home)
+        self.assertIn('live_conversion = true', home)
         self.assertIn('candidate_window = "conversion"', home)
         self.assertIn('light_model = "jinen-v2-xsmall-q4"', home)
 
@@ -237,7 +237,8 @@ class ConfigTests(unittest.TestCase):
         self.assertIn('find ${openvino.dev} -type f -name OpenVINOConfig.cmake', package)
         self.assertIn('openvino_cmake_dir="$(dirname "$openvino_config")"', package)
         self.assertIn('OpenVINO_ROOT="${openvino.dev}"', package)
-        self.assertIn('lib.makeLibraryPath [ openvino.lib onetbb ocl-icd ]', package)
+        self.assertIn('[ openvino.lib onetbb ocl-icd ]', package)
+        self.assertIn('lib.optionals vulkanSupport [ vulkan-loader ]', package)
         self.assertIn('find_package(OpenVINO REQUIRED COMPONENTS Runtime Threading)', patcher)
         self.assertIn('find_package(OpenCL REQUIRED)', patcher)
         self.assertIn('openvino::runtime', patcher)

@@ -16,7 +16,13 @@
   patchelf,
   pkg-config,
   python3,
+  shaderc,
+  glslang,
+  vulkan-loader,
+  vulkan-headers,
+  spirv-headers,
   openvinoSupport ? true,
+  vulkanSupport ? false,
 }:
 
 let
@@ -27,6 +33,7 @@ let
   };
 in
 assert lib.versionAtLeast openvino.version "2026.4.0";
+assert !(openvinoSupport && vulkanSupport);
 rustPlatform.buildRustPackage {
   pname = "fcitx5-karukan";
   version = "0-unstable-2026-09-29";
@@ -56,7 +63,7 @@ rustPlatform.buildRustPackage {
     pkg-config
     python3
     rustPlatform.bindgenHook
-  ];
+  ] ++ lib.optionals vulkanSupport [ shaderc glslang ];
 
   buildInputs = [
     fcitx5
@@ -68,7 +75,7 @@ rustPlatform.buildRustPackage {
     openvino.dev
     openvino.lib
     onetbb
-  ];
+  ] ++ lib.optionals vulkanSupport [ vulkan-loader vulkan-headers spirv-headers ];
 
   env = {
     CARGO_NET_OFFLINE = "true";
@@ -82,6 +89,10 @@ rustPlatform.buildRustPackage {
 
   postPatch = ''
     python3 ${./patch-karukan.py} "$PWD"
+    python3 ${./patch-karukan-async.py} "$PWD" ${./karukan-async-live.rs}
+  '' + lib.optionalString vulkanSupport ''
+    substituteInPlace karukan-engine/Cargo.toml \
+      --replace-fail 'llama-cpp-2 = "0.1"' 'llama-cpp-2 = { version = "0.1", features = ["vulkan"] }'
   '';
 
   dontUseCmakeConfigure = true;
@@ -125,6 +136,7 @@ rustPlatform.buildRustPackage {
       -DTBB_DIR="$tbb_cmake_dir" \
       -DOpenCL_INCLUDE_DIR=${opencl-headers}/include \
       -DOpenCL_LIBRARY=${lib.getLib ocl-icd}/lib/libOpenCL.so \
+      -DKARUKAN_OPENVINO=${if openvinoSupport then "ON" else "OFF"} \
       -DKARUKAN_NATIVE=OFF
     cmake --build build --parallel "$NIX_BUILD_CORES"
     runHook postBuild
@@ -157,7 +169,7 @@ rustPlatform.buildRustPackage {
     # and only appeared when Fcitx dlopen()ed the addon. Plain ldd only checks
     # that DT_NEEDED files exist; -r also resolves relocations and therefore
     # catches undefined OpenVINO C++ symbols such as ov::Any::Base RTTI.
-    runtime_path="$out/lib/fcitx5:${lib.makeLibraryPath [ openvino.lib onetbb ocl-icd ]}"
+    runtime_path="$out/lib/fcitx5:${lib.makeLibraryPath ([ openvino.lib onetbb ocl-icd ] ++ lib.optionals vulkanSupport [ vulkan-loader ])}"
     addon="$out/lib/fcitx5/karukan.so"
 
     if ${lib.boolToString openvinoSupport} && ! patchelf --print-needed "$addon" | grep -Eq '^libopenvino\.so'; then

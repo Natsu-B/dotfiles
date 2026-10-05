@@ -27,6 +27,11 @@ if os.environ.get('BENCH_MODEL'):
 elif not all(os.environ.get(name) for name in ['XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME']):
     raise SystemExit('Set BENCH_MODEL to a local GGUF with tokenizer.json to isolate the benchmark.')
 
+if os.environ.get('BENCH_FRONTEND_BINARY'):
+    import subprocess
+    subprocess.run([os.environ['BENCH_FRONTEND_BINARY']], check=True)
+    raise SystemExit(0)
+
 
 def gpu_time():
     clients = {}
@@ -64,7 +69,7 @@ def emit(value):
 
 
 package = Path(os.environ['BENCH_PACKAGE'])
-os.environ['RUST_LOG'] = 'info'
+os.environ['RUST_LOG'] = os.environ.get('BENCH_RUST_LOG', 'info')
 addon = C.CDLL(str(package / 'lib/fcitx5/karukan.so'), mode=C.RTLD_GLOBAL)
 lib = C.CDLL(str(package / 'lib/fcitx5/libkarukan_fcitx5.so'))
 
@@ -86,6 +91,26 @@ aux = bind('get_aux', C.c_char_p, [C.c_void_p])
 preedit = bind('get_preedit', C.c_char_p, [C.c_void_p])
 commit = bind('get_commit', C.c_char_p, [C.c_void_p])
 conversion_ms = bind('get_last_conversion_ms', C.c_uint64, [C.c_void_p])
+asynchronous = os.environ.get('BENCH_ASYNC') == '1'
+if asynchronous:
+    poll_live = bind('poll_live', C.c_int, [C.c_void_p])
+    async_pending = bind('async_pending', C.c_int, [C.c_void_p])
+    is_empty = bind('is_empty', C.c_int, [C.c_void_p])
+    has_preedit = bind('has_preedit', C.c_int, [C.c_void_p])
+    has_commit = bind('has_commit', C.c_int, [C.c_void_p])
+
+
+def wait_live(engine):
+    if not asynchronous:
+        return 0
+    started = time.perf_counter()
+    while True:
+        poll_live(engine)
+        if not async_pending(engine):
+            return (time.perf_counter() - started) * 1000
+        if time.perf_counter() - started > 15:
+            raise RuntimeError('live conversion did not settle within 15 seconds')
+        time.sleep(0.008)
 
 log = Path(os.environ['BENCH_LOG'])
 
@@ -110,6 +135,121 @@ def create_engine():
 
 
 engine = create_engine()
+if asynchronous:
+    # Discarded/reset/committed compositions must never receive a late rewrite.
+    for raw, finish in [('nihongo', 'reset'), ('kyouhaiitenkidesu', 'commit')]:
+        reset(engine)
+        for character in raw:
+            key(engine, ord(character), 0, 0)
+        if finish == 'reset':
+            reset(engine)
+        else:
+            key(engine, 0xff0d, 0, 0)
+            assert (commit(engine) or b'').decode() == '今日はいい天気です', commit(engine)
+        wait_live(engine)
+        # Cached getter bytes survive Commit; dirty flags describe new UI actions.
+        assert is_empty(engine), (finish, preedit(engine))
+        assert not has_preedit(engine), ('late preedit after', finish)
+        assert not has_commit(engine), ('late commit after', finish)
+        emit({'kind': 'async_invalidation', 'finish': finish})
+    reset(engine)
+    for character in 'nihongo':
+        key(engine, ord(character), 0, 0)
+    key(engine, 0xff08, 0, 0)
+    key(engine, 0xff08, 0, 0)
+    for character in 'njinn':
+        key(engine, ord(character), 0, 0)
+    edited_settle = wait_live(engine)
+    assert (preedit(engine) or b'').decode() == '日本人', preedit(engine)
+    emit({'kind': 'async_edit', 'preedit': '日本人', 'settle_ms': edited_settle})
+    reset(engine)
+    for character in 'toukyou':
+        key(engine, ord(character), 0, 0)
+    key(engine, ord('l'), 5, 0)  # Ctrl+Shift+L: turn live conversion off in flight.
+    wait_live(engine)
+    assert (preedit(engine) or b'').decode() == 'とうきょう', preedit(engine)
+    key(engine, ord('l'), 5, 0)
+    wait_live(engine)
+    assert (preedit(engine) or b'').decode() == '東京', preedit(engine)
+    emit({'kind': 'async_toggle', 'preedit': '東京'})
+    reset(engine)
+    if os.environ.get('BENCH_LONG') == '1':
+        # More than one chunk: each later chunk needs the preceding conversion
+        # as context. This catches starvation from replacing prefix requests.
+        raw = 'watashihanihongowobenkyoushiteimasu' * 3
+        key_times = []
+        for character in raw:
+            started = time.perf_counter_ns()
+            key(engine, ord(character), 0, 0)
+            key_times.append((time.perf_counter_ns() - started) / 1e6)
+        settled_ms = wait_live(engine)
+        live_text = (preedit(engine) or b'').decode()
+        assert any('\u4e00' <= c <= '\u9fff' for c in live_text), live_text
+        key(engine, ord(' '), 0, 0)
+        explicit_text = (candidate(engine, 0) or b'').decode()
+        assert explicit_text == live_text, (live_text, explicit_text)
+        emit({'kind': 'async_long', 'romaji_chars': len(raw), 'preedit': live_text,
+              'max_key_ms': max(key_times), 'settle_ms': settled_ms})
+        reset(engine)
+if os.environ.get('BENCH_CONTEXT') == '1':
+    surrounding = bind('set_surrounding_text', None, [C.c_void_p, C.c_char_p, C.c_uint])
+    for context, raw, expected_context in [
+        ('銀行にお金を預ける', 'kouza', '口座'), ('大学で授業を受ける', 'kouza', '講座'),
+        ('川の向こうへ渡る', 'hashi', '橋'), ('ご飯を食べる道具', 'hashi', '箸'),
+        ('夏休みに故郷へ帰る', 'kisei', '帰省'), ('交通ルールで制限する', 'kisei', '規制'),
+        ('紙に文章を書く', 'kaku', '書く'), ('鉛筆で絵を描く', 'kaku', '描く'),
+    ]:
+        reset(engine)
+        surrounding(engine, context.encode(), len(context))
+        times = []
+        for character in raw:
+            started = time.perf_counter_ns()
+            key(engine, ord(character), 0, 0)
+            times.append((time.perf_counter_ns() - started) / 1e6)
+        settle_ms = wait_live(engine)
+        key(engine, ord(' '), 0, 0)
+        result = (candidate(engine, 0) or b'').decode()
+        emit({'kind': 'context', 'context': context, 'romaji': raw,
+              'candidate': result, 'expected': expected_context,
+              'correct': result == expected_context, 'max_key_ms': max(times),
+              'settle_ms': settle_ms})
+    reset(engine)
+    surrounding(engine, b'', 0)
+if os.environ.get('BENCH_PENDING_ROMAJI') == '1':
+    assert live, 'pending-romaji checks require live conversion'
+    for raw, pending_indices in [('k', {0}), ('sh', {0, 1}),
+                                 ('nihongo', {0, 2, 4, 5}), ('kan', {0, 2}),
+                                 ('kann', {0, 2})]:
+        reset(engine)
+        for index, character in enumerate(raw):
+            assert key(engine, ord(character), 0, 0) == 1
+            shown = (preedit(engine) or b'').decode()
+            elapsed = conversion_ms(engine)
+            if index in pending_indices:
+                assert elapsed == 0, (raw, index, shown, elapsed)
+                assert shown.endswith(character), (raw, index, shown)
+            emit({'kind': 'pending_romaji', 'raw': raw, 'index': index,
+                  'preedit': shown, 'engine_inference_ms': elapsed})
+        if raw == 'nihongo':
+            wait_live(engine)
+            assert (preedit(engine) or b'').decode() == '日本語'
+        if raw in ('kan', 'kann'):
+            key(engine, 0xff0d, 0, 0)
+            committed = (commit(engine) or b'').decode()
+            # Upstream deliberately flushes a lone n literally; nn is settled ん.
+            if raw == 'kan':
+                assert committed == 'かn', ('pending-n commit', committed)
+            else:
+                assert committed and not committed.endswith('n'), ('settled-n commit', committed)
+            emit({'kind': 'pending_commit', 'raw': raw, 'commit': committed})
+    reset(engine)
+    for character in 'shi':
+        key(engine, ord(character), 0, 0)
+    key(engine, 0xff08, 0, 0)
+    assert conversion_ms(engine) == 0
+    key(engine, 0xff1b, 0, 0)
+    assert not preedit(engine)
+    reset(engine)
 if os.environ.get('BENCH_C_ALIAS') == '1':
     for raw, expected_preedit in [('ca', 'か'), ('ci', 'き'), ('cu', 'く'), ('ce', 'け'),
                                  ('co', 'こ'), ('cya', 'きゃ'), ('cca', 'っか'),
@@ -145,10 +285,27 @@ try:
             before_cpu = time.process_time_ns()
             before = time.perf_counter_ns()
             events = []
+            settle_ms = 0
+            last_input_at = None
+            settled_at = None
+            interval = float(os.environ.get('BENCH_KEY_INTERVAL_MS', '0')) / 1000
             for index, ch in enumerate(romaji + ' '):
+                scheduled = before / 1e9 + index * interval
+                while time.perf_counter() < scheduled:
+                    if asynchronous:
+                        poll_live(engine)
+                        if index == len(romaji) and settled_at is None and not async_pending(engine):
+                            settled_at = time.perf_counter()
+                    time.sleep(min(0.008, max(0, scheduled - time.perf_counter())))
+                if ch == ' ':
+                    settle_ms = wait_live(engine)
+                    if asynchronous and settled_at is None:
+                        settled_at = time.perf_counter()
                 key_start = time.perf_counter_ns()
                 cpu_start = time.process_time_ns()
                 assert key(engine, ord(ch), 0, 0) == 1
+                if index == len(romaji) - 1:
+                    last_input_at = time.perf_counter()
                 event = {'kind': 'key', 'repetition': repetition, 'reading': reading,
                          'index': index, 'key': ch,
                          'wall_ms': (time.perf_counter_ns() - key_start) / 1e6,
@@ -175,6 +332,8 @@ try:
                   'wall_ms': wall_ms, 'cpu_ms': cpu_ms,
                   'typing_ms': sum(e['wall_ms'] for e in events[:-1]),
                   'space_ms': events[-1]['wall_ms'],
+                  'settle_ms': settle_ms,
+                  'after_last_input_ms': max(0, (settled_at - last_input_at) * 1000) if asynchronous else 0,
                   'max_key_ms': max(e['wall_ms'] for e in events),
                   'engine_inference_ms': conversion_ms(engine),
                   'gpu_ms': {k: (v - before_gpu.get(k, 0)) / 1e6 for k, v in after_gpu.items()},

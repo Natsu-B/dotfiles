@@ -13,10 +13,30 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('karukan_patch', ROOT / 'nixos/patch-karukan.py')
 patcher = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(patcher)
+async_spec = importlib.util.spec_from_file_location('karukan_async_patch', ROOT / 'nixos/patch-karukan-async.py')
+async_patcher = importlib.util.module_from_spec(async_spec)
+async_spec.loader.exec_module(async_patcher)
 
 
 @unittest.skipUnless(os.environ.get('KARUKAN_SOURCE_ROOT'), 'requires pinned upstream checkout')
 class KarukanPatchTests(unittest.TestCase):
+    def test_async_extension_applies_to_pinned_frontend_and_engine(self):
+        source = Path(os.environ['KARUKAN_SOURCE_ROOT'])
+        # Apply both packaging extensions to the real source tree, so a pinned
+        # upstream layout change fails before spending time on a native build.
+        import shutil
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'source'
+            shutil.copytree(source, root)
+            for path in [root, *root.rglob('*')]:
+                path.chmod(0o755 if path.is_dir() else 0o644)
+            patcher.main(root)
+            async_patcher.main(root, ROOT / 'nixos/karukan-async-live.rs')
+            self.assertIn('karukan_engine_poll_live',
+                          (root / 'karukan-im/fcitx5/include/karukan.h').read_text())
+            self.assertIn('mod async_live;',
+                          (root / 'karukan-im/core/src/core/engine/mod.rs').read_text())
+
     def test_patch_preserves_converter_and_restores_default_offload(self):
         source = Path(os.environ['KARUKAN_SOURCE_ROOT'])
         loader = 'karukan-engine/src/kanji/llamacpp.rs'
@@ -44,6 +64,19 @@ class KarukanPatchTests(unittest.TestCase):
             self.assertIn('openvino::runtime', (root / cmake).read_text())
             self.assertIn('OpenCL::OpenCL', (root / cmake).read_text())
             expected_input = (source / input_source).read_text().replace(
+                '        let full_reading = self.input_buf.reading();\n',
+                '        let full_reading = self.input_buf.reading();\n'
+                '        if !self.input_buf.pending().is_empty() {\n'
+                '            let chunk_reading: String = self.chunks.iter().map(|c| c.reading.as_str()).collect();\n'
+                '            self.live.shown = self.live.shown && chunk_reading == full_reading;\n'
+                '            self.shown_suggestions = CandidateList::default();\n'
+                '            let preedit = self.set_composing_state();\n'
+                '            return EngineResult::consumed()\n'
+                '                .with_action(EngineAction::UpdatePreedit(preedit))\n'
+                '                .with_action(EngineAction::HideCandidates)\n'
+                '                .with_action(EngineAction::UpdateAuxText(self.format_aux_composing()));\n'
+                '        }\n',
+            ).replace(
                 '        let convert = !self.suppress_suggest\n',
                 '        let convert = !self.suppress_suggest\n'
                 '            && (self.live.enabled || self.config.candidate_window == CandidateWindow::Always)\n',
