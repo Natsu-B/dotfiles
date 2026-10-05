@@ -9,7 +9,7 @@ if systemctl --user is-active --quiet dotfiles-clipboard.service; then was_activ
 touch "$marker"
 # Clipboard cleanup failing must never prevent the screen from locking.
 desktop-clipboard pause || true
-if hyprlock; then
+if hyprlock "$@"; then
   # Notify DMS/logind only after the external locker authenticated successfully.
   loginctl unlock-session || true
   rm -f -- "$marker"

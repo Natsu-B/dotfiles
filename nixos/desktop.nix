@@ -34,7 +34,9 @@
   home-manager.backupFileExtension = "before-hyprland";
 
   security.polkit.enable = true;
-  security.pam.services.hyprlock = { };
+  # Hyprlock uses fprintd directly in parallel with the password PAM worker.
+  # A fingerprint PAM step would block typing while it waits and claim the same sensor.
+  security.pam.services.hyprlock.fprintAuth = false;
   services.gnome.gnome-keyring.enable = true;
 
   # Use the DMS package's own upstream systemd unit. It uses Type=dbus,

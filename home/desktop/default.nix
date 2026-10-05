@@ -46,6 +46,14 @@ in {
     "hypr/hyprlock.conf".text = ''
       general {
         hide_cursor = true
+        ignore_empty_input = true
+      }
+      auth {
+        pam:enabled = true
+        pam:module = hyprlock
+        fingerprint:enabled = true
+        fingerprint:ready_message = 指紋センサーに触れて解除
+        fingerprint:present_message = 指紋を確認しています
       }
       background {
         monitor =
@@ -63,6 +71,18 @@ in {
         inner_color = rgb(1e1e2e)
         font_color = rgb(cdd6f4)
         placeholder_text = Password
+        fade_on_empty = false
+        check_color = rgb(f9e2af)
+        fail_text = $PAMFAIL
+      }
+      label {
+        monitor =
+        text = $FPRINTPROMPT<br/>$FPRINTFAIL
+        font_size = 14
+        color = rgb(cdd6f4)
+        position = 0, -150
+        halign = center
+        valign = center
       }
     '';
     # DMS controls the idle timers. hypridle only bridges logind/suspend and
