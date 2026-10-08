@@ -27,16 +27,21 @@ pkgs.runCommand "dotfiles-s4-policy-check" { nativeBuildInputs = [ pkgs.python3 
   swap = next(s for s in facts['swap'] if s['device'] == '/var/lib/hibernate.swap')
   assert swap['size'] >= 40 * 1024 and not swap['encrypted']
   assert facts['sleep']['AllowHibernation'] and facts['sleep']['HibernateMode'] == 'platform'
-  assert 'SuspendState' not in facts['sleep'] # disk here skips hibernate preparation
-  for key in ['SleepOperation', 'HandleSuspendKey', 'HandleHibernateKey',
-              'HandleLidSwitch', 'HandleLidSwitchExternalPower']:
+  assert facts['sleep']['AllowSuspend'] and facts['sleep']['AllowSuspendThenHibernate']
+  assert facts['sleep']['SuspendState'] == 'mem' # disk here skips hibernate preparation
+  assert facts['sleep']['MemorySleepMode'] == 's2idle'
+  assert facts['sleep']['HibernateDelaySec'] == '10min'
+  assert facts['sleep']['HibernateOnACPower']
+  for key in ['SleepOperation', 'HandleSuspendKey', 'HandleHibernateKey']:
       assert facts['logind'][key] == 'hibernate', key
+  for key in ['HandleLidSwitch', 'HandleLidSwitchExternalPower']:
+      assert facts['logind'][key] == 'suspend-then-hibernate', key
   assert facts['logind']['HandleLidSwitchDocked'] == 'ignore'
   assert facts['strategy'] == 'asDropin' # retain the vendor unit's dependencies
   starts = [line for line in facts['unit'].splitlines() if line.startswith('ExecStart=')]
   assert len(starts) == 2 and starts[0] == 'ExecStart=', starts
   assert starts[1].endswith('/lib/systemd/systemd-sleep hibernate'), starts
-  print('S4: persistent swap, EFI resume, sleep/lid actions and ExecStart reset verified')
+  print('S4: persistent swap, EFI resume, 10-minute lid suspend-then-hibernate on AC/battery and ExecStart reset verified')
   PY
   touch "$out"
 ''

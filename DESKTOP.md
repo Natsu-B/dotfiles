@@ -97,17 +97,24 @@ GUI アプリがホーム全体を Git リポジトリとして探索する場�
 生成データが大量に含まれないかも確認する。マシン固有の除外は対象リポジトリの
 `.git/info/exclude` に置き、通常のソース用リポジトリの設定とは分ける。
 
-## Sleep は S4（ハイバネーション）
+## 蓋を閉じたらサスペンドし、10分後に S4
 
 P14s Gen 5 は通常の suspend が s2idle（S0）で、S3 は提供されない。
-sleep・蓋閉じ・サスペンドキーを S4 に統一する。DMS のアイドル時の動作も
-Hibernate を初期値とするが、自動休止の時間は従来どおり 0（無効）から変更しない。
-ドックや外部画面使用中の蓋閉じは従来どおり無視する。
+蓋を閉じると `suspend-then-hibernate` で s2idle に入り、10分後に
+S4（ハイバネーション）へ移る。AC 接続時もバッテリー駆動時も同じ動作にする。
+10分以内に蓋を開いて復帰すると、その回の S4 への移行は取り消される。
+低残量では10分より早く S4 へ移る場合がある。ドックや外部画面使用中の
+蓋閉じは従来どおり無視する。
+
+手動の sleep・サスペンドキー・`systemctl suspend` は即 S4 に入る。
+DMS のアイドル時の動作も Hibernate を初期値とし、自動休止の時間は
+従来どおり 0（無効）から変更しない。
 
 `/var/lib/hibernate.swap` に 40 GiB を確保する。systemd が UEFI の
 HibernateLocation に swap のデバイスと位置を保存し、systemd initrd が復帰する。
 固定の `resume_offset` は使わない。`systemctl suspend` を使うアプリにも対応するため、
 upstream の suspend ユニットの依存関係を維持し、実行する処理を hibernate に変更する。
+蓋閉じの `suspend-then-hibernate` は専用ユニットを使うため、この上書きを経由しない。
 
 S4 はディスクへの保存・復元が必要なので、通常の suspend より休止・復帰に時間がかかる。
 現在のルートディスクは暗号化されていないため、休止イメージも暗号化されない。
@@ -121,8 +128,12 @@ sudo bash /home/hotaru/dotfiles/scripts/stage-s4.sh --apply
 
 作業を保存して通常の再起動を行った後、`swapon --show` の 40 GiB の swap と
 DMS の休止機能が利用可能なことを確認する。実際の S4 / 復帰は、端末から
-`systemctl hibernate` を実行して検証する。現状のビルド・ハードウェア確認と、
-実際の休止・復帰の完了は区別する。
+`systemctl hibernate` を実行して検証する。段階的な休止は
+`systemctl suspend-then-hibernate`、または実際の蓋閉じで確認する。
+AC 接続時とバッテリー駆動時のそれぞれで、10分以内の復帰と10分後の S4 移行を試す。
+復帰後のログは `journalctl -b -u systemd-suspend-then-hibernate.service` で確認する。
+10分後の移行には RTC の自動復帰が必要なので、実機で検証する。
+現状のビルド・ハードウェア確認と、実際の休止・復帰の完了は区別する。
 
 ## GUI の変更を残す仕組み
 
