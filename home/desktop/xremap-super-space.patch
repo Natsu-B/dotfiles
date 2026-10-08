@@ -1,0 +1,69 @@
+--- a/src/event_handler.rs
++++ b/src/event_handler.rs
+@@ -289,6 +289,14 @@
+             }) => {
+                 match value {
+                     PRESS => {
++                        // SandS must emit WM shortcuts before Super is released.
++                        if key == Key::KEY_SPACE
++                            && self.modifiers.iter().any(|modifier| {
++                                matches!(*modifier, Key::KEY_LEFTMETA | Key::KEY_RIGHTMETA)
++                            })
++                        {
++                            return Ok(vec![(key, value)]);
++                        }
+                         // Move this to input validation.
+                         let hold_threshold = if hold_threshold <= tap_timeout {
+                             hold_threshold
+--- a/src/tests/tests_modmap_mul_purpose.rs
++++ b/src/tests/tests_modmap_mul_purpose.rs
+@@ -9,3 +9,49 @@
++#[test]
++fn test_sands_super_space_is_immediate_and_balanced() {
++    let config = indoc! {"
++        modmap:
++            - remap:
++                Space:
++                    held: Shift_L
++                    alone: Space
++                    alone_timeout_millis: 999999999999
++    "};
++    for modifier in [Key::KEY_LEFTMETA, Key::KEY_RIGHTMETA] {
++        for super_first in [false, true] {
++            for shifted in [false, true] {
++                let mut handler = EventHandlerForTest::new(config);
++                if shifted {
++                    handler.assert(vec![Event::key_press(Key::KEY_LEFTSHIFT)], vec![
++                        Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
++                    ]);
++                }
++                handler.assert(vec![Event::key_press(modifier), Event::key_press(Key::KEY_SPACE)], vec![
++                    Action::KeyEvent(KeyEvent::new(modifier, KeyValue::Press)),
++                    Action::KeyEvent(KeyEvent::new(Key::KEY_SPACE, KeyValue::Press)),
++                ]);
++                let releases = if super_first { [modifier, Key::KEY_SPACE] } else { [Key::KEY_SPACE, modifier] };
++                for key in releases {
++                    handler.assert(vec![Event::key_release(key)], vec![
++                        Action::KeyEvent(KeyEvent::new(key, KeyValue::Release)),
++                    ]);
++                }
++                if shifted {
++                    handler.assert(vec![Event::key_release(Key::KEY_LEFTSHIFT)], vec![
++                        Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release)),
++                    ]);
++                }
++                // Ordinary Space taps still wait for release after the shortcut.
++                handler.assert(vec![Event::key_press(Key::KEY_SPACE)], vec![]);
++                handler.assert(vec![Event::key_release(Key::KEY_SPACE)], vec![
++                    Action::KeyEvent(KeyEvent::new(Key::KEY_SPACE, KeyValue::Press)),
++                    Action::KeyEvent(KeyEvent::new(Key::KEY_SPACE, KeyValue::Release)),
++                ]);
++                handler.assert_base_state();
++            }
++        }
++    }
++}
++
+ #[test]
+ fn test_multipurpose_is_not_emitted_on_press() {
+     assert_actions(
