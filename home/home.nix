@@ -173,7 +173,10 @@
         pkgs.mattermost
 
         # Browser
-        pkgs.google-chrome
+        (pkgs.google-chrome.override {
+          # Hyprland is not a GNOME session; select the existing Secret Service explicitly.
+          commandLineArgs = "--password-store=gnome-libsecret";
+        })
         pkgs.brave
 
         pkgs.python3
