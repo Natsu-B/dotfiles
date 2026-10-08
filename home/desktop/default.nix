@@ -41,6 +41,12 @@ in {
   };
 
   xdg.configFile = {
+    # Replace legacy direct store links that Home Manager does not recognize as its own.
+    "gtk-3.0/settings.ini".force = true;
+    "gtk-4.0/settings.ini".force = true;
+    "hypr/commands.lua".force = true;
+    "systemd/user/dotfiles-trackpoint.service".force = true;
+    "systemd/user/graphical-session.target.wants/dotfiles-trackpoint.service".force = true;
     "kitty/kitty.conf".text = ''
       mouse_map middle release ungrabbed no_op
       mouse_map shift+middle release ungrabbed,grabbed no_op

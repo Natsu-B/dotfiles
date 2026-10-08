@@ -324,6 +324,11 @@
       file.".config/nixpkgs/config.nix" = {
         source = ../nixpkgs/config.nix;
       };
+      # Normalize the generated key's target so the forced-path check matches ~/.zshrc.
+      file."./.zshrc" = {
+        target = ".zshrc";
+        force = true;
+      };
       file.".local/bin/codex-usb-start".source = "${codexUsb}/bin/codex-usb";
       file.".local/bin/codex-usb-stop".source = "${codexUsb}/bin/codex-usb";
       file.".local/bin/codex-usb-shell".source = "${codexUsb}/bin/codex-usb";
