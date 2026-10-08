@@ -25,6 +25,7 @@ let
       fontFamily = "Noto Sans CJK JP";
       monoFontFamily = "JetBrainsMono Nerd Font";
       cornerRadius = 14;
+      hyprlandResizeOnBorder = true;
       showWeather = false;
       showClipboard = false;
       clipboardClickToPaste = false;

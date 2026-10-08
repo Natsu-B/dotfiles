@@ -2,7 +2,7 @@
 let
   target = "wayland-session@hyprland.desktop.target";
   tools = import ./packages.nix { inherit pkgs unstable; };
-  inherit (tools) wallpaper keyboard clipboard clipboardMenu locker cheatsheet profiles;
+  inherit (tools) wallpaper keyboard trackpoint clipboard clipboardMenu locker cheatsheet profiles;
   clipboardHardening = {
     UMask = "0077";
     LimitCORE = 0;
@@ -31,10 +31,21 @@ in {
 
   # GTK reads these for X11, while native Wayland uses text-input-v3.
   gtk.gtk2.extraConfig = ''gtk-im-module="fcitx"'';
-  gtk.gtk3.extraConfig.gtk-im-module = "fcitx";
-  gtk.gtk4.extraConfig.gtk-im-module = "fcitx";
+  gtk.gtk3.extraConfig = {
+    gtk-im-module = "fcitx";
+    gtk-enable-primary-paste = false;
+  };
+  gtk.gtk4.extraConfig = {
+    gtk-im-module = "fcitx";
+    gtk-enable-primary-paste = false;
+  };
 
   xdg.configFile = {
+    "kitty/kitty.conf".text = ''
+      mouse_map middle release ungrabbed no_op
+      mouse_map shift+middle release ungrabbed,grabbed no_op
+      mouse_map shift+middle press grabbed no_op
+    '';
     # Keep GNOME's module setup and Qt5 support; only Hyprland unsets GTK's override.
     "uwsm/env-hyprland".text = ''
       unset GTK_IM_MODULE
@@ -114,10 +125,9 @@ in {
     '';
     "karukan-im/config.toml".text = ''
       [conversion]
-      # Explicit conversion must stay interactive. Adaptive mode runs a main
-      # greedy inference and a light-model beam in parallel. That means Space
-      # waits for both even when live conversion is disabled. Main mode keeps AI to one greedy
-      # candidate; learning/dictionaries/fallbacks fill the rest of the list.
+      # Live conversion stays greedy and asynchronous. Space requests up to
+      # beam_width AI alternatives on the same model; further presses cycle
+      # the existing list without another inference.
       strategy = "main"
       num_candidates = 9
       use_context = true
@@ -141,6 +151,7 @@ in {
   };
 
   dconf.settings = {
+    "org/gnome/desktop/interface".gtk-enable-primary-paste = false;
     "org/gnome/desktop/input-sources" = {
       sources = [ (lib.hm.gvariant.mkTuple [ "xkb" "jp" ]) ];
       xkb-options = [];
@@ -166,6 +177,22 @@ in {
   };
 
   systemd.user.services = {
+    dotfiles-trackpoint = {
+      Unit = {
+        Description = "TrackPoint scroll release grace";
+        After = [ "graphical-session.target" ];
+        PartOf = [ "graphical-session.target" ];
+      };
+      Service = {
+        ExecStart = "${trackpoint}/bin/desktop-trackpoint --release-grace-ms 120";
+        Restart = "on-failure";
+        RestartSec = 2;
+        NoNewPrivileges = true;
+        UMask = "0077";
+        LimitCORE = 0;
+      };
+      Install.WantedBy = [ "graphical-session.target" ];
+    };
     xremap = {
       Unit = {
         Description = "Shared JIS/QWERTY and custom Dvorak remapper";

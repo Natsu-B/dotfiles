@@ -25,4 +25,4 @@ hl.layer_rule({ match = { namespace = "^dms:.*" }, no_anim = true, blur = false,
 hl.layer_rule({ match = { namespace = "^dms:(keybinds|workspace-overview)$" }, blur = true, ignore_alpha = 0.1 })
 hl.window_rule({ match = { class = "^com.danklinux.dms$" }, no_blur = true })
 -- Dialogs used during conferencing/settings should not consume a tiled column.
-hl.window_rule({ match = { class = "^(zoom)$" }, float = true })
+hl.window_rule({ match = { class = "^(zoom|Zoom)$" }, float = true })

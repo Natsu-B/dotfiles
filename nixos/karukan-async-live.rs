@@ -138,6 +138,29 @@ impl Drop for AsyncLive {
 }
 
 impl InputMethodEngine {
+    pub(super) fn async_live_preedit(&mut self) -> Option<Preedit> {
+        if self.async_live.is_none() || !self.live.enabled || self.suppress_suggest
+            || self.mode.current() != InputMode::Hiragana
+            || self.input_buf.cursor() != self.input_buf.char_count() {
+            return None;
+        }
+        if !self.async_live_requested && self.input_buf.pending().is_empty() {
+            self.async_live_preview = self.live.shown.then(|| {
+                (self.input_buf.reading(), self.live_text())
+            });
+            return None;
+        }
+        // Display-only: never turn this draft into a model cache entry or candidate.
+        // A changed/deleted prefix has no trustworthy reading-to-kanji mapping.
+        let (reading, converted) = self.async_live_preview.as_ref()?;
+        let display = self.build_input_display();
+        let tail = display.strip_prefix(reading)?;
+        let display = format!("{converted}{tail}");
+        let mut preedit = Preedit::with_text_underlined(&display);
+        preedit.set_caret(display.chars().count());
+        Some(preedit)
+    }
+
     pub(super) fn commit_live_composing(&mut self) -> EngineResult {
         // Keep character input asynchronous, but an explicit Enter must commit
         // the current reading's AI answer rather than an unfinished kana draft.

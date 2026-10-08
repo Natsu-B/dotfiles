@@ -47,9 +47,10 @@ class KarukanPatchTests(unittest.TestCase):
         model_source = 'karukan-im/core/src/core/engine/model.rs'
         buffer_source = 'karukan-im/core/src/core/engine/input_buffer.rs'
         conversion_source = 'karukan-im/core/src/core/engine/conversion.rs'
+        strategy_source = 'karukan-im/core/src/core/engine/strategy.rs'
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for name in (loader, converter, hf, cmake, input_source, model_source, buffer_source, conversion_source):
+            for name in (loader, converter, hf, cmake, input_source, model_source, buffer_source, conversion_source, strategy_source):
                 target = root / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes((source / name).read_bytes())

@@ -3,6 +3,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import unittest
@@ -206,6 +207,30 @@ class MigrationTests(unittest.TestCase):
         self.assertIn('xdg.portal.config.hyprland', text)
         self.assertNotIn('xdg.portal.config.Hyprland', text)
         self.assertNotIn('pkgs.zoom-us', (ROOT / 'home/home.nix').read_text())
+        rules = (DESKTOP / 'hypr/appearance.lua').read_text()
+        pattern = re.search(r'class = "([^"]+)" \}, float = true', rules).group(1)
+        for name in ('zoom', 'Zoom'):
+            self.assertRegex(name, pattern)
+        self.assertNotRegex('brave-browser', pattern)
+
+    def test_zoom_seed_is_writable_and_keeps_existing_preferences(self):
+        text = (ROOT / 'home/home.nix').read_text()
+        body = re.search(r'activation.seedZoom = .*?\x27\x27(.*?)\x27\x27;', text, re.S).group(1)
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory) / 'config with spaces'
+            script = body.replace('${config.xdg.configHome}', str(config))
+            script = script.replace('${pkgs.coreutils}/bin/install', 'install')
+            script = script.replace('${./app/zoomus.conf}', str(ROOT / 'home/app/zoomus.conf'))
+            command = ['bash', '-e', '-c', 'run() { "$@"; };\n' + script]
+            subprocess.run(command, check=True)
+            path = config / 'zoomus.conf'
+            self.assertEqual(path.read_text(), '[General]\nxwayland=false\n')
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            preferences = '[General]\nxwayland=true\nmic_volume=80\ncustomKey=keep\n'
+            path.write_text(preferences)
+            subprocess.run(command, check=True)
+            self.assertEqual(path.read_text(), preferences)
+
     def test_release_and_state_versions(self):
         text = (ROOT / 'flake.nix').read_text()
         self.assertIn('nixos-26.05', text); self.assertIn('release-26.05', text)

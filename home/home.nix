@@ -138,6 +138,13 @@
       username = "hotaru";
       homeDirectory = "/home/${username}";
       stateVersion = "25.11";
+
+      # Zoom keeps its own writable preferences after the first launch.
+      activation.seedZoom = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        if [ ! -e "${config.xdg.configHome}/zoomus.conf" ] && [ ! -L "${config.xdg.configHome}/zoomus.conf" ]; then
+          run ${pkgs.coreutils}/bin/install -Dm600 ${./app/zoomus.conf} "${config.xdg.configHome}/zoomus.conf"
+        fi
+      '';
       # Install pkgs
       packages = [
         # Development tools
@@ -340,6 +347,8 @@
       [[ -d "$HOME/.local/bin" ]] && path=("$HOME/.local/bin" $path)
       [[ -d "/usr/local/bin" ]] && path=("/usr/local/bin" $path)
       [[ -d "/usr/local/sbin" ]] && path=("/usr/local/sbin" $path)
+
+      source ${./ssh.zsh}
 
       if [[ -x "$HOME/.local/bin/jfx-module-path" ]]; then
         export JAVAFX_MODULE_PATH="$("$HOME/.local/bin/jfx-module-path" 2>/dev/null || printf '%s' "$JAVAFX_MODULE_PATH")"

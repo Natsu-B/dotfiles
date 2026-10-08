@@ -60,7 +60,7 @@ for _, name in ipairs({'close','fullscreen','float','move','drag','resize'}) do
 end
 require('hyprland')
 startup() -- timer is not duplicated if startup follows an already-live monitor
-assert(count == 76, 'Expected 76 bindings, got ' .. count)
+assert(count == 80, 'Expected 80 bindings, got ' .. count)
 local minimize = bindings['SUPER + code:58'].action
 minimize(); assert(#moves == 0) -- empty desktop
 activeWindow = {address='0x123', workspace={name='1'}}
@@ -112,9 +112,7 @@ local trackpoint = devices['tpps/2-elan-trackpoint']
 assert(trackpoint.scroll_method == 'on_button_down' and trackpoint.scroll_button == 274)
 assert(trackpoint.accel_profile == 'adaptive' and trackpoint.sensitivity < 0)
 assert(not trackpoint.scroll_button_lock and not trackpoint.middle_button_emulation)
-local middle = bindings['mouse:274'].options
-assert(middle.ignore_mods and middle.locked and not middle.non_consuming)
-assert(middle.device.inclusive and #middle.device.list == 1 and middle.device.list[1] == trackpoint.name)
+assert(not bindings['mouse:274']) -- libinput distinguishes a click from button scrolling
 assert(bindings['SUPER + Tab'].action.argument == 'windowSwitcher')
 assert(bindings['SUPER + code:55'].action.argument == 'clipboard')
 assert(bindings['SUPER + space'].action.argument == 'launcher')
@@ -147,4 +145,4 @@ move(-1920,100,3) -- unlocking in the corner must not open the switcher
 move(-1800,200,3); move(-1920,100,4)
 for _, command in ipairs(executions) do assert(command == 'windowSwitcher') end
 io.open, os.getenv = realOpen, realGetenv
-print('Lua: 76 bindings, numbered apps, workspace shortcuts, input and hot corner verified')
+print('Lua: 80 bindings, numbered apps, workspace shortcuts, input and hot corner verified')

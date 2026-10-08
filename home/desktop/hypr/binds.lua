@@ -72,6 +72,7 @@ hl.bind("SUPER + SHIFT + code:24", hl.dsp.window.close(), { description = "Close
 hl.bind("SUPER + code:58", minimize, { description = "Minimize selected window (Win+M)" })
 hl.bind("SUPER + CTRL + code:58", toggle_minimized, { description = "Show / hide minimized windows (Win+Ctrl+M)" })
 hl.bind("SUPER + code:41", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }), { description = "Fullscreen (Win+F)" })
+hl.bind("SUPER + CTRL + code:41", hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }), { description = "Maximize with bar (Win+Ctrl+F)" })
 hl.bind("SUPER + SHIFT + space", hl.dsp.window.float({ action = "toggle" }), { description = "Toggle floating" })
 hl.bind("SUPER + SHIFT + code:58", hl.dsp.exec_cmd(c.logout), { description = "End UWSM session (Win+Shift+M)" })
 hl.bind("SUPER + left", hl.dsp.focus({ direction = "l" }), { description = "Focus left" })
@@ -82,16 +83,12 @@ hl.bind("SUPER + SHIFT + left", hl.dsp.window.move({ direction = "l" }), { descr
 hl.bind("SUPER + SHIFT + right", hl.dsp.window.move({ direction = "r" }), { description = "Move window right" })
 hl.bind("SUPER + SHIFT + up", hl.dsp.window.move({ direction = "u" }), { description = "Move window above" })
 hl.bind("SUPER + SHIFT + down", hl.dsp.window.move({ direction = "d" }), { description = "Move window below" })
+hl.bind("SUPER + CTRL + left", hl.dsp.window.resize({ x = -30, y = 0, relative = true }), { repeating = true, description = "Resize window left" })
+hl.bind("SUPER + CTRL + right", hl.dsp.window.resize({ x = 30, y = 0, relative = true }), { repeating = true, description = "Resize window right" })
+hl.bind("SUPER + CTRL + up", hl.dsp.window.resize({ x = 0, y = -30, relative = true }), { repeating = true, description = "Resize window up" })
+hl.bind("SUPER + CTRL + down", hl.dsp.window.resize({ x = 0, y = 30, relative = true }), { repeating = true, description = "Resize window down" })
 hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true, description = "Drag window" })
 hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true, description = "Resize window" })
-
--- libinput handles scrolling first; consume short/bouncing clicks it forwards.
--- The TrackPoint middle button is scroll-only; external mice keep middle click.
-hl.bind("mouse:274", function() end, { description = "TrackPoint middle button: scroll only",
-    device = { inclusive = true, list = { "tpps/2-elan-trackpoint" } },
-    ignore_mods = true,
-    locked = true,
-})
 
 for workspace = 1, 10 do
     local code = tostring(workspace + 9)

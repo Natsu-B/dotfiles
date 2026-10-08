@@ -13,6 +13,23 @@ def sub(path: Path, pattern: str, replacement: str, expected: int = 1) -> None:
 
 
 def main(root: Path) -> None:
+    # Keep live conversion greedy; generate alternatives only on explicit conversion.
+    sub(
+        root / "karukan-im/core/src/core/engine/strategy.rs",
+        r"        StrategyMode::Main => \{\n"
+        r"            // Main mode: always use main model greedy only\n"
+        r"            ConversionStrategy::MainModelOnly\n"
+        r"        \}",
+        "        StrategyMode::Main => {\n"
+        "            if num_candidates == 1 {\n"
+        "                ConversionStrategy::MainModelOnly\n"
+        "            } else {\n"
+        "                ConversionStrategy::MainModelBeam {\n"
+        "                    beam_width: num_candidates.min(config.beam_width),\n"
+        "                }\n"
+        "            }\n"
+        "        }",
+    )
     # Typing after candidate selection commits it and starts a new composition.
     sub(
         root / "karukan-im/core/src/core/engine/conversion.rs",

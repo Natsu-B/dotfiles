@@ -23,6 +23,7 @@ pkgs.runCommand "dotfiles-desktop-tools-check" {
     ${tools.windowSwitcher}/bin/desktop-window-switcher; do
     test -x "$executable"
   done
+  ${tools.trackpoint}/bin/desktop-trackpoint --help > /dev/null
   ${tools.dms}/bin/dms --help > /dev/null
   touch "$out"
 ''

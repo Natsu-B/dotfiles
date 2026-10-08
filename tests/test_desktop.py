@@ -24,6 +24,57 @@ def load(name):
 keys = load('generate_xremap')
 clipboard = load('clipboard')
 cheatsheet = load('cheatsheet')
+trackpoint = load('trackpoint')
+
+
+class TrackPointTests(unittest.TestCase):
+    def test_click_and_double_click_are_immediate(self):
+        grace = trackpoint.ReleaseGrace()
+        for now, value in [(0, 1), (0.05, 0), (0.1, 1), (0.15, 0)]:
+            event = (1, 274, value)
+            self.assertEqual(grace.feed(event, now), [event])
+        self.assertIsNone(grace.deadline)
+
+    def test_short_release_keeps_one_scroll_gesture(self):
+        grace = trackpoint.ReleaseGrace()
+        events = [(0, (1, 274, 1)), (0.02, (2, 1, 12)),
+                  (0.10, (1, 274, 0)), (0.13, (2, 1, 4)),
+                  (0.16, (1, 274, 1)), (0.20, (2, 1, 8)),
+                  (0.30, (1, 274, 0))]
+        output = []
+        for now, event in events:
+            output.extend(grace.feed(event, now))
+        self.assertEqual(output, [(1, 274, 1), (2, 1, 12), (2, 1, 4), (2, 1, 8)])
+        self.assertEqual(grace.expire(0.43), [(1, 274, 0)])
+        self.assertEqual(grace.expire(0.5), [])
+
+    def test_long_release_starts_a_new_click(self):
+        grace = trackpoint.ReleaseGrace()
+        grace.feed((1, 274, 1), 0)
+        grace.feed((2, 1, 12), 0.01)
+        grace.feed((1, 274, 0), 0.1)
+        self.assertEqual(grace.feed((1, 274, 1), 0.3), [(1, 274, 0), (1, 274, 1)])
+        self.assertEqual(grace.feed((1, 274, 0), 0.35), [(1, 274, 0)])
+
+    def test_pointer_and_other_buttons_are_not_delayed(self):
+        grace = trackpoint.ReleaseGrace()
+        for event in [(2, 0, 5), (2, 1, -3), (1, 272, 1), (1, 272, 0), (1, 273, 1), (1, 273, 0)]:
+            self.assertEqual(grace.feed(event, 0), [event])
+
+    def test_duplicate_release_does_not_extend_grace(self):
+        grace = trackpoint.ReleaseGrace()
+        grace.feed((1, 274, 1), 0)
+        grace.feed((2, 1, 12), 0.01)
+        grace.feed((1, 274, 0), 0.1)
+        grace.feed((1, 274, 0), 0.2)
+        self.assertEqual(grace.expire(0.23), [(1, 274, 0)])
+
+    def test_expiry_precedes_motion_after_release(self):
+        grace = trackpoint.ReleaseGrace()
+        grace.feed((1, 274, 1), 0)
+        grace.feed((2, 1, 12), 0.01)
+        grace.feed((1, 274, 0), 0.1)
+        self.assertEqual(grace.feed((2, 0, 5), 0.3), [(1, 274, 0), (2, 0, 5)])
 
 class KeyboardTests(unittest.TestCase):
     def test_profiles_have_shared_navigation(self):
