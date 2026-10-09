@@ -20,9 +20,9 @@
     };
   };
 
-  outputs = { self, nixpkgs, home-manager, nixpkgs-unstable, nixpkgs-master, rust-overlay, ... }@inputs: {
-    nixosConfigurations = {
-      nixos = nixpkgs.lib.nixosSystem {
+  outputs = { self, nixpkgs, home-manager, nixpkgs-unstable, nixpkgs-master, rust-overlay, ... }@inputs:
+    let
+      mkNixos = extraModules: nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         specialArgs = {
           # Pass unstable packages to the configuration
@@ -45,8 +45,15 @@
           inputs.microvm.nixosModules.host
           ./nixos/configuration.nix
           home-manager.nixosModules.home-manager
-        ];
+        ] ++ extraModules;
+      };
+    in {
+      nixosConfigurations = {
+        # Existing host configuration remains unchanged.
+        nixos = mkNixos [];
+
+        # Windows-first installation with a shared ESP and separate XBOOTLDR.
+        nixos-windows = mkNixos [ ./nixos/windows-dualboot.nix ];
       };
     };
-  };
 }
