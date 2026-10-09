@@ -75,9 +75,13 @@
       })
   ];
 
-  # Bootloader
+  # Bootloader (UEFI / systemd-boot).
+  # Windows on this ESP is automatically detected by systemd-boot.
+  # For Windows on a different ESP, see DUAL-BOOT.md before adding a
+  # boot.loader.systemd-boot.windows entry with a verified EFI device handle.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.timeout = 5;
 
   # Use Linux 7.1+ for the new in-kernel NTFS driver.
   # nixpkgs 25.11 latest is currently 7.0.x, so use nixpkgs-master here.
