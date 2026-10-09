@@ -70,6 +70,10 @@ Windows 11 の公称ストレージ最小要件は 64 GB だが、更新や一�
 sudo mkdir -p /mnt/home/hotaru
 sudo cp -a . /mnt/home/hotaru/dotfiles
 
+# ライブ環境のユーザーと root の UID が異なる場合にも、
+# root 実行の nixos-install/Git が所有権エラーを出さないよう揃える。
+sudo chown -R root:root /mnt/home/hotaru/dotfiles
+
 # 実際の /mnt のマウント構成からハードウェア設定を再生成する。
 sudo nixos-generate-config --root /mnt --show-hardware-config | \
   sudo tee /mnt/home/hotaru/dotfiles/nixos/hardware-configuration.nix > /dev/null
