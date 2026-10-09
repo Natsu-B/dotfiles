@@ -1,83 +1,98 @@
-# Windows / NixOS デュアルブート（UEFI）
+# Windows 11 + NixOS 25.11: 完全再インストール（同一ディスク / UEFI）
 
-このリポジトリは NixOS 25.11 と `systemd-boot` を使用する。NixOS の ESP は `/boot` にマウントされる。
-この設定で管理するのは起動メニューだけであり、Windows のインストールやディスクのパーティション操作は行わない。
+この手順は **既存の Windows/NixOS をすべて削除して入れ直す** 場合のもの。重要なデータと復旧キー、Windows のライセンス情報を事前に控える。対象ディスクを取り違えるとデータが失われる。
 
-## 事前確認
+Windows を Rufus の USB から先にインストールし、**Windows 用に確保した部分以外を未割り当て**にする。その後 NixOS Live ISO から `systemd-repart` を使って、Windows のパーティションはそのままに NixOS 用の領域を作る。
 
-Windows をインストール・再構成する前に重要なデータと EFI パーティションをバックアップする。BitLocker を利用する場合は回復キーも保存しておく。
-既存の NixOS の `/boot` やルートパーティションを、Windows インストーラーでフォーマットしないこと。
+## ディスク構成（例）
 
-```sh
-findmnt /boot
-lsblk -o NAME,SIZE,FSTYPE,PARTTYPE,PARTLABEL,UUID,MOUNTPOINTS
-sudo bootctl list
-sudo efibootmgr -v
-```
+| 領域 | ファイルシステム | 用途 |
+| --- | --- | --- |
+| Windows が作成する ESP | FAT32 | Windows Boot Manager + systemd-boot（共用） |
+| Windows が作成する MSR | なし | Windows 管理用 |
+| Windows 本体 | NTFS、例: 128 GiB | Windows のみ |
+| Windows が作成する Recovery | Windows が管理 | WinRE |
+| NIXOS_BOOT | FAT32、4 GiB | XBOOTLDR: NixOS のカーネル/initrd |
+| NIXOS_ROOT | ext4、残り | NixOS の `/` |
 
-Windows が使う EFI System Partition (ESP) が NixOS と同じか、別かを調べる。
+Windows の自動生成パーティションの個数・順序・容量は Windows のバージョンで変わり得る。ESP が小さくても NixOS の世代を保存できるよう、別の XBOOTLDR を使う。`nixos/windows-dualboot.nix` が `/efi` と `/boot` を設定する。
 
-## Windows と NixOS が同じ ESP を使用する場合
+## 1. Windows 11 を Rufus から入れる
 
-`/boot/EFI/Microsoft/Boot/bootmgfw.efi` が存在すれば、`systemd-boot` が Windows Boot Manager を自動検出する。
-その場合、`boot.loader.systemd-boot.windows` の追加設定は不要。
+1. 公式の Windows 11 ISO を入手し、Rufus で **GPT / UEFI（CSM なし）** の USB インストーラーを作る。NixOS 用 ISO は別の USB を用意する。
+2. Rufus の Windows User Experience では、必要に応じてローカルアカウント用の設定やプライバシー項目を選ぶ。Rufus 自体は Windows の標準アプリを削除する debloater ではない。TPM/Secure Boot 要件を不要に回避しない。
+3. Windows Setup を UEFI モードで起動し、対象内蔵ディスクの既存パーティションを削除する。**別ディスクや USB を削除しない**。
+4. 未割り当て領域から「新規」を選び、Windows 用に例えば **131072 MiB (128 GiB)** を指定する。Windows Setup が作る ESP / MSR / Recovery を維持したまま Windows をインストールする。
+5. **残りの未割り当て領域は Windows のボリュームにしない**。Windows を起動して初期設定を終え、デバイス暗号化/BitLocker の状態と回復キーを確認する。Fast Startup/休止状態の無効化も検討する。
 
-```sh
-sudo ls -l /boot/EFI/Microsoft/Boot/bootmgfw.efi
-sudo bootctl list
-```
+Windows 11 の公称ストレージ最小要件は 64 GB だが、更新や一時ファイルの余裕を考えて 128 GiB を目安にする。ドライバーや Windows 固有アプリの容量に応じて調整する。
 
-`nixos/configuration.nix` では `boot.loader.timeout = 5;` としているので、起動メニューを 5 秒間表示してから既定のエントリを起動する。
-Windows がまだインストールされていない場合、Windows の項目が現れないのは正常。
+## 2. NixOS Live ISO で空き領域を自動分割
 
-## Windows が別の ESP を使用する場合
+**注意:** `disko` の標準的なディスク構成適用はディスク全体を再初期化するため、Windows インストール後の同一ディスクに使用しない。このリポジトリは `systemd-repart` で未割り当て領域だけに NixOS 用パーティションを追加する。
 
-異なる ESP にある Windows は自動検出されない。NixOS 25.11 では `boot.loader.systemd-boot.windows` を使い、EDK2 UEFI Shell で確認したデバイスハンドルを指定できる。
-ESP の UUID と `efiDeviceHandle` は別物なので、`lsblk` の UUID をそのまま `efiDeviceHandle` に指定しない。
-
-1. 必要なら、Windows 側の ESP を読み取り専用でマウントし、`EFI/Microsoft/Boot/bootmgfw.efi` があることを確認する（例の UUID は置き換える）。
+1. NixOS ISO を UEFI モードで起動。現在の設定は署名付き Secure Boot 対応ではないため、必要ならファームウェア側で Secure Boot を無効化する。BitLocker 回復キーは必ず保持する。
+2. GitHub の PR を merge 済みなら `main`、未 merge の検証なら `feat/windows-dual-boot` を clone する。
 
    ```sh
-   sudo mkdir -p /mnt/windows-esp
-   sudo mount -o ro /dev/disk/by-uuid/XXXX-XXXX /mnt/windows-esp
-   sudo ls /mnt/windows-esp/EFI/Microsoft/Boot/bootmgfw.efi
-   sudo umount /mnt/windows-esp
+   git clone -b feat/windows-dual-boot https://github.com/Natsu-B/dotfiles.git
+   cd dotfiles
+   lsblk -o NAME,SIZE,FSTYPE,PARTTYPE,PARTLABEL,MODEL,MOUNTPOINTS
+   ls -l /dev/disk/by-id/
    ```
 
-2. `nixos/configuration.nix` のブートローダー設定に、**一時的に**次を追加する。
+3. **対象 SSD の by-id を自分で確認してから**、次のコマンドを実行する（以下のパスはそのまま使わず書き換える）。
 
-   ```nix
-   boot.loader.systemd-boot.edk2-uefi-shell.enable = true;
+   ```sh
+   sudo bash installer/prepare-windows-dualboot.sh /dev/disk/by-id/nvme-REPLACE_WITH_REAL_DISK
    ```
 
-3. `sudo nixos-rebuild boot --flake .#nixos` を実行して再起動し、`EDK2 UEFI Shell` を選択する。シェルで `map -c` を実行し、各ハンドルを調べる。以下の `FS1` は例であり、実際のハンドルを確認する。
+   このスクリプトは GPT/UEFI・単一 ESP・Windows Boot Manager・NTFS の存在を確認し、既存 NixOS パーティションがある場合は停止する。まず `systemd-repart --dry-run=yes` で予定を表示し、`CREATE-NIXOS` と入力した場合のみ実際に作成する。
+
+   宣言的な割り当ては `installer/repart.d/10-xbootldr.conf`（FAT32 4 GiB）と `20-root.conf`（ext4 残り、最低 80 GiB）が担当する。成功すると次のマウントが作成される。
 
    ```text
-   map -c
-   ls FS1:\EFI\Microsoft\Boot
-   FS1:\EFI\Microsoft\Boot\bootmgfw.efi
+   /mnt       -> NIXOS_ROOT (ext4)
+   /mnt/boot  -> NIXOS_BOOT (FAT32 XBOOTLDR)
+   /mnt/efi   -> Windows ESP (FAT32)
    ```
 
-   最後のコマンドで Windows が起動できれば、そのハンドルを使用する。`HD...` ハンドルでも構わない。
+   デバイスが複数ある場合や既存 Windows の構成が異なる場合は、警告を無視して進めない。スクリプトは実機での検証が済むまでは試験的なものとして扱う。
 
-4. 検証したハンドルを次の設定に反映する。**`HD0c1` は説明用の例であり、そのまま使わない。**
+## 3. dotfiles から NixOS をインストール
 
-   ```nix
-   boot.loader.systemd-boot.windows."windows-11" = {
-     title = "Windows 11";
-     efiDeviceHandle = "HD0c1"; # 自分の環境で確認した値へ置換
-   };
-   ```
+**既存の `install.sh` はインストール済み NixOS の構成反映用**なので、Live ISO からの新規インストールには使用しない。
 
-5. `sudo nixos-rebuild boot --flake .#nixos` を再実行して再起動し、メニューから Windows と NixOS の両方を起動できるか確認する。検証後は `edk2-uefi-shell.enable` の一時設定を削除できる。
+ディスクをマウントしたまま、Live ISO で次を実行する。
 
-UEFI の構成や接続ディスクが変わったら、ハンドルの再確認が必要になる場合がある。
+```sh
+# Clone した dotfiles を新しい /home にコピー。
+sudo mkdir -p /mnt/home/hotaru
+sudo cp -a . /mnt/home/hotaru/dotfiles
 
-## 注意事項
+# 実際の /mnt のマウント構成からハードウェア設定を再生成する。
+sudo nixos-generate-config --root /mnt --show-hardware-config | \
+  sudo tee /mnt/home/hotaru/dotfiles/nixos/hardware-configuration.nix > /dev/null
 
-- Windows のインストールや更新によって UEFI の起動順序が変更される場合は、ファームウェア設定または `efibootmgr` で NixOS の起動項目を選び直す。
-- BitLocker が有効なら、起動経路を変更すると回復キーを求められることがある。キーを確保するまで起動関連の変更をしない。
-- `nixos-rebuild boot` は次回起動用の設定を適用する。再起動前にエラーがないことを確認する。
-- 同じ ESP の場合も別 ESP の場合も、Windows のシステムファイルを NixOS 側からコピー・移動する必要はない。
+# Flake は Git 管理下のファイルを評価するため、更新を stage する。
+sudo git -C /mnt/home/hotaru/dotfiles add nixos/hardware-configuration.nix
 
-参考: [NixOS Wiki: Dual Booting NixOS and Windows](https://wiki.nixos.org/wiki/Dual_Booting_NixOS_and_Windows)
+# 専用の Windows デュアルブート設定を指定する。
+sudo nixos-install --flake '/mnt/home/hotaru/dotfiles#nixos-windows'
+
+# 初回ログインできるようユーザーパスワードを設定する。
+sudo nixos-enter --root /mnt -c 'passwd hotaru'
+sudo nixos-enter --root /mnt -c 'chown -R hotaru:users /home/hotaru/dotfiles'
+```
+
+パスワード設定を終えたら再起動し、NixOS と Windows の両方が systemd-boot メニューから起動することを確かめる。
+
+## 4. 再インストール後の管理
+
+- `nixos-windows` は既存の `nixos` Flake 出力を変更しない専用構成。`nixos/windows-dualboot.nix` は `/etc/dotfiles-nixos-flake-profile` に出力名を記録し、`update.sh` が `nixos-windows` を使って再ビルドする。
+- 新しい `hardware-configuration.nix` の UUID はこのマシンに固有。インストール後、差分を確認してコミット・同期する。元の UUID をそのまま復元しない。
+- Windows と systemd-boot が同じ ESP にあるので、Windows の起動エントリは自動検出され、`boot.loader.systemd-boot.windows` の手動ハンドル設定は不要。
+- Secure Boot を再び有効化するなら、NixOS 側でも適切な署名付き起動設定を別途整える。
+- PR のブランチからインストールした場合は、PR の main へのマージ後にローカルの Git 履歴と hardware-configuration の変更を整理してから `git pull` する。
+
+参考: [NixOS Dual Boot Wiki](https://wiki.nixos.org/wiki/Dual_Booting_NixOS_and_Windows) / [systemd-repart(8)](https://www.freedesktop.org/software/systemd/man/latest/systemd-repart.html) / [Rufus FAQ](https://github.com/pbatard/rufus/wiki/FAQ)
