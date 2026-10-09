@@ -36,8 +36,8 @@ mapfile -t esps < <(
   lsblk -nrpo NAME,PARTTYPE "$disk" |
     awk 'tolower($2) == "c12a7328-f81f-11d2-ba4b-00a0c93ec93b" {print $1}'
 )
-[[ \${#esps[@]} -eq 1 ]] || die "Expected exactly one Windows EFI System Partition on this disk."
-esp=\${esps[0]}
+[[ ${#esps[@]} -eq 1 ]] || die "Expected exactly one Windows EFI System Partition on this disk."
+esp=${esps[0]}
 
 lsblk -nrpo NAME,FSTYPE "$disk" |
   awk 'tolower($2) == "ntfs" {found=1} END {exit !found}' ||
@@ -78,13 +78,13 @@ mapfile -t roots < <(
 mapfile -t boots < <(
   lsblk -nrpo NAME,PARTLABEL "$disk" | awk '$2 == "NIXOS_BOOT" {print $1}'
 )
-[[ \${#roots[@]} -eq 1 && \${#boots[@]} -eq 1 ]] ||
+[[ ${#roots[@]} -eq 1 && ${#boots[@]} -eq 1 ]] ||
   die "Partitions were changed, but expected partition labels could not be found. Inspect lsblk before continuing."
 
 mkdir -p /mnt
-mount "\${roots[0]}" /mnt
+mount "${roots[0]}" /mnt
 mkdir -p /mnt/boot /mnt/efi
-mount -o umask=0077 "\${boots[0]}" /mnt/boot
+mount -o umask=0077 "${boots[0]}" /mnt/boot
 mount -o umask=0077 "$esp" /mnt/efi
 
 printf '\nMounted NixOS root at /mnt, XBOOTLDR at /mnt/boot, and Windows ESP at /mnt/efi.\n'
