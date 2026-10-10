@@ -1,4 +1,4 @@
-# Windows 11 + NixOS 25.11: 完全再インストール（同一ディスク / UEFI）
+# Windows 11 + NixOS 26.05: 完全再インストール（同一ディスク / UEFI）
 
 この手順は **既存の Windows/NixOS をすべて削除して入れ直す** 場合のもの。重要なデータと復旧キー、Windows のライセンス情報を事前に控える。対象ディスクを取り違えるとデータが失われる。
 
@@ -76,10 +76,10 @@ sudo chown -R root:root /mnt/home/hotaru/dotfiles
 
 # 実際の /mnt のマウント構成からハードウェア設定を再生成する。
 sudo nixos-generate-config --root /mnt --show-hardware-config | \
-  sudo tee /mnt/home/hotaru/dotfiles/nixos/hardware-configuration.nix > /dev/null
+  sudo tee /mnt/home/hotaru/dotfiles/hosts/nixos/hardware-configuration.nix > /dev/null
 
 # Flake は Git 管理下のファイルを評価するため、更新を stage する。
-sudo git -C /mnt/home/hotaru/dotfiles add nixos/hardware-configuration.nix
+sudo git -C /mnt/home/hotaru/dotfiles add hosts/nixos/hardware-configuration.nix
 
 # 専用の Windows デュアルブート設定を指定する。
 sudo nixos-install --flake '/mnt/home/hotaru/dotfiles#nixos-windows'
@@ -93,10 +93,48 @@ sudo nixos-enter --root /mnt -c 'chown -R hotaru:users /home/hotaru/dotfiles'
 
 ## 4. 再インストール後の管理
 
-- `nixos-windows` は既存の `nixos` Flake 出力を変更しない専用構成。`nixos/windows-dualboot.nix` は `/etc/dotfiles-nixos-flake-profile` に出力名を記録し、`update.sh` が `nixos-windows` を使って再ビルドする。
+- `nixos` と `nixos-windows` はともに `feat/hyprland-private-desktop` のデスクトップ設定を使う。`nixos-windows` はこれにデュアルブート設定を追加する。`nixos/windows-dualboot.nix` は `/etc/dotfiles-nixos-flake-profile` に出力名を記録し、`update.sh` が `nixos-windows` を使って再ビルドする。
 - 新しい `hardware-configuration.nix` の UUID はこのマシンに固有。インストール後、差分を確認してコミット・同期する。元の UUID をそのまま復元しない。
 - Windows と systemd-boot が同じ ESP にあるので、Windows の起動エントリは自動検出され、`boot.loader.systemd-boot.windows` の手動ハンドル設定は不要。
 - Secure Boot を再び有効化するなら、NixOS 側でも適切な署名付き起動設定を別途整える。
 - PR のブランチからインストールした場合は、PR の main へのマージ後にローカルの Git 履歴と hardware-configuration の変更を整理してから `git pull` する。
 
 参考: [NixOS Dual Boot Wiki](https://wiki.nixos.org/wiki/Dual_Booting_NixOS_and_Windows) / [systemd-repart(8)](https://www.freedesktop.org/software/systemd/man/latest/systemd-repart.html) / [Rufus FAQ](https://github.com/pbatard/rufus/wiki/FAQ)
+
+## 5. 旧デュアルブート構成からデスクトップ設定を取り込む
+
+すでに NixOS を起動できる場合、パーティション作成や再インストールは不要。
+ハードウェア設定は `nixos/hardware-configuration.nix` から
+`hosts/nixos/hardware-configuration.nix` に移動した。更新前に現在の設定を保存し、
+更新後に新しいパスへ戻す。次は `feat/windows-dual-boot` にいる場合の手順。
+
+```sh
+(
+set -eu
+cd ~/dotfiles
+backup_dir=$(mktemp -d "$HOME/dotfiles-hardware.XXXXXX")
+cp nixos/hardware-configuration.nix "$backup_dir/hardware-configuration.nix"
+
+# このファイル以外の変更があれば、先に保存・整理する。
+git status --short
+git restore --source=HEAD --staged --worktree -- nixos/hardware-configuration.nix
+git pull --ff-only
+
+cp "$backup_dir/hardware-configuration.nix" hosts/nixos/hardware-configuration.nix
+git add hosts/nixos/hardware-configuration.nix
+
+# /・/boot・/efi が現在のディスクを参照することを確認する。
+findmnt --target /
+findmnt --target /boot
+findmnt --target /efi
+sed -n '/fileSystems/,+5p' hosts/nixos/hardware-configuration.nix
+
+sudo nixos-rebuild build --flake .#nixos-windows
+sudo nixos-rebuild switch --flake .#nixos-windows
+)
+```
+
+コピーに失敗した場合はそこで停止し、保存が成功するまで `git restore` を実行しない。
+変更後はいったんログアウトし、GDM で Hyprland の UWSM セッションを選ぶ。
+指紋データは設定の取り込みでは復元されない。`fprintd-list hotaru` で確認し、
+未登録なら `fprintd-enroll hotaru` で登録する。

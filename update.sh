@@ -1,31 +1,29 @@
 #!/bin/sh
 
-set -e
+set -eu
 
-# --- Configuration ---
-# Get the hostname of the current machine.
-HOSTNAME=$(hostname)
-
-# An explicitly selected flake profile takes priority over the hostname.
-# Existing NixOS installations keep the original hostname-based behavior.
+TARGET_HOST=${TARGET_HOST:-$(hostname)}
 PROFILE_FILE="/etc/dotfiles-nixos-flake-profile"
-if [ -n "${NIXOS_FLAKE_PROFILE:-}" ]; then
-  PROFILE="$NIXOS_FLAKE_PROFILE"
+if [ "$#" -gt 0 ]; then
+  PROFILE=$1
+elif [ -n "${NIXOS_FLAKE_PROFILE:-}" ]; then
+  PROFILE=$NIXOS_FLAKE_PROFILE
 elif [ -r "$PROFILE_FILE" ]; then
   PROFILE=$(cat "$PROFILE_FILE")
 else
-  PROFILE="$HOSTNAME"
+  PROFILE=$TARGET_HOST
 fi
 
-# --- Main Script ---
-echo "🚀 Updating NixOS system configuration for host: $HOSTNAME..."
+echo "Updating NixOS configuration: $PROFILE (host: $TARGET_HOST)"
 
-# 1. Pull the latest changes from the git repository.
-echo "Pulling latest changes from git..."
-git pull
+git pull --ff-only
 
-# 2. Rebuild the system with the updated configuration.
-echo "Rebuilding the system..."
-sudo nixos-rebuild switch --flake .#"$PROFILE"
+CONFIGURED_HOST=$(nix eval --raw ".#nixosConfigurations.${PROFILE}.config.networking.hostName")
+if [ "$CONFIGURED_HOST" != "$TARGET_HOST" ]; then
+  echo "ERROR: flake key '$PROFILE' configures networking.hostName='$CONFIGURED_HOST', expected '$TARGET_HOST'" >&2
+  exit 2
+fi
 
-echo "✅ System update complete!"
+sudo nixos-rebuild switch --flake ".#${PROFILE}"
+
+echo "System update complete."
