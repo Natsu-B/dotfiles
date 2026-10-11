@@ -1,0 +1,195 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Deletes only the Linux working copy, never any Mac path. Fail closed.
+fail() { printf 'mac-data-sync: %s\n' "$*" >&2; exit 1; }
+
+(( $# == 1 )) || fail 'Usage: mac-data-sync release <relative-path>'
+relative=$1
+[[ -n "$relative" && "$relative" != /* && "$relative" != */ && "$relative" != *'//'*
+  && "$relative" != *:* && "$relative" != *[$'\n\r\t']* ]] || fail 'Invalid relative path'
+IFS='/' read -r -a parts <<< "$relative"
+for part in "${parts[@]}"; do
+  [[ -n "$part" && "$part" != '.' && "$part" != '..' ]] || fail 'Unsafe relative path'
+done
+remote=${MAC_DATA_REMOTE:-mac}
+[[ "$remote" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || fail 'Invalid SSH alias'
+state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/mac-data-sync
+work_dir=$HOME/work
+hash=$(printf '%s' "$relative" | sha256sum)
+session="mac-data-${hash:0:20}"
+target="$work_dir/$relative"
+[[ -f "$state_dir/$session" ]] && [[ $(< "$state_dir/$session") == "$relative" ]] || fail 'Not a managed session'
+[[ -d "$work_dir" && ! -L "$work_dir" ]] || fail 'Invalid Linux work directory'
+cursor=$work_dir
+for part in "${parts[@]}"; do
+  cursor="$cursor/$part"
+  [[ ! -L "$cursor" ]] || fail 'Refusing to delete through a symlink'
+done
+[[ -e "$target" ]] || fail 'Linux working copy is missing'
+command -v lsof >/dev/null || fail 'lsof is required to check open files'
+command -v jq >/dev/null || fail 'jq is required for state inspection'
+
+# The public Mutagen list model is an array of sessions with flattened fields.
+check_session() {
+  local snapshot
+  snapshot=$(mutagen sync list --template '{{json .}}' "$session") || fail 'Cannot read Mutagen state'
+  jq -e --arg session "$session" --arg remote "$remote" \
+    --arg source "~/data/$relative" --arg target "$target" '
+      type == "array" and length == 1 and
+      .[0].name == $session and
+      .[0].alpha.host == $remote and
+      .[0].alpha.path == $source and
+      .[0].beta.path == $target and
+      .[0].paused == false and
+      (.[0].status == "watching" or .[0].status == 6) and
+      (.[0].successfulCycles // 0) > 0 and
+      .[0].alpha.connected == true and .[0].beta.connected == true and
+      .[0].alpha.scanned == true and .[0].beta.scanned == true and
+      (.[0].lastError // "") == "" and
+      ((.[0].conflicts // []) | length) == 0 and
+      (.[0].excludedConflicts // 0) == 0 and
+      ((.[0].alpha.scanProblems // []) | length) == 0 and
+      ((.[0].alpha.transitionProblems // []) | length) == 0 and
+      ((.[0].beta.scanProblems // []) | length) == 0 and
+      ((.[0].beta.transitionProblems // []) | length) == 0 and
+      (.[0].alpha.excludedScanProblems // 0) == 0 and
+      (.[0].alpha.excludedTransitionProblems // 0) == 0 and
+      (.[0].beta.excludedScanProblems // 0) == 0 and
+      (.[0].beta.excludedTransitionProblems // 0) == 0
+    ' <<< "$snapshot" >/dev/null || fail 'Release blocked: disconnected, paused, unsynced, conflicted, or invalid session'
+}
+
+# Emit NUL-terminated manifest records of every entry, including .git and other ignores.
+# A record holds entry name, type and a SHA-256 of content or symlink target.
+local_manifest() {
+  local root=$1 entry sum
+  if [[ -f "$root" ]]; then
+    sum=$(sha256sum < "$root")
+    printf 'F\t.\t%s\0' "${sum%% *}"
+    return
+  fi
+  (
+    cd -- "$root"
+    find . -print0 | while IFS= read -r -d '' entry; do
+      if [[ -L "$entry" ]]; then
+        sum=$(readlink "$entry" | sha256sum)
+        printf 'L\t%s\t%s\0' "$entry" "${sum%% *}"
+      elif [[ -d "$entry" ]]; then
+        printf 'D\t%s\t-\0' "$entry"
+      elif [[ -f "$entry" ]]; then
+        sum=$(sha256sum < "$entry")
+        printf 'F\t%s\t%s\0' "$entry" "${sum%% *}"
+      else
+        printf 'Unsupported local entry: %s\n' "$entry" >&2
+        exit 1
+      fi
+    done
+  ) | LC_ALL=C sort -z
+}
+
+remote_manifest() {
+  local encoded
+  encoded=$(printf '%s' "$relative" | base64 -w 0)
+  ssh -o BatchMode=yes -o ConnectTimeout=8 "$remote" "MAC_REL_B64=$encoded /bin/bash -s" <<'REMOTE'
+set -euo pipefail
+relative=$(/bin/echo "$MAC_REL_B64" | /usr/bin/base64 -D)
+cd "$HOME/data"
+[[ ! -L "$relative" ]] || exit 2
+archive=$(pwd -P)
+parent=$(cd "$(dirname "$relative")" && pwd -P)
+case "$parent" in "$archive"|"$archive"/*) ;; *) exit 2 ;; esac
+root="$archive/$relative"
+[[ -f "$root" || -d "$root" ]] || exit 2
+if [[ -f "$root" ]]; then
+  sum=$(/usr/bin/shasum -a 256 < "$root")
+  printf 'F\t.\t%s\0' "${sum%% *}"
+else
+  cd "$root"
+  /usr/bin/find . -print0 | while IFS= read -r -d '' entry; do
+    if [[ -L "$entry" ]]; then
+      sum=$(/usr/bin/readlink "$entry" | /usr/bin/shasum -a 256)
+      printf 'L\t%s\t%s\0' "$entry" "${sum%% *}"
+    elif [[ -d "$entry" ]]; then
+      printf 'D\t%s\t-\0' "$entry"
+    elif [[ -f "$entry" ]]; then
+      sum=$(/usr/bin/shasum -a 256 < "$entry")
+      printf 'F\t%s\t%s\0' "$entry" "${sum%% *}"
+    else
+      printf 'Unsupported Mac entry: %s\n' "$entry" >&2
+      exit 2
+    fi
+  done
+fi
+REMOTE
+}
+
+printf 'Release ONLY the Linux copy: ~/work/%s\n' "$relative"
+printf 'Mac archive will remain at: ~/data/%s\n' "$relative"
+printf 'Close editors and builds before continuing. All ignored files (including .git) will be checked.\n'
+printf 'Type RELEASE %s to confirm: ' "$relative" >&2
+IFS= read -r confirmation || exit 1
+[[ "$confirmation" == "RELEASE $relative" ]] || { printf 'Canceled.\n'; exit 0; }
+
+# The cleanup trap restores a copy if any verification fails before termination.
+paused=0
+terminated=0
+moved=0
+holding=''
+manifest_dir=''
+cleanup() {
+  local code=$?
+  trap - EXIT
+  if (( moved && !terminated )); then
+    if [[ ! -e "$target" && -e "$holding/data" ]]; then
+      mv -T -- "$holding/data" "$target" || printf 'ERROR: Recover Linux copy from %s/data\n' "$holding" >&2
+    fi
+  fi
+  if (( paused && !terminated )); then
+    mutagen sync resume "$session" >/dev/null || printf 'WARNING: Manually resume %s\n' "$session" >&2
+  fi
+  if [[ -n "$holding" && -d "$holding" ]]; then rmdir -- "$holding" 2>/dev/null || true; fi
+  if [[ -n "$manifest_dir" ]]; then rm -rf -- "$manifest_dir"; fi
+  exit "$code"
+}
+trap cleanup EXIT
+
+# Flush waits for a synchronization cycle; a successful exit alone is not sufficient.
+mutagen sync flush "$session"
+check_session
+mutagen sync pause "$session"
+paused=1
+
+# Rename removes the path from ~/work during verification, reducing the chance
+# of deleting newly created work. The old copy is restored on errors.
+parent=${target%/*}
+holding=$(mktemp -d "$parent/.mac-data-release.XXXXXXXX")
+mv -T -- "$target" "$holding/data"
+moved=1
+if [[ -f "$holding/data" ]]; then
+  if lsof -nP -- "$holding/data" >/dev/null 2>&1; then fail 'Linux file is open in another process'; fi
+else
+  if lsof -nP +D "$holding/data" >/dev/null 2>&1; then fail 'Linux directory contains open files'; fi
+fi
+
+manifest_dir=$(mktemp -d)
+local_manifest "$holding/data" > "$manifest_dir/linux"
+remote_manifest | LC_ALL=C sort -z > "$manifest_dir/mac" || fail 'Cannot verify Mac archive'
+if ! cmp -s "$manifest_dir/linux" "$manifest_dir/mac"; then
+  fail 'Mac/Linux differ (possibly .git, ignored build output, or pending edits); Linux copy preserved'
+fi
+# Check local again to catch modifications during comparison.
+local_manifest "$holding/data" > "$manifest_dir/linux-final"
+cmp -s "$manifest_dir/linux-final" "$manifest_dir/linux" || fail 'Linux files changed while verifying; Linux copy preserved'
+
+mutagen sync terminate "$session"
+terminated=1
+rm -f -- "$state_dir/$session" # Only session metadata, not user data.
+if [[ -e "$target" || -L "$target" ]]; then
+  fail "Original Linux location was recreated; copy at $holding/data was not deleted"
+fi
+rm -rf -- "$holding/data"
+rmdir -- "$holding"
+holding=''
+moved=0
+printf 'Released Linux copy: ~/work/%s. Mac archive remains unchanged.\n' "$relative"
