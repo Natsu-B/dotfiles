@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# NixOS-side terminal UI. All prompts and labels are English.
+cli=${MAC_DATA_SYNC_BIN:-$(command -v mac-data-sync || true)}
+[[ -n "$cli" ]] || { echo 'mac-data-sync is not installed' >&2; exit 1; }
+state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/mac-data-sync
+work_dir=$HOME/work
+mkdir -p -- "$work_dir"
+
+menu_choice() {
+  local prompt=$1
+  shift
+  printf '%s\n' "$@" | fzf --border --layout=reverse --height=75% \
+    --prompt="$prompt > " --header='Enter: select | Esc: back' || true
+}
+
+wait_key() {
+  printf '\nPress Enter to return... ' >&2
+  IFS= read -r _ || true
+}
+
+snapshot='[]'
+load_snapshot() {
+  local result
+  if result=$(mutagen sync list --template '{{json .}}' 2>/dev/null) &&
+     jq -e 'type == "array"' <<< "$result" >/dev/null 2>&1; then
+    snapshot=$result
+  else
+    snapshot='[]'
+  fi
+}
+
+session_name() {
+  local hash
+  hash=$(printf '%s' "$1" | sha256sum)
+  hash=${hash%% *}
+  printf 'mac-data-%s' "${hash:0:20}"
+}
+
+session_status() {
+  local json=$1
+  jq -r '
+    if . == null then "Unavailable"
+    elif .paused == true then "Paused"
+    elif (.lastError // "") != "" then "Error"
+    elif ((.conflicts // []) | length) > 0 or (.excludedConflicts // 0) > 0 then "Conflict"
+    elif (((.alpha.scanProblems // []) + (.alpha.transitionProblems // []) + (.beta.scanProblems // []) + (.beta.transitionProblems // [])) | length) > 0 then "Problem"
+    elif (.alpha.connected != true or .beta.connected != true) then "Offline"
+    elif (.status == "watching" or .status == 6) then "Synced"
+    else "Syncing"
+    end
+  ' <<< "$json" 2>/dev/null || printf 'Unavailable\n'
+}
+
+state_records() {
+  local scope=$1 f path id json status size bytes
+  local -a rows=()
+  shopt -s nullglob
+  for f in "$state_dir"/mac-data-*; do
+    [[ -f "$f" && ! -L "$f" ]] || continue
+    path=$(< "$f")
+    [[ -n "$path" && "$path" != *[$'\t\n\r']* ]] || continue
+    id=${f##*/}
+    json=$(jq -c --arg id "$id" '[.[] | select(.name == $id)][0] // null' <<< "$snapshot")
+    status=$(session_status "$json")
+    if [[ "$scope" == errors && "$status" != Conflict && "$status" != Error && "$status" != Problem && "$status" != Offline && "$status" != Unavailable ]]; then
+      continue
+    fi
+    if [[ -e "$work_dir/$path" ]]; then
+      size=$(du -sh -- "$work_dir/$path" 2>/dev/null | awk '{print $1}')
+      bytes=$(du -sk -- "$work_dir/$path" 2>/dev/null | awk '{print $1}')
+    else
+      size='missing'
+      bytes=0
+    fi
+    rows+=("$bytes"$'\t'"$status"$'\t'"$size"$'\t'"$path")
+  done
+  shopt -u nullglob
+  if ((${#rows[@]})); then
+    printf '%s\n' "${rows[@]}" | sort -t $'\t' -k1,1nr
+  fi
+}
+
+selection=()
+choose_work() {
+  local scope=$1 raw file row
+  local -a paths=()
+  load_snapshot
+  raw=$(state_records "$scope")
+  if [[ -z "$raw" ]]; then
+    printf 'No matching working copies.\n'
+    wait_key
+    return 1
+  fi
+  file=$(mktemp)
+  # Hide sorting column; show status, size and Linux-relative path.
+  if ! printf '%s\n' "$raw" | fzf --multi --print0 \
+    --border --layout=reverse --height=90% \
+    --delimiter=$'\t' --with-nth=2,3,4 \
+    --prompt='Working copies > ' \
+    --header='Status    Size    Path | Tab: multi-select | Enter: actions | Esc: back' > "$file"; then
+    rm -f -- "$file"
+    return 1
+  fi
+  while IFS= read -r -d '' row; do paths+=("${row##*$'\t'}"); done < "$file"
+  rm -f -- "$file"
+  ((${#paths[@]})) || return 1
+  selection=("${paths[@]}")
+}
+
+perform_action() {
+  local action=$1 path id answer
+  for path in "${selection[@]}"; do
+    printf '\n[%s] %s\n' "$action" "$path"
+    id=$(session_name "$path")
+    case "$action" in
+      'Sync now')             "$cli" flush "$path" || true ;;
+      'Pause sync')           "$cli" pause "$path" || true ;;
+      'Resume sync')          "$cli" resume "$path" || true ;;
+      'Inspect')
+        printf 'Mac: ~/data/%s\nLinux: ~/work/%s\n' "$path" "$path"
+        mutagen sync list --long "$id" || true ;;
+      'End sync (keep copies)')
+        printf 'Stop syncing %s? Both copies will remain. [y/N] ' "$path" >&2
+        IFS= read -r answer || answer=''
+        [[ "$answer" == y || "$answer" == Y ]] && "$cli" terminate "$path" || true ;;
+      'Release Linux copy')   "$cli" release "$path" || true ;;
+    esac
+  done
+  wait_key
+}
+
+working_menu() {
+  local scope=$1 action
+  while choose_work "$scope"; do
+    if [[ "$scope" == cleanup ]]; then
+      action=$(menu_choice 'Cleanup' 'Release Linux copy' 'Inspect' 'Back')
+    else
+      action=$(menu_choice 'Actions' \
+        'Sync now' 'Pause sync' 'Resume sync' 'Inspect' \
+        'Release Linux copy' 'End sync (keep copies)' 'Back')
+    fi
+    [[ -n "$action" && "$action" != Back ]] || continue
+    perform_action "$action"
+  done
+}
+
+mac_browser() {
+  printf 'Select files and directories from Mac ~/data.\n'
+  "$cli" pick || true
+  wait_key
+}
+
+free_space() {
+  df -h -- "$work_dir" 2>/dev/null | awk 'NR==2 {print $4}'
+}
+
+main() {
+  local action
+  while true; do
+    printf '\nMac Data Sync | Linux work: %s | Free: %s\n' "$work_dir" "$(free_space)"
+    action=$(menu_choice 'Main menu' \
+      'Browse Mac and add' \
+      'Working copies' \
+      'Storage cleanup' \
+      'Conflicts and errors' \
+      'Quit')
+    case "$action" in
+      'Browse Mac and add')   mac_browser ;;
+      'Working copies')       working_menu all ;;
+      'Storage cleanup')      working_menu cleanup ;;
+      'Conflicts and errors') working_menu errors ;;
+      ''|Quit) break ;;
+    esac
+  done
+}
+main
