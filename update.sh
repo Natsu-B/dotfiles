@@ -24,6 +24,8 @@ if [ "$CONFIGURED_HOST" != "$TARGET_HOST" ]; then
   exit 2
 fi
 
+sh "$(dirname "$0")/scripts/check-boot-filesystems.sh" "$PROFILE"
+
 sudo nixos-rebuild switch --flake ".#${PROFILE}"
 
 echo "System update complete."

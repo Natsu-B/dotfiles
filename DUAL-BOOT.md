@@ -75,8 +75,9 @@ sudo cp -a . /mnt/home/hotaru/dotfiles
 sudo chown -R root:root /mnt/home/hotaru/dotfiles
 
 # 実際の /mnt のマウント構成からハードウェア設定を再生成する。
-sudo nixos-generate-config --root /mnt --show-hardware-config | \
-  sudo tee /mnt/home/hotaru/dotfiles/hosts/nixos/hardware-configuration.nix > /dev/null
+recovery_config=$(mktemp)
+sudo nixos-generate-config --root /mnt --show-hardware-config > "$recovery_config"
+sudo cp "$recovery_config" /mnt/home/hotaru/dotfiles/hosts/nixos/hardware-configuration.nix
 
 # Flake は Git 管理下のファイルを評価するため、更新を stage する。
 sudo git -C /mnt/home/hotaru/dotfiles add hosts/nixos/hardware-configuration.nix
@@ -129,6 +130,7 @@ findmnt --target /boot
 findmnt --target /efi
 sed -n '/fileSystems/,+5p' hosts/nixos/hardware-configuration.nix
 
+sh scripts/check-boot-filesystems.sh nixos-windows
 sudo nixos-rebuild build --flake .#nixos-windows
 sudo nixos-rebuild switch --flake .#nixos-windows
 )
@@ -138,3 +140,62 @@ sudo nixos-rebuild switch --flake .#nixos-windows
 変更後はいったんログアウトし、GDM で Hyprland の UWSM セッションを選ぶ。
 指紋データは設定の取り込みでは復元されない。`fprintd-list hotaru` で確認し、
 未登録なら `fprintd-enroll hotaru` で登録する。
+
+## 6. 更新後に旧 UUID を待って起動できない場合
+
+`A start job is running for /dev/disk/by-uuid/3c50b4f8-57e8-43c3-a8a5-21a5b829a366`
+と表示される場合、リポジトリに残っている旧ルート設定が使われている。
+実際の UUID は `lsblk -f` で確認する。待ち時間を延ばしても UUID の不一致は直らない。
+
+systemd-boot で更新前の世代を選ぶ。メニューが隠れる場合は起動時に Space を押し続ける。
+以前の世代が起動したら、ルート、XBOOTLDR、共有 ESP がすべてマウントされていることを確認し、
+現在のマウントから設定を再生成する。
+
+```sh
+(
+set -eu
+cd ~/dotfiles
+lsblk -f
+findmnt --mountpoint /
+findmnt --mountpoint /boot
+findmnt --mountpoint /efi
+backup_dir=$(mktemp -d "$HOME/dotfiles-hardware.XXXXXX")
+cp hosts/nixos/hardware-configuration.nix "$backup_dir/hardware-configuration.nix"
+sudo nixos-generate-config --show-hardware-config > "$backup_dir/generated.nix"
+cp "$backup_dir/generated.nix" hosts/nixos/hardware-configuration.nix
+git add hosts/nixos/hardware-configuration.nix
+nix eval --raw '.#nixosConfigurations.nixos-windows.config.fileSystems."/".device'
+# 最新の更新を取得済みなら、反映前にマウント先を照合できる。
+# sh scripts/check-boot-filesystems.sh nixos-windows
+sudo nixos-rebuild boot --flake .#nixos-windows
+)
+```
+
+成功後に再起動する。`boot` は現在のセッションを切り替えず、次回起動用の構成を更新する。
+`update.sh` / `install.sh` は再ビルド前に、設定のデバイスと実際にマウントされた
+`/`・`/boot`（`nixos-windows` は `/efi` も）を照合し、不一致なら停止する。
+このチェックはインストール済みのこのディスク構成向け。Live ISO の新規インストールには使わない。
+
+以前の世代も起動しない場合は Live USB を UEFI モードで起動する。
+これまでの構成では root は `nvme0n1p6`、XBOOTLDR は `nvme0n1p5`、ESP は `nvme0n1p1`。
+`lsblk -f` と容量・ラベルを確認してからマウントする。
+
+```sh
+(
+set -eu
+sudo mount /dev/nvme0n1p6 /mnt
+sudo mkdir -p /mnt/boot /mnt/efi
+sudo mount /dev/nvme0n1p5 /mnt/boot
+sudo mount /dev/nvme0n1p1 /mnt/efi
+sudo cp /mnt/home/hotaru/dotfiles/hosts/nixos/hardware-configuration.nix \
+  /mnt/home/hotaru/dotfiles/hosts/nixos/hardware-configuration.nix.before-recovery
+recovery_config=$(mktemp)
+sudo nixos-generate-config --root /mnt --show-hardware-config > "$recovery_config"
+sudo cp "$recovery_config" /mnt/home/hotaru/dotfiles/hosts/nixos/hardware-configuration.nix
+sudo nixos-enter --root /mnt -c 'nixos-rebuild boot --flake path:/home/hotaru/dotfiles#nixos-windows'
+)
+```
+
+Live USB の `nixos-generate-config` は `--root /mnt` が必要。
+復旧時の `path:` は Git の所有権検査を避け、生成した未コミットの設定も読み込む。
+パーティション作成スクリプト、`mkfs`、`disko` は復旧には使わない。
