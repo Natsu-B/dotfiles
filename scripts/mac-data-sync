@@ -1,102 +1,213 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run on macOS. Keep Mac's ~/data as the long-lived copy.
-# Sync only selected relative paths into NixOS ~/work, with no automatic cleanup.
+# Run on NixOS. Mac's ~/data is the archive; ~/work holds selected working copies.
 usage() {
   cat >&2 <<'USAGE'
-Usage: mac-data-sync {start|status|flush|pause|resume|terminate} <relative-path>
-       mac-data-sync list
+Usage: mac-data-sync pick                 Select files/directories from Mac with fzf
+       mac-data-sync ls                   List Mac files/directories
+       mac-data-sync start <relative-path> Sync one Mac file/directory into ~/work
+       mac-data-sync {status|flush|pause|resume|terminate} <relative-path>
+       mac-data-sync list                 List Mutagen sessions
 
-  start <path>       Sync ~/data/<path> with nixos:~/work/<path>
-  status <path>      Show details and conflicts
-  flush <path>       Request an immediate synchronization cycle
-  pause <path>       Pause synchronization; keep both copies
-  resume <path>      Resume synchronization
-  terminate <path>   End the session; keep both copies
-  list               List synchronization sessions
+Example: mac-data-sync start documents/report.pdf
 
-Examples: mac-data-sync start project-a
-          mac-data-sync start documents/report.pdf
-          mac-data-sync start project-a/src
+Environment:
+  MAC_DATA_REMOTE=mac    SSH alias for Mac (configured in NixOS ~/.ssh/config)
+  MAC_DATA_DEPTH=4      Maximum directory depth for pick/ls (1..99)
 
-Optional environment: MAC_DATA_ROOT, MAC_DATA_REMOTE (SSH alias, default: nixos)
-Paths must be relative to MAC_DATA_ROOT, with components containing only
-letters, digits, dots, underscores and hyphens. Do not overlap sessions.
+File contents are never automatically cleaned up from ~/work.
+Within a running two-way session, ordinary deletions DO synchronize to Mac.
 USAGE
 }
 
-if (( $# < 1 )); then usage; exit 2; fi
+fail() { printf 'mac-data-sync: %s\n' "$*" >&2; exit 1; }
+
+remote=${MAC_DATA_REMOTE:-mac}
+[[ "$remote" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || fail 'Invalid MAC_DATA_REMOTE (use an SSH host alias)'
+state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/mac-data-sync
+work_dir=$HOME/work
+ssh_opts=(-o BatchMode=yes -o ConnectTimeout=8)
+
+validate_path() {
+  local path=$1 component
+  [[ -n "$path" && "$path" != /* && "$path" != */ && "$path" != *'//'*
+      && "$path" != *:* && "$path" != *[$'\n\r\t']* ]] || fail "Invalid relative path: $(printf %q "$path")"
+  local components=()
+  IFS='/' read -r -a components <<< "$path"
+  for component in "${components[@]}"; do
+    [[ -n "$component" && "$component" != '.' && "$component" != '..' ]] || fail "Unsafe path: $(printf %q "$path")"
+  done
+}
+
+session_id() {
+  local hash
+  hash=$(printf '%s' "$1" | sha256sum)
+  hash=${hash%% *}
+  printf 'mac-data-%s' "${hash:0:20}"
+}
+
+# The Mac command is fixed. The selected name is transmitted as base64, not shell code.
+remote_type() {
+  local encoded
+  encoded=$(printf '%s' "$1" | base64 -w 0)
+  ssh "${ssh_opts[@]}" "$remote" "MAC_REL_B64=$encoded /bin/sh -s" <<'REMOTE'
+set -eu
+cd "$HOME/data" || exit 2
+path=$(printf '%s' "$MAC_REL_B64" | /usr/bin/base64 -D) || exit 2
+[ -n "$path" ] && [ ! -L "$path" ] || exit 2
+root=$(pwd -P)
+parent=$(cd "$(dirname "$path")" && pwd -P) || exit 2
+case "$parent" in "$root"|"$root"/*) ;; *) exit 2 ;; esac
+if [ -d "$path" ]; then
+  printf 'directory'
+elif [ -f "$path" ]; then
+  printf 'file'
+else
+  exit 2
+fi
+REMOTE
+}
+
+remote_list() {
+  local depth=${MAC_DATA_DEPTH:-4}
+  [[ "$depth" =~ ^[1-9][0-9]?$ ]] || fail 'MAC_DATA_DEPTH must be an integer from 1 to 99'
+  ssh "${ssh_opts[@]}" "$remote" "MAC_DEPTH=$depth /bin/sh -s" <<'REMOTE'
+set -eu
+cd "$HOME/data" || exit 2
+# -print0 works on macOS BSD find and preserves whitespace in filenames.
+/usr/bin/find . -mindepth 1 -maxdepth "$MAC_DEPTH" \
+  \( -name .git -o -name .svn -o -name .hg \) -prune -o \
+  \( -type f -o -type d \) -print0
+REMOTE
+}
+
+check_overlapping_state() {
+  local relative=$1 old f
+  [[ -d "$state_dir" ]] || return 0
+  for f in "$state_dir"/*; do
+    [[ -f "$f" ]] || continue
+    old=$(< "$f")
+    if [[ "$old" == "$relative" || "$old" == "$relative/"* || "$relative" == "$old/"* ]]; then
+      fail "Overlapping/duplicate session with $old; terminate it first."
+    fi
+  done
+}
+
+start_sync() {
+  local relative=$1 kind session target cursor part
+  validate_path "$relative"
+  check_overlapping_state "$relative"
+  kind=$(remote_type "$relative") || fail "Mac file not accessible: ~/data/$relative (try: ssh $remote)"
+  [[ "$kind" == file || "$kind" == directory ]] || fail "Not a regular Mac file or directory: $relative"
+
+  [[ ! -L "$work_dir" ]] || fail "$work_dir is a symlink; refusing to write outside ~/work"
+  mkdir -p -- "$work_dir"
+  cursor=$work_dir
+  local parts=()
+  IFS='/' read -r -a parts <<< "$relative"
+  for part in "${parts[@]}"; do
+    cursor="$cursor/$part"
+    [[ ! -L "$cursor" ]] || fail "Path contains a Linux symlink: $cursor"
+  done
+  target="$work_dir/$relative"
+  if [[ "$kind" == directory ]]; then
+    [[ ! -e "$target" || -d "$target" ]] || fail "Linux target is not a directory: $target"
+    mkdir -p -- "$target"
+  else
+    [[ ! -e "$target" || -f "$target" ]] || fail "Linux target is not a file: $target"
+    mkdir -p -- "$(dirname "$target")"
+  fi
+
+  session=$(session_id "$relative")
+  printf 'Sync: %s:~/data/%s <=> %s\n' "$remote" "$relative" "$target" >&2
+  mutagen sync create --name="$session" --sync-mode=two-way-safe --ignore-vcs \
+    "$remote:~/data/$relative" "$target"
+  mkdir -p -- "$state_dir"
+  printf '%s\n' "$relative" > "$state_dir/$session"
+}
+
+pick_sync() {
+  local entry relative answer existing
+  # Keep picker_tmp_dir global because the EXIT trap outlives this function.
+  local -a selection=()
+  picker_tmp_dir=$(mktemp -d)
+  trap 'rm -rf -- "$picker_tmp_dir"' EXIT
+  remote_list > "$picker_tmp_dir/remote" || fail "Unable to list Mac files (try: ssh $remote)"
+  [[ -s "$picker_tmp_dir/remote" ]] || fail 'Mac ~/data is empty at the requested depth'
+
+  if ! fzf --read0 --print0 --multi --no-multi-line --height=90% \
+      --border --layout=reverse \
+      --prompt='Mac ~/data > ' \
+      --header='TAB: 複数選択 / Enter: 確定 / Esc: 中止（ディレクトリ選択は内部全体を同期）' \
+      < "$picker_tmp_dir/remote" > "$picker_tmp_dir/selected"; then
+    printf 'Selection canceled.\n' >&2
+    return 0
+  fi
+  while IFS= read -r -d '' entry; do
+    relative=${entry#./}
+    validate_path "$relative"
+    for existing in "${selection[@]}"; do
+      if [[ "$existing" == "$relative" || "$existing" == "$relative/"* || "$relative" == "$existing/"* ]]; then
+        fail "Do not select nested paths together: $existing and $relative"
+      fi
+    done
+    check_overlapping_state "$relative"
+    selection+=("$relative")
+  done < "$picker_tmp_dir/selected"
+  ((${#selection[@]} > 0)) || return 0
+
+  printf '\nStart bidirectional sync for:\n' >&2
+  for entry in "${selection[@]}"; do
+    printf '  Mac ~/data/%s -> Linux ~/work/%s\n' "$entry" "$entry" >&2
+  done
+  printf 'Start? [y/N] ' >&2
+  if ! IFS= read -r answer; then return 0; fi
+  [[ "$answer" == y || "$answer" == Y ]] || return 0
+  for entry in "${selection[@]}"; do start_sync "$entry"; done
+}
+
+(( $# > 0 )) || set -- pick
 command=$1
 shift
-
 case "$command" in
+  pick)
+    (( $# == 0 )) || { usage; exit 2; }
+    pick_sync
+    ;;
+  ls)
+    (( $# == 0 )) || { usage; exit 2; }
+    temp_dir=$(mktemp -d)
+    trap 'rm -rf -- "$temp_dir"' EXIT
+    remote_list > "$temp_dir/remote" || fail "Unable to list Mac files (try: ssh $remote)"
+    while IFS= read -r -d '' entry; do printf '%q\n' "${entry#./}"; done < "$temp_dir/remote"
+    ;;
+  start)
+    (( $# == 1 )) || { usage; exit 2; }
+    start_sync "$1"
+    ;;
   list)
-    if (( $# != 0 )); then usage; exit 2; fi
+    (( $# == 0 )) || { usage; exit 2; }
     exec mutagen sync list
     ;;
-  start|status|flush|pause|resume|terminate)
-    if (( $# != 1 )); then usage; exit 2; fi
-    ;;
-  *) usage; exit 2 ;;
-esac
-
-path=$1
-if [[ "$path" == /* || "$path" == */ || "$path" == *'//'* ]]; then
-  echo "Invalid relative path: $path" >&2
-  exit 2
-fi
-IFS='/' read -r -a components <<< "$path"
-if (( ${#components[@]} == 0 )); then
-  echo "Path is empty" >&2
-  exit 2
-fi
-for component in "${components[@]}"; do
-  if [[ ! "$component" =~ ^[A-Za-z0-9._-]+$ || "$component" == . || "$component" == .. ]]; then
-    echo "Invalid path component: $component" >&2
-    exit 2
-  fi
-done
-
-# Mutagen names cannot contain '/' or underscores. Preserve simple names;
-# use a stable hash for nested paths and names containing '.' or '_'.
-if [[ "$path" =~ ^[A-Za-z0-9-]+$ ]]; then
-  session="mac-data-$path"
-else
-  digest=$(printf '%s' "$path" | shasum -a 256)
-  session="mac-data-${digest:0:16}"
-fi
-
-remote=${MAC_DATA_REMOTE:-nixos}
-if [[ ! "$remote" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
-  echo "MAC_DATA_REMOTE must be a simple SSH host alias" >&2
-  exit 2
-fi
-
-case "$command" in
-  start)
-    local_path="${MAC_DATA_ROOT:-$HOME/data}/$path"
-    if [[ -L "$local_path" || ( ! -f "$local_path" && ! -d "$local_path" ) ]]; then
-      echo "Mac source must be an existing regular file or directory (not a symlink): $local_path" >&2
-      exit 1
-    fi
-    if [[ -d "$local_path" ]]; then
-      remote_dir="~/work/$path"
-    elif [[ "$path" == */* ]]; then
-      remote_dir="~/work/${path%/*}"
+  status|flush|pause|resume|terminate)
+    (( $# == 1 )) || { usage; exit 2; }
+    validate_path "$1"
+    session=$(session_id "$1")
+    if [[ "$command" == status ]]; then
+      exec mutagen sync list --long "$session"
+    elif [[ "$command" == terminate ]]; then
+      mutagen sync terminate "$session"
+      rm -f -- "$state_dir/$session" # metadata only; neither copy is deleted
     else
-      remote_dir='~/work'
+      exec mutagen sync "$command" "$session"
     fi
-    ssh -o BatchMode=yes "$remote" "mkdir -p -- $remote_dir"
-    mutagen sync create \
-      --name="$session" \
-      --sync-mode=two-way-safe \
-      --ignore-vcs \
-      "$local_path" "$remote:~/work/$path"
     ;;
-  status)    exec mutagen sync list --long "$session" ;;
-  flush)     exec mutagen sync flush "$session" ;;
-  pause)     exec mutagen sync pause "$session" ;;
-  resume)    exec mutagen sync resume "$session" ;;
-  terminate) exec mutagen sync terminate "$session" ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
 esac
