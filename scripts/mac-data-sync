@@ -1,28 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Manage one Mutagen session per directory. Run this on macOS.
-# Data in ~/data is the long-lived copy; nothing is deleted automatically.
+# Run on macOS. Keep Mac's ~/data as the long-lived copy.
+# Sync only selected relative paths into NixOS ~/work, with no automatic cleanup.
 usage() {
   cat >&2 <<'USAGE'
-Usage: mac-data-sync {start|status|flush|pause|resume} <name>
+Usage: mac-data-sync {start|status|flush|pause|resume|terminate} <relative-path>
        mac-data-sync list
 
-  start <name>   Sync ~/data/<name> with nixos:~/work/mac-cache/<name>
-  status <name>  Show details and conflicts
-  flush <name>   Trigger a synchronization cycle
-  pause <name>   Stop syncing temporarily; keep both copies
-  resume <name>  Resume automatic synchronization
-  list           List all Mutagen synchronization sessions
+  start <path>       Sync ~/data/<path> with nixos:~/work/<path>
+  status <path>      Show details and conflicts
+  flush <path>       Request an immediate synchronization cycle
+  pause <path>       Pause synchronization; keep both copies
+  resume <path>      Resume synchronization
+  terminate <path>   End the session; keep both copies
+  list               List synchronization sessions
+
+Examples: mac-data-sync start project-a
+          mac-data-sync start documents/report.pdf
+          mac-data-sync start project-a/src
 
 Optional environment: MAC_DATA_ROOT, MAC_DATA_REMOTE (SSH alias, default: nixos)
+Paths must be relative to MAC_DATA_ROOT, with components containing only
+letters, digits, dots, underscores and hyphens. Do not overlap sessions.
 USAGE
 }
 
-if (( $# < 1 )); then
-  usage
-  exit 2
-fi
+if (( $# < 1 )); then usage; exit 2; fi
 command=$1
 shift
 
@@ -31,42 +35,68 @@ case "$command" in
     if (( $# != 0 )); then usage; exit 2; fi
     exec mutagen sync list
     ;;
-  start|status|flush|pause|resume)
+  start|status|flush|pause|resume|terminate)
     if (( $# != 1 )); then usage; exit 2; fi
     ;;
-  *)
-    usage
-    exit 2
-    ;;
+  *) usage; exit 2 ;;
 esac
 
-name=$1
-# Only a single safe path component is accepted, never arbitrary paths.
-if [[ ! "$name" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
-  echo "Invalid name: use letters, digits, '.', '_' or '-' (starting with a letter/digit)." >&2
+path=$1
+if [[ "$path" == /* || "$path" == */ || "$path" == *'//'* ]]; then
+  echo "Invalid relative path: $path" >&2
+  exit 2
+fi
+IFS='/' read -r -a components <<< "$path"
+if (( ${#components[@]} == 0 )); then
+  echo "Path is empty" >&2
+  exit 2
+fi
+for component in "${components[@]}"; do
+  if [[ ! "$component" =~ ^[A-Za-z0-9._-]+$ || "$component" == . || "$component" == .. ]]; then
+    echo "Invalid path component: $component" >&2
+    exit 2
+  fi
+done
+
+# Mutagen names cannot contain '/' or underscores. Preserve simple names;
+# use a stable hash for nested paths and names containing '.' or '_'.
+if [[ "$path" =~ ^[A-Za-z0-9-]+$ ]]; then
+  session="mac-data-$path"
+else
+  digest=$(printf '%s' "$path" | shasum -a 256)
+  session="mac-data-${digest:0:16}"
+fi
+
+remote=${MAC_DATA_REMOTE:-nixos}
+if [[ ! "$remote" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+  echo "MAC_DATA_REMOTE must be a simple SSH host alias" >&2
   exit 2
 fi
 
-session="mac-data-$name"
-remote="${MAC_DATA_REMOTE:-nixos}"
-
 case "$command" in
   start)
-    local_dir="${MAC_DATA_ROOT:-$HOME/data}/$name"
-    if [[ ! -d "$local_dir" || -L "$local_dir" ]]; then
-      echo "Mac source directory is missing or is a symlink: $local_dir" >&2
-      echo "Create it and put the data there before starting a session." >&2
+    local_path="${MAC_DATA_ROOT:-$HOME/data}/$path"
+    if [[ -L "$local_path" || ( ! -f "$local_path" && ! -d "$local_path" ) ]]; then
+      echo "Mac source must be an existing regular file or directory (not a symlink): $local_path" >&2
       exit 1
     fi
-    ssh -o BatchMode=yes "$remote" "mkdir -p -- ~/work/mac-cache/$name"
+    if [[ -d "$local_path" ]]; then
+      remote_dir="~/work/$path"
+    elif [[ "$path" == */* ]]; then
+      remote_dir="~/work/${path%/*}"
+    else
+      remote_dir='~/work'
+    fi
+    ssh -o BatchMode=yes "$remote" "mkdir -p -- $remote_dir"
     mutagen sync create \
       --name="$session" \
       --sync-mode=two-way-safe \
       --ignore-vcs \
-      "$local_dir" "$remote:~/work/mac-cache/$name"
+      "$local_path" "$remote:~/work/$path"
     ;;
-  status) exec mutagen sync list --long "$session" ;;
-  flush)  exec mutagen sync flush "$session" ;;
-  pause)  exec mutagen sync pause "$session" ;;
-  resume) exec mutagen sync resume "$session" ;;
+  status)    exec mutagen sync list --long "$session" ;;
+  flush)     exec mutagen sync flush "$session" ;;
+  pause)     exec mutagen sync pause "$session" ;;
+  resume)    exec mutagen sync resume "$session" ;;
+  terminate) exec mutagen sync terminate "$session" ;;
 esac
