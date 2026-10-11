@@ -239,6 +239,19 @@ in {
 
   services.tailscale.enable = true;
 
+  # SSH for macOS -> NixOS project synchronization over Tailscale only.
+  # Install the Mac's public key in hotaru's ~/.ssh/authorized_keys first.
+  services.openssh = {
+    enable = true;
+    openFirewall = false;
+    settings = {
+      PasswordAuthentication = false;
+      KbdInteractiveAuthentication = false;
+      PermitRootLogin = "no";
+    };
+  };
+  networking.firewall.interfaces."tailscale0".allowedTCPPorts = [ 22 ];
+
   programs.git = {
     enable = true;
     config = {
