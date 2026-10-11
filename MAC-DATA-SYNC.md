@@ -3,13 +3,13 @@
 macOS の `~/data/` にデータを永続保存し、指定した相対パスのファイル・ディレクトリだけ NixOS の `~/work/` 以下に置く。Mac の `~/data/<path>` は NixOS の `~/work/<path>` に対応する。NixOS での編集は、SSH 接続が復旧すると Mac に自動同期される。Linux 上のファイルは同期完了後も**自動削除しない**。
 
 ```text
-macOS: ~/data/                      NixOS: ~/work/
-       ├── project-a/  <==== SSH ====>     ├── project-a/
-       ├── project-b/   (未同期)            │
-       ├── documents/                     └── documents/
-       │   ├── report.pdf <== SSH =========>   └── report.pdf
-       │   └── notes/   (未同期)
-       └── datasets/    (未同期)
+Mac: ~/data/                     NixOS: ~/work/
+├── project-a/       <====>     ├── project-a/
+├── project-b/  (対象外)         │
+├── documents/                   └── documents/
+│   ├── report.pdf  <====>          └── report.pdf
+│   └── notes/ (対象外)
+└── datasets/ (対象外)
 ```
 
 Mutagen の `two-way-safe` を使用する。これは「Mac を優先する」モードではなく、双方の編集を反映し、危険な競合を記録するモード。**削除操作も同期される**ので、Mac 側には別途バックアップ（Time Machine など）が必要。
@@ -115,7 +115,7 @@ ssh nixos 'rm -ri ~/work/project-a'
 - `two-way-safe` の `safe` は削除禁止ではない。同期対象内での通常の削除も他方へ反映される。Mac のスナップショット／バックアップを利用する。
 - 既に両側に異なる内容のファイルがある場合は、同期前に状態を確認する。競合が発生したら `mac-data-sync status` で確認する。`flush` だけで競合解消を保証しない。
 - `.git` など VCS 管理ディレクトリは `--ignore-vcs` で同期しない。Linux で Git が必要なら独立して用意する。`target` や `node_modules` などの巨大なビルド生成物は、プロジェクトごとに `mutagen sync create --ignore=...` で除外を検討する。
-- Linux の空き容量は利用するディレクトリ分と同期時の一時領域が必要。**容量に応じた自動退避・削除はしない**。
+- Linux の空き容量は選択したファイル・ディレクトリ分と同期時の一時領域が必要。**容量に応じた自動退避・削除はしない**。
 - 「Wi-Fi 接続時だけ」を判定しているわけではない。Mac が起動して Mutagen と SSH/Tailscale が利用可能なら、利用中のネットワークにかかわらず同期する。
 - macOS の `~/data` 自体は NixOS の Home Manager 管理対象外。Linux の dotfiles は SSH の受け口を提供し、同期セッションは Mac 上で管理する。
 
