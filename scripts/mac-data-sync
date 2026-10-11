@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Manage one Mutagen session per directory. Run this on macOS.
+# Data in ~/data is the long-lived copy; nothing is deleted automatically.
+usage() {
+  cat >&2 <<'USAGE'
+Usage: mac-data-sync {start|status|flush|pause|resume} <name>
+       mac-data-sync list
+
+  start <name>   Sync ~/data/<name> with nixos:~/work/mac-cache/<name>
+  status <name>  Show details and conflicts
+  flush <name>   Trigger a synchronization cycle
+  pause <name>   Stop syncing temporarily; keep both copies
+  resume <name>  Resume automatic synchronization
+  list           List all Mutagen synchronization sessions
+
+Optional environment: MAC_DATA_ROOT, MAC_DATA_REMOTE (SSH alias, default: nixos)
+USAGE
+}
+
+if (( $# < 1 )); then
+  usage
+  exit 2
+fi
+command=$1
+shift
+
+case "$command" in
+  list)
+    if (( $# != 0 )); then usage; exit 2; fi
+    exec mutagen sync list
+    ;;
+  start|status|flush|pause|resume)
+    if (( $# != 1 )); then usage; exit 2; fi
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac
+
+name=$1
+# Only a single safe path component is accepted, never arbitrary paths.
+if [[ ! "$name" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
+  echo "Invalid name: use letters, digits, '.', '_' or '-' (starting with a letter/digit)." >&2
+  exit 2
+fi
+
+session="mac-data-$name"
+remote="${MAC_DATA_REMOTE:-nixos}"
+
+case "$command" in
+  start)
+    local_dir="${MAC_DATA_ROOT:-$HOME/data}/$name"
+    if [[ ! -d "$local_dir" || -L "$local_dir" ]]; then
+      echo "Mac source directory is missing or is a symlink: $local_dir" >&2
+      echo "Create it and put the data there before starting a session." >&2
+      exit 1
+    fi
+    ssh -o BatchMode=yes "$remote" "mkdir -p -- ~/work/mac-cache/$name"
+    mutagen sync create \
+      --name="$session" \
+      --sync-mode=two-way-safe \
+      --ignore-vcs \
+      "$local_dir" "$remote:~/work/mac-cache/$name"
+    ;;
+  status) exec mutagen sync list --long "$session" ;;
+  flush)  exec mutagen sync flush "$session" ;;
+  pause)  exec mutagen sync pause "$session" ;;
+  resume) exec mutagen sync resume "$session" ;;
+esac
