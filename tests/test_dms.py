@@ -1,0 +1,266 @@
+"""DMS migration tests; no compositor required."""
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+DESKTOP = ROOT / 'home/desktop'
+spec = importlib.util.spec_from_file_location('seed_dms', DESKTOP / 'seed_dms.py')
+seed = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(seed)
+DEFAULTS = {'settings': {'acLockTimeout': 300, 'showWeather': False,
+                         'syncComponentAnimationSpeeds': False, 'modalAnimationSpeed': 0},
+            'policy': {'customPowerActionLock': '/bin/desktop-lock'},
+            'session': {'wallpaperPath': '/home/u/wallpaper.png'}}
+
+class SeedTests(unittest.TestCase):
+    def test_hibernate_policy_migrates_without_enabling_idle_suspend(self):
+        defaults = dict(DEFAULTS, settings=dict(DEFAULTS['settings'], acSuspendBehavior=1,
+                        batterySuspendBehavior=1, acSuspendTimeout=0, batterySuspendTimeout=0))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); config = root / 'config'; state = root / 'state'
+            path = config / 'DankMaterialShell/settings.json'
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({'acSuspendBehavior': 0, 'batterySuspendBehavior': 0,
+                                        'acSuspendTimeout': 1200, 'theme': 'mine'}))
+            seed.seed(config, state, defaults)
+            data = json.loads(path.read_text())
+            self.assertEqual(data['acSuspendBehavior'], 1)
+            self.assertEqual(data['batterySuspendBehavior'], 1)
+            self.assertEqual(data['acSuspendTimeout'], 1200)
+            self.assertEqual(data['batterySuspendTimeout'], 0)
+            self.assertEqual(data['theme'], 'mine')
+            data['batterySuspendBehavior'] = 2
+            path.write_text(json.dumps(data))
+            seed.seed(config, state, defaults)
+            self.assertEqual(json.loads(path.read_text()), data)
+
+    def test_power_policy_migrates_once_and_keeps_later_gui_choices(self):
+        policy = {'acProfileName': '1', 'batteryProfileName': '0',
+                  'batteryAutoPowerSaver': True, 'lowerDisplayRefreshRateOnBattery': True,
+                  'batteryPostLockMonitorTimeout': 30}
+        defaults = dict(DEFAULTS, settings=dict(DEFAULTS['settings'], **policy))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); config = root / 'config'; state = root / 'state'
+            path = config / 'DankMaterialShell/settings.json'
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({'acProfileName': '', 'batteryProfileName': '2',
+                                        'batteryPostLockMonitorTimeout': 0, 'theme': 'mine'}))
+            seed.seed(config, state, defaults)
+            data = json.loads(path.read_text())
+            self.assertEqual({key: data[key] for key in policy}, policy)
+            self.assertEqual(data['theme'], 'mine')
+            data.update(acProfileName='2', batteryProfileName='1', batteryAutoPowerSaver=False,
+                        lowerDisplayRefreshRateOnBattery=False, batteryPostLockMonitorTimeout=120)
+            path.write_text(json.dumps(data))
+            seed.seed(config, state, defaults)
+            self.assertEqual(json.loads(path.read_text()), data)
+
+    def test_shortcut_plugin_enables_initially_and_keeps_gui_preferences(self):
+        defaults = dict(DEFAULTS, plugins={'dotfilesAppShortcuts': {'enabled': True}})
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); config = root / 'config'; state = root / 'state'
+            path = config / 'DankMaterialShell/plugin_settings.json'
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({'otherPlugin': {'enabled': True, 'custom': 7}}))
+            seed.seed(config, state, defaults)
+            data = json.loads(path.read_text())
+            self.assertTrue(data['dotfilesAppShortcuts']['enabled'])
+            self.assertEqual(data['otherPlugin'], {'enabled': True, 'custom': 7})
+            data['dotfilesAppShortcuts']['enabled'] = False
+            path.write_text(json.dumps(data))
+            seed.seed(config, state, defaults)
+            self.assertEqual(json.loads(path.read_text()), data)
+
+    def test_running_apps_migrates_all_bars_once_without_duplicates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); config = root / 'config'; state = root / 'state'
+            path = config / 'DankMaterialShell/settings.json'
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({'theme': 'my-theme', 'runningAppsCurrentWorkspace': True,
+                'barConfigs': [
+                    {'id': 'main', 'position': 2, 'leftWidgets': ['clock', 'focusedWindow'],
+                     'centerWidgets': [], 'rightWidgets': ['systemTray']},
+                    {'id': 'other', 'leftWidgets': ['focusedWindow'],
+                     'centerWidgets': [{'id': 'runningApps', 'runningAppsCurrentWorkspace': True,
+                                        'runningAppsCurrentMonitor': True, 'custom': 5}]},
+                    {'id': 'minimal', 'leftWidgets': ['launcherButton']}] }))
+            seed.seed(config, state, DEFAULTS)
+            data = json.loads(path.read_text())
+            self.assertFalse(data['runningAppsCurrentWorkspace'])
+            self.assertFalse(data['runningAppsCurrentMonitor'])
+            self.assertTrue(data['runningAppsGroupByApp'])
+            self.assertEqual(data['theme'], 'my-theme')
+            bars = data['barConfigs']
+            self.assertEqual(bars[0]['position'], 2)
+            self.assertEqual(bars[0]['leftWidgets'], ['clock', 'runningApps'])
+            self.assertEqual(bars[0]['rightWidgets'], ['systemTray'])
+            self.assertEqual(bars[1]['leftWidgets'], [])
+            widget = bars[1]['centerWidgets'][0]
+            self.assertFalse(widget['runningAppsCurrentWorkspace'])
+            self.assertFalse(widget['runningAppsCurrentMonitor'])
+            self.assertEqual(widget['custom'], 5)
+            self.assertEqual(bars[2]['leftWidgets'], ['launcherButton', 'runningApps'])
+            data['runningAppsCurrentWorkspace'] = True
+            bars[0]['leftWidgets'] = ['clock']
+            path.write_text(json.dumps(data))
+            seed.seed(config, state, DEFAULTS)
+            self.assertEqual(json.loads(path.read_text()), data)
+
+    def test_motion_migrates_once_and_then_keeps_gui_choice(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); config = root / 'config'; state = root / 'state'
+            path = config / 'DankMaterialShell/settings.json'
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({'syncComponentAnimationSpeeds': True,
+                                        'modalAnimationSpeed': 1, 'theme': 'my-theme'}))
+            seed.seed(config, state, DEFAULTS)
+            data = json.loads(path.read_text())
+            self.assertFalse(data['syncComponentAnimationSpeeds'])
+            self.assertEqual(data['modalAnimationSpeed'], 0)
+            self.assertEqual(data['theme'], 'my-theme')
+            data.update(syncComponentAnimationSpeeds=True, modalAnimationSpeed=2)
+            path.write_text(json.dumps(data))
+            seed.seed(config, state, DEFAULTS)
+            self.assertEqual(json.loads(path.read_text())['modalAnimationSpeed'], 2)
+            self.assertTrue(json.loads(path.read_text())['syncComponentAnimationSpeeds'])
+    def test_first_start_creates_writable_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            seed.seed(root / 'config', root / 'state', DEFAULTS)
+            for path in root.rglob('*'):
+                if path.is_file():
+                    self.assertFalse(path.is_symlink())
+                    self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertTrue((root / 'config/hypr/dms/outputs.lua').exists())
+    def test_gui_choices_survive_rebuild(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); config = root / 'config'; state = root / 'state'
+            seed.seed(config, state, DEFAULTS)
+            settings = config / 'DankMaterialShell/settings.json'
+            settings.write_text(json.dumps({'acLockTimeout': 900, 'theme': 'my-theme', 'customPowerActionLock': '/old/store/lock'}))
+            session = state / 'DankMaterialShell/session.json'
+            session.write_text(json.dumps({'wallpaperPath': '/home/u/another.png'}))
+            outputs = config / 'hypr/dms/outputs.lua'
+            outputs.write_text('-- user-selected arrangement\n')
+            seed.seed(config, state, DEFAULTS)
+            data = json.loads(settings.read_text())
+            self.assertEqual(data['acLockTimeout'], 900)
+            self.assertEqual(data['theme'], 'my-theme')
+            self.assertEqual(data['customPowerActionLock'], '/bin/desktop-lock')
+            self.assertEqual(json.loads(session.read_text())['wallpaperPath'], '/home/u/another.png')
+            self.assertEqual(outputs.read_text(), '-- user-selected arrangement\n')
+    def test_idempotent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            seed.seed(root / 'config', root / 'state', DEFAULTS)
+            before = {str(p): (p.read_bytes(), p.stat().st_mtime_ns) for p in root.rglob('*') if p.is_file()}
+            seed.seed(root / 'config', root / 'state', DEFAULTS)
+            after = {str(p): (p.read_bytes(), p.stat().st_mtime_ns) for p in root.rglob('*') if p.is_file()}
+            self.assertEqual(before, after)
+    def test_bad_json_is_not_overwritten(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); path = root / 'DankMaterialShell/settings.json'
+            path.parent.mkdir(); path.write_text('{ broken')
+            with self.assertRaises(ValueError): seed.seed(root, root / 'state', DEFAULTS)
+            self.assertEqual(path.read_text(), '{ broken')
+    def test_symlink_is_not_followed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); path = root / 'DankMaterialShell/settings.json'
+            path.parent.mkdir(); target = root / 'target'; target.write_text('{}')
+            path.symlink_to(target)
+            with self.assertRaises(ValueError): seed.seed(root, root / 'state', DEFAULTS)
+            self.assertEqual(target.read_text(), '{}')
+
+class MigrationTests(unittest.TestCase):
+    def test_private_history_policy(self):
+        text = (DESKTOP / 'dms.nix').read_text()
+        self.assertIn('"DankMaterialShell/clsettings.json"', text)
+        self.assertIn('disabled = true;', text)
+        self.assertNotIn('"DankMaterialShell/settings.json".text', text)
+        self.assertNotIn('"hypr/dms/outputs.lua".text', text)
+    def test_no_duplicate_shell_services(self):
+        text = (DESKTOP / 'default.nix').read_text()
+        self.assertNotIn('./waybar.nix', text)
+        for name in ('dotfiles-hyprpaper =', 'dotfiles-notifications =', 'dotfiles-polkit ='):
+            self.assertNotIn(name, text)
+        # DMS startup belongs to the NixOS module / upstream packaged service.
+        self.assertNotIn('systemd.user.services.dms', (DESKTOP / 'dms.nix').read_text())
+
+    def test_dms_uses_upstream_systemd_service(self):
+        text = (ROOT / 'nixos/desktop.nix').read_text()
+        self.assertIn('programs.dms-shell', text)
+        self.assertIn('systemd = {', text)
+        self.assertIn('enable = true;', text)
+        self.assertIn('target = "graphical-session.target";', text)
+        self.assertIn('ConditionEnvironment =', text)
+        self.assertIn('"XDG_CURRENT_DESKTOP=Hyprland"', text)
+        self.assertNotIn('systemd.enable = false;', text)
+    def test_zoom_and_portal_routing(self):
+        text = (ROOT / 'nixos/desktop.nix').read_text()
+        self.assertIn('programs.zoom-us.enable = true;', text)
+        self.assertIn('xdg.portal.config.hyprland', text)
+        self.assertNotIn('xdg.portal.config.Hyprland', text)
+        self.assertNotIn('pkgs.zoom-us', (ROOT / 'home/home.nix').read_text())
+        rules = (DESKTOP / 'hypr/appearance.lua').read_text()
+        pattern = re.search(r'class = "([^"]+)" \}, float = true', rules).group(1)
+        for name in ('zoom', 'Zoom'):
+            self.assertRegex(name, pattern)
+        self.assertNotRegex('brave-browser', pattern)
+
+    def test_zoom_seed_is_writable_and_keeps_existing_preferences(self):
+        text = (ROOT / 'home/home.nix').read_text()
+        body = re.search(r'activation.seedZoom = .*?\x27\x27(.*?)\x27\x27;', text, re.S).group(1)
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory) / 'config with spaces'
+            script = body.replace('${config.xdg.configHome}', str(config))
+            script = script.replace('${pkgs.coreutils}/bin/install', 'install')
+            script = script.replace('${./app/zoomus.conf}', str(ROOT / 'home/app/zoomus.conf'))
+            command = ['bash', '-e', '-c', 'run() { "$@"; };\n' + script]
+            subprocess.run(command, check=True)
+            path = config / 'zoomus.conf'
+            self.assertEqual(path.read_text(), '[General]\nxwayland=false\n')
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            preferences = '[General]\nxwayland=true\nmic_volume=80\ncustomKey=keep\n'
+            path.write_text(preferences)
+            subprocess.run(command, check=True)
+            self.assertEqual(path.read_text(), preferences)
+
+    def test_release_and_state_versions(self):
+        text = (ROOT / 'flake.nix').read_text()
+        self.assertIn('nixos-26.05', text); self.assertIn('release-26.05', text)
+        lock = json.loads((ROOT / 'flake.lock').read_text())['nodes']
+        self.assertEqual(lock[lock['root']['inputs']['nixpkgs']]['original']['ref'], 'nixos-26.05')
+        self.assertIn('stateVersion = "25.11"', (ROOT / 'home/home.nix').read_text())
+        self.assertIn('stateVersion = "24.05"', (ROOT / 'nixos/configuration.nix').read_text())
+    def test_failed_lock_never_unlocks_or_resumes(self):
+        for failed in (False, True):
+            with self.subTest(failed=failed), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); binaries = root / 'bin'; binaries.mkdir()
+                log = root / 'calls'
+                for name in ('desktop-clipboard', 'loginctl', 'notify-send', 'systemctl', 'hyprlock'):
+                    status = 1 if name == 'hyprlock' and failed else 0
+                    file = binaries / name
+                    file.write_text(f'#!/bin/sh\nprintf "%s\\n" "{name} $*" >> "$CALL_LOG"\nexit {status}\n')
+                    file.chmod(0o755)
+                env = dict(os.environ, PATH=str(binaries) + ':' + os.environ['PATH'], XDG_RUNTIME_DIR=directory, CALL_LOG=str(log))
+                result = subprocess.run(['bash', str(DESKTOP / 'lock.sh')], env=env)
+                calls = log.read_text()
+                self.assertIn('desktop-clipboard pause', calls)
+                self.assertEqual(result.returncode, int(failed))
+                if failed:
+                    self.assertNotIn('loginctl unlock-session', calls)
+                    self.assertNotIn('desktop-clipboard resume', calls)
+                    self.assertTrue((root / 'dotfiles-screen-locked').exists())
+                else:
+                    self.assertIn('loginctl unlock-session', calls)
+                    self.assertIn('desktop-clipboard resume', calls)
+                    self.assertFalse((root / 'dotfiles-screen-locked').exists())
+
+if __name__ == '__main__':
+    unittest.main()

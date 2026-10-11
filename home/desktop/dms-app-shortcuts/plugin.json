@@ -1,0 +1,11 @@
+{
+  "id": "dotfilesAppShortcuts",
+  "name": "Numbered running apps",
+  "description": "Activate the Running Apps bar entries with Win+1 through Win+0",
+  "version": "1.0.0",
+  "author": "dotfiles",
+  "type": "daemon",
+  "capabilities": ["daemon"],
+  "components": {"daemon": "./AppShortcuts.qml"},
+  "requires_dms": ">=1.6.0"
+}

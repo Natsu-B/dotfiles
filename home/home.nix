@@ -12,6 +12,7 @@
 
   imports = [
     ./dconf.nix
+    ./desktop
   ];
 
   home =
@@ -137,12 +138,15 @@
       username = "hotaru";
       homeDirectory = "/home/${username}";
       stateVersion = "25.11";
+
+      # Zoom keeps its own writable preferences after the first launch.
+      activation.seedZoom = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        if [ ! -e "${config.xdg.configHome}/zoomus.conf" ] && [ ! -L "${config.xdg.configHome}/zoomus.conf" ]; then
+          run ${pkgs.coreutils}/bin/install -Dm600 ${./app/zoomus.conf} "${config.xdg.configHome}/zoomus.conf"
+        fi
+      '';
       # Install pkgs
       packages = [
-        # Use the custom-built xremap packages
-        pkgs.xremap-gnome
-        pkgs.xremap-hypr
-
         # Development tools
         pkgs.gh
         pkgs.gcc
@@ -189,7 +193,7 @@
         # llvm-objdump
         pkgs.llvmPackages.bintools-unwrapped
 
-        pkgs.zoom-us
+        # Zoom is installed by programs.zoom-us with desktop portal support.
         pkgs.libreoffice
         pkgs.typst
         pkgs.tinymist
@@ -316,17 +320,14 @@
             "$@"
         '';
       };
-      # Place the xremap configuration file
-      file.".config/xremap/config.yml" = {
-        source = ../config.yml;
-      };
-      # Link Hyprland configuration
-      file.".config/hypr/hyprland.conf" = {
-        source = ../hyprland.conf;
-      };
       # Enable unfree software on command line
       file.".config/nixpkgs/config.nix" = {
         source = ../nixpkgs/config.nix;
+      };
+      # Normalize the generated key's target so the forced-path check matches ~/.zshrc.
+      file."./.zshrc" = {
+        target = ".zshrc";
+        force = true;
       };
       file.".local/bin/codex-usb-start".source = "${codexUsb}/bin/codex-usb";
       file.".local/bin/codex-usb-stop".source = "${codexUsb}/bin/codex-usb";
@@ -334,25 +335,6 @@
       file.".local/bin/codex-usb-status".source = "${codexUsb}/bin/codex-usb";
       file.".local/bin/codex-usb-diagnose".source = "${codexUsb}/bin/codex-usb";
     };
-
-  # Define and enable systemd services for xremap
-  systemd.user.services.xremap-gnome = {
-    Unit = { Description = "xremap input remapper (GNOME)"; };
-    Service = {
-      ExecStart = "${pkgs.xremap-gnome}/bin/xremap-gnome --config %h/.config/xremap/config.yml";
-      Restart = "on-failure";
-    };
-    Install = { WantedBy = [ "graphical-session.target" ]; };
-  };
-
-  systemd.user.services.xremap-hypr = {
-    Unit = { Description = "xremap input remapper (Hyprland)"; };
-    Service = {
-      ExecStart = "${pkgs.xremap-hypr}/bin/xremap-hypr --config %h/.config/xremap/config.yml";
-      Restart = "on-failure";
-    };
-    Install = { WantedBy = [ "hyprland-session.target" ]; };
-  };
 
   # Configure Zsh and Oh My Zsh
   programs.zsh = {
@@ -370,6 +352,8 @@
       [[ -d "$HOME/.local/bin" ]] && path=("$HOME/.local/bin" $path)
       [[ -d "/usr/local/bin" ]] && path=("/usr/local/bin" $path)
       [[ -d "/usr/local/sbin" ]] && path=("/usr/local/sbin" $path)
+
+      source ${./ssh.zsh}
 
       if [[ -x "$HOME/.local/bin/jfx-module-path" ]]; then
         export JAVAFX_MODULE_PATH="$("$HOME/.local/bin/jfx-module-path" 2>/dev/null || printf '%s' "$JAVAFX_MODULE_PATH")"
