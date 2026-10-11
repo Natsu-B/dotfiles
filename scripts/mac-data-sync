@@ -180,7 +180,7 @@ case "$command" in
     temp_dir=$(mktemp -d)
     trap 'rm -rf -- "$temp_dir"' EXIT
     remote_list > "$temp_dir/remote" || fail "Unable to list Mac files (try: ssh $remote)"
-    while IFS= read -r -d '' entry; do printf '%q\n' "${entry#./}"; done < "$temp_dir/remote"
+    while IFS= read -r -d '' entry; do printf '%s\n' "${entry#./}"; done < "$temp_dir/remote"
     ;;
   start)
     (( $# == 1 )) || { usage; exit 2; }
