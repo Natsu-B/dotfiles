@@ -106,7 +106,8 @@ if [[ -f "$root" ]]; then
   printf 'F\t.\t%s\0' "${sum%% *}"
 else
   cd "$root"
-  /usr/bin/find . -print0 | while IFS= read -r -d '' entry; do
+  # Mutagen --ignore-vcs omits these on Mac; Linux copies remain fully checked.
+  /usr/bin/find . \( -name .git -o -name .svn -o -name .hg \) -prune -o -print0 | while IFS= read -r -d '' entry; do
     if [[ -L "$entry" ]]; then
       sum=$(/usr/bin/readlink "$entry" | /usr/bin/shasum -a 256)
       printf 'L\t%s\t%s\0' "$entry" "${sum%% *}"
@@ -166,13 +167,20 @@ parent=${target%/*}
 holding=$(mktemp -d "$parent/.mac-data-release.XXXXXXXX")
 mv -T -- "$target" "$holding/data"
 moved=1
-if [[ -f "$holding/data" ]]; then
-  if lsof -nP -- "$holding/data" >/dev/null 2>&1; then fail 'Linux file is open in another process'; fi
-else
-  if lsof -nP +D "$holding/data" >/dev/null 2>&1; then fail 'Linux directory contains open files'; fi
-fi
-
 manifest_dir=$(mktemp -d)
+# An unsuccessful lsof scan can reflect an error rather than an empty result.
+# Refuse deletion if it printed anything, even with a nonzero exit code.
+if [[ -f "$holding/data" ]]; then
+  if lsof -nP -- "$holding/data" > "$manifest_dir/lsof.out" 2> "$manifest_dir/lsof.err"; then
+    fail 'Linux file is open in another process'
+  fi
+else
+  if lsof -nP +D "$holding/data" > "$manifest_dir/lsof.out" 2> "$manifest_dir/lsof.err"; then
+    fail 'Linux directory contains open files'
+  fi
+fi
+[[ ! -s "$manifest_dir/lsof.out" && ! -s "$manifest_dir/lsof.err" ]] ||
+  fail 'lsof returned incomplete results or warnings; refusing to delete'
 local_manifest "$holding/data" > "$manifest_dir/linux"
 remote_manifest | LC_ALL=C sort -z > "$manifest_dir/mac" || fail 'Cannot verify Mac archive'
 if ! cmp -s "$manifest_dir/linux" "$manifest_dir/mac"; then
