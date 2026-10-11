@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Make repository scripts executable for mock tests
+        run: chmod +x scripts/mac-data-sync scripts/mac-data-sync-ui scripts/mac-data-sync-release
       - name: Check shell syntax
         run: |
           bash -n scripts/mac-data-sync
