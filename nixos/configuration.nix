@@ -114,6 +114,7 @@ in {
   users.users.hotaru = {
     uid = 1000;
     isNormalUser = true;
+    linger = true; # Keep the per-user Mutagen daemon alive after logout.
     extraGroups = [ "wheel" "input" "networkmanager" "libvirtd" "serial" "dialout" "plugdev" "render" ]; # Add user to wheel and input groups
     shell = pkgs.zsh;
   };
@@ -238,19 +239,6 @@ in {
   ];
 
   services.tailscale.enable = true;
-
-  # SSH for macOS -> NixOS project synchronization over Tailscale only.
-  # Install the Mac's public key in hotaru's ~/.ssh/authorized_keys first.
-  services.openssh = {
-    enable = true;
-    openFirewall = false;
-    settings = {
-      PasswordAuthentication = false;
-      KbdInteractiveAuthentication = false;
-      PermitRootLogin = "no";
-    };
-  };
-  networking.firewall.interfaces."tailscale0".allowedTCPPorts = [ 22 ];
 
   programs.git = {
     enable = true;
