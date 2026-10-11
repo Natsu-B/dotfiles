@@ -1,122 +1,120 @@
-# macOS を保管先、NixOS を作業用コピーにする
+# Mac を保存先、NixOS の ~/work を作業用にする
 
-macOS の `~/data/` にデータを永続保存し、指定した相対パスのファイル・ディレクトリだけ NixOS の `~/work/` 以下に置く。Mac の `~/data/<path>` は NixOS の `~/work/<path>` に対応する。NixOS での編集は、SSH 接続が復旧すると Mac に自動同期される。Linux 上のファイルは同期完了後も**自動削除しない**。
+Mac の `~/data` にデータを永続保存し、**NixOS 側のターミナルでファイル一覧を見て選択したものだけ** Linux の `~/work` 以下にコピーする。Linux で編集したファイルは接続復旧時に Mac に自動同期される。同期完了による Linux 側ファイルの自動削除はしない。
 
 ```text
-Mac: ~/data/                     NixOS: ~/work/
-├── project-a/       <====>     ├── project-a/
-├── project-b/  (対象外)         │
-├── documents/                   └── documents/
-│   ├── report.pdf  <====>          └── report.pdf
-│   └── notes/ (対象外)
-└── datasets/ (対象外)
+Mac: ~/data/                         NixOS: ~/work/
+├── project-a/       <============> ├── project-a/      (選択)
+├── project-b/                      │                   (未選択)
+├── documents/                      └── documents/
+│   ├── report.pdf   <============>     └── report.pdf  (選択)
+│   └── notes/                                          (未選択)
+└── datasets/                                           (未選択)
 ```
 
-Mutagen の `two-way-safe` を使用する。これは「Mac を優先する」モードではなく、双方の編集を反映し、危険な競合を記録するモード。**削除操作も同期される**ので、Mac 側には別途バックアップ（Time Machine など）が必要。
+**注意:** Mutagen の `two-way-safe` は「Mac を優先する」モードではなく双方向同期。Linux でファイルを手動削除すると、その削除が Mac にも伝播する。Mac は Time Machine などで別途バックアップする。
 
-## 1. NixOS の準備
+## 1. Mac の準備（SSH 接続先）
 
-`nixos/configuration.nix` では、SSH を Tailscale インターフェース `tailscale0` からだけ受け付け、パスワードログインを禁止する。既存の `services.tailscale.enable = true` と `programs.nix-ld.enable = true` は変更しない。
+1. Mac と NixOS を Tailscale の同じ tailnet に参加させる。
+2. Mac の **システム設定 → 一般 → 共有 → リモートログイン**を有効にし、アクセスできるユーザーを必要なアカウントに限定する。
+3. NixOS ユーザー `hotaru` の **公開** SSH 鍵を、Mac ユーザーの `~/.ssh/authorized_keys` に追記する。秘密鍵はコピーしない。
+4. Mac に `~/data` を用意してデータを置く。
 
-**`nixos-rebuild switch` より先に**、Mac の *公開* SSH 鍵を NixOS ユーザー `hotaru` の `~/.ssh/authorized_keys` に登録すること。秘密鍵はコピーしない。
-
-Mac 上で公開鍵を表示：
+NixOS で公開鍵を表示（まだ鍵がなければ `ssh-keygen -t ed25519` で生成）：
 
 ```sh
 cat ~/.ssh/id_ed25519.pub
 ```
 
-鍵がない場合は Mac で `ssh-keygen -t ed25519` を実行する。NixOS にローカルログインして、公開鍵を1行として `~/.ssh/authorized_keys` に追記する。
+Mac 側で鍵ファイルの権限を設定し、NixOS の公開鍵を1行追記する：
 
 ```sh
-install -d -m 700 ~/.ssh
+mkdir -p ~/.ssh ~/data
+chmod 700 ~/.ssh
 touch ~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys
-vim ~/.ssh/authorized_keys  # Mac の公開鍵を1行追加
-sudo nixos-rebuild switch --flake .#nixos
-sudo tailscale status
+# エディタなどで NixOS の公開鍵を ~/.ssh/authorized_keys に追記
 ```
 
-`tailscale status` が未接続を示す場合は `sudo tailscale up` で初期設定する。`sshd` は NixOS ホストで動く。`codex-usb` VM の SSH 設定とは無関係。
+Mac に Mutagen / fzf は不要。Mac のSSHサーバーを公開するため、アクセス範囲、認証方式、Tailscale ACL を適切に制限すること。
 
-## 2. macOS の準備
+## 2. NixOS の準備
 
-Mac と NixOS を同じ Tailscale ネットワークに接続する。Mac の `~/.ssh/config` に以下を追加する（IP は NixOS 側の `tailscale ip -4` で確認する）。
+NixOS の `~/.ssh/config` に Mac への接続を追加する。Mac の Tailscale IP は Mac の Tailscale 画面などで確認する。
 
 ```sshconfig
-Host nixos
+Host mac
     HostName 100.x.y.z
-    User hotaru
+    User <macOS-user>
     IdentityFile ~/.ssh/id_ed25519
     IdentitiesOnly yes
     BatchMode yes
 ```
 
-接続確認：`ssh nixos true`。macOS に Mutagen を入れて、ログイン時にデーモンを起動する。
+`<macOS-user>` とIPを実際のものに置換する。初回接続時は接続先のホスト鍵を確認する。
 
 ```sh
-brew install mutagen-io/mutagen/mutagen
-mutagen daemon register  # macOS の自動起動登録（Mutagen では実験的機能）
-mutagen daemon start
-
-mkdir -p ~/.local/bin
-install -m 755 scripts/mac-data-sync ~/.local/bin/mac-data-sync
+ssh mac 'ls ~/data'
+sudo nixos-rebuild switch --flake .#nixos
+systemctl --user status mutagen.service
 ```
 
-最後の `install` はこのリポジトリのルートディレクトリで実行。`~/.local/bin` を `PATH` に通すか、フルパスで呼び出す。
+このPRで Home Manager から `mutagen`、`fzf`、`mac-data-sync` を導入し、Mutagen のユーザーサービスを設定する。`users.users.hotaru.linger = true` によりログアウト中も NixOS 上のサービスが動作できる。接続は **NixOS → Mac** なので、NixOS 側に新しいSSHサーバー設定は不要。
 
-## 3. 必要なファイルやディレクトリだけ同期
-
-Mac 側にデータを置き、Mac からセッションを開始する。**Mac 側の保存先が存在しない場合、スクリプトは作成せず中止する**。
+## 3. NixOS で選択して同期
 
 ```sh
-mkdir -p ~/data/project-a
-mac-data-sync start project-a               # ディレクトリ全体
-mac-data-sync start documents/report.pdf    # 既存の単一ファイル
+mac-data-sync ls       # Mac ~/data 内のファイル・ディレクトリ一覧
+mac-data-sync pick     # fzf で検索・複数選択して同期開始
+mac-data-sync          # 引数なしでも pick が起動
+```
+
+`fzf` では `Tab` で複数選択、`Enter` で決定、`Esc` で中止する。選択後に同期開始の確認が表示される。**ディレクトリを選択した場合、配下のデータ全体が同期対象**になる。Linuxの空き容量を確認すること。
+
+パスを指定して開始することもできる：
+
+```sh
+mac-data-sync start project-a
+mac-data-sync start documents/report.pdf
+mac-data-sync start project-b/src
+```
+
+Mac の `~/data/<相対パス>` と NixOS の `~/work/<相対パス>` が対応する。選んでいないものは Linux にコピーされない。既定では一覧表示は4階層まで。深く探すには `MAC_DATA_DEPTH=8 mac-data-sync pick`（最大99）。
+
+同じ親子関係（例：`project-a` と `project-a/src`）を重複同期しないよう、CLIは管理中セッションとの重複を検出して拒否する。初回の既存LinuxデータとMacデータが食い違う場合は競合が発生しうるため、`status` を確認する。
+
+一覧からはVCS管理ディレクトリ（`.git`、`.svn`、`.hg`）を除外し、同期も `--ignore-vcs` を利用する。SSHのパス形式の制約上、`:`、タブ、改行や `..` 要素を含むパスはサポートしない。空白や日本語の名前は利用できる。
+
+## 4. 自動同期と明示的な終了
+
+```sh
+mac-data-sync list
 mac-data-sync status project-a
+mac-data-sync flush project-a
+mac-data-sync pause project-a
+mac-data-sync resume project-a
 ```
 
-作業時は Linux の `~/work/project-a` や `~/work/documents/report.pdf` を編集する。Mac の Mutagen デーモンと SSH が使えるときに変更が同期され、切断中も Linux で編集できる。Mac の `~/data` 全体を複製する必要はない。
+NixOS が起動してMutagenデーモンが動いており、MacがSSH接続可能なら自動的に同期する。切断中もLinux側の既存ファイルを編集でき、同期が完了してもファイルを自動削除しない。
 
-`mac-data-sync start project-a/src` のようにサブディレクトリだけ指定することもできる。ただし **`project-a` と `project-a/src` のような親子パスを同時に同期しない**。同じファイルを複数セッションが管理すると、競合や不整合の原因になる。
-
-指定は `~/data` からの相対パス。各パス要素には英数字・ピリオド・アンダースコア・ハイフンのみを使用できる（`..` や絶対パスは不可）。既存の通常ファイル・ディレクトリのみを許可し、シンボリックリンクそのものを同期ルートにはできない。指定したファイル・ディレクトリは開始前にMac側で用意し、`start` は同じ対象に繰り返し実行しない。
-
-操作：
-
-```sh
-mac-data-sync list                # セッション一覧
-mac-data-sync status project-a    # 状態と競合を確認
-mac-data-sync flush project-a     # 同期を明示的に実行
-mac-data-sync pause project-a     # 一時停止。ファイルは残る
-mac-data-sync resume project-a    # 自動同期を再開
-mac-data-sync terminate project-a # 同期を終了。双方のファイルは削除しない
-```
-
-`MAC_DATA_ROOT=/Volumes/External/data` と `MAC_DATA_REMOTE=nixos` でそれぞれ保存先の親ディレクトリと SSH 接続先エイリアスを変更可能。
-
-## 4. Linux 側のコピーが不要になったら
-
-同期中の `rm -r` は Mac 側のデータも削除しうる。自動削除処理は用意しない。Linux 側だけを明示的に削除する場合は、**Mac 上で同期を完了し、競合や接続エラーがないことを確認してから**セッションを終了する。
+作業コピーを捨てる場合、**Mac に反映済みで競合がないことを確認してから**同期セッションを終了し、その後でLinux側のコピーを手動削除する。
 
 ```sh
 mac-data-sync flush project-a
 mac-data-sync status project-a
-# Mac の ~/data/project-a に編集結果があることを確認
-mac-data-sync terminate project-a
-# この後、必要な場合だけ Linux 側で実行
-ssh nixos 'rm -ri ~/work/project-a'
+mac-data-sync terminate project-a  # セッションのみ停止。両側のファイルは残る
+# Linux側のコピーが不要な場合だけ、自分の判断で削除
+rm -ri ~/work/project-a
 ```
 
-`terminate` は同期セッションを終了するだけで、両側のファイルは削除しない。次回は `mac-data-sync start project-a` で同期を作り直す。Linux 側の削除を望まなければ、何もしなければよい。
+以前のPR版に従い **Mac上で** Mutagenセッションを既に作った場合は、そのセッションを停止・終了してからこの方式に移行する。同じファイルを2つのMutagenセッションから同期させないこと。
 
-## 注意
+## 制約
 
-- `two-way-safe` の `safe` は削除禁止ではない。同期対象内での通常の削除も他方へ反映される。Mac のスナップショット／バックアップを利用する。
-- 既に両側に異なる内容のファイルがある場合は、同期前に状態を確認する。競合が発生したら `mac-data-sync status` で確認する。`flush` だけで競合解消を保証しない。
-- `.git` など VCS 管理ディレクトリは `--ignore-vcs` で同期しない。Linux で Git が必要なら独立して用意する。`target` や `node_modules` などの巨大なビルド生成物は、プロジェクトごとに `mutagen sync create --ignore=...` で除外を検討する。
-- Linux の空き容量は選択したファイル・ディレクトリ分と同期時の一時領域が必要。**容量に応じた自動退避・削除はしない**。
-- 「Wi-Fi 接続時だけ」を判定しているわけではない。Mac が起動して Mutagen と SSH/Tailscale が利用可能なら、利用中のネットワークにかかわらず同期する。
-- macOS の `~/data` 自体は NixOS の Home Manager 管理対象外。Linux の dotfiles は SSH の受け口を提供し、同期セッションは Mac 上で管理する。
+- 容量に応じたLinux側の自動削除・自動退避はしない。同期に必要なメタデータ・一時ファイルもLinuxの容量を使う。
+- Wi-Fi接続時かどうかは判定しない。SSH/TailscaleでMacに到達可能なとき同期する。
+- `mac-data-sync` 以外で直接Mutagenセッションを作成・削除すると、重複防止用の状態が古くなることがある。
+- Macにある機密ファイルを同期すれば、Linux側にもコピーが残る。同期対象の選択に注意する。
 
-参考：[Mutagen synchronization](https://mutagen.io/documentation/synchronization)、[SSH endpoints](https://mutagen.io/documentation/transports/ssh/)、[Daemon](https://mutagen.io/documentation/introduction/daemon/)。
+参考：[Mutagen file synchronization](https://mutagen.io/documentation/synchronization)、[Mutagen SSH](https://mutagen.io/documentation/transports/ssh/)、[macOS Remote Login](https://support.apple.com/ja-jp/guide/mac-help/mchlp1066/mac)。
