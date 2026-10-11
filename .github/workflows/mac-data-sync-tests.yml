@@ -1,0 +1,33 @@
+name: Mac Data Sync Tests
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mac-data-sync*'
+      - 'tests/test-mac-data-sync*'
+      - 'home/home.nix'
+      - 'nixos/configuration.nix'
+      - 'MAC-DATA-SYNC.md'
+      - '.github/workflows/mac-data-sync-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/mac-data-sync*'
+      - 'tests/test-mac-data-sync*'
+
+jobs:
+  mock-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell syntax
+        run: |
+          bash -n scripts/mac-data-sync
+          bash -n scripts/mac-data-sync-ui
+          bash -n scripts/mac-data-sync-release
+          bash -n tests/test-mac-data-sync.sh
+          bash -n tests/test-mac-data-sync-interface.sh
+      - name: Test CLI and picker
+        run: bash tests/test-mac-data-sync.sh
+      - name: Test UI and guarded release
+        run: bash tests/test-mac-data-sync-interface.sh
