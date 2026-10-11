@@ -45,7 +45,9 @@ session_status() {
     elif .paused == true then "Paused"
     elif (.lastError // "") != "" then "Error"
     elif ((.conflicts // []) | length) > 0 or (.excludedConflicts // 0) > 0 then "Conflict"
-    elif (((.alpha.scanProblems // []) + (.alpha.transitionProblems // []) + (.beta.scanProblems // []) + (.beta.transitionProblems // [])) | length) > 0 then "Problem"
+    elif (((.alpha.scanProblems // []) + (.alpha.transitionProblems // []) + (.beta.scanProblems // []) + (.beta.transitionProblems // [])) | length) > 0
+      or (.alpha.excludedScanProblems // 0) > 0 or (.alpha.excludedTransitionProblems // 0) > 0
+      or (.beta.excludedScanProblems // 0) > 0 or (.beta.excludedTransitionProblems // 0) > 0 then "Problem"
     elif (.alpha.connected != true or .beta.connected != true) then "Offline"
     elif (.status == "watching" or .status == 6) then "Synced"
     else "Syncing"
