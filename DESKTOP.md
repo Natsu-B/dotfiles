@@ -407,14 +407,17 @@ xdg.desktopEntries.my-action = {
 ## 適用と復旧
 
 作業を保存し、現在の設定・生成をバックアップしてから実行する。
-初回は `update.sh` で他入力まで更新せず、コミット済み lock をそのまま使用する。
+本番ブランチは `main`、出力は `.#nixos`。Windows ESP は `/efi`、XBOOTLDR は `/boot`。
+`nixos-windows` は同じ構成への互換名。UUID と移行手順は [DUAL-BOOT.md](DUAL-BOOT.md) を参照する。
+コミット済み lock を使用し、通常の更新で入力を更新しない。
 
 ```sh
 git fetch origin
-git switch feat/hyprland-private-desktop
+git switch main
 git pull --ff-only
 python3 -m unittest discover -s tests -v
 nix flake check
+sh scripts/check-boot-filesystems.sh nixos
 sudo nixos-rebuild build --flake .#nixos
 sudo nixos-rebuild test --flake .#nixos
 ```
@@ -459,4 +462,5 @@ CI でコミット済み lock の一致、Python 回帰テスト、NixOS 全体�
 キー定義の展開・重複・説明・呼出先、pin した Hyprland の `--verify-config` を実行する。
 Lua チェックの実行コマンド文字列だけはダミーであり、アプリ起動や画面共有の実機テストではない。
 補助スクリプトと DMS パッケージのビルド、実際の xremap による生成プロファイル検証も行う。
-CI の成功は OS 全パッケージのビルドや、実機の GPU / ロック / Zoom の成功を意味しない。
+CI では本番の NixOS システム全体もビルドし、起動領域の設定と互換名の一致、
+休止ポリシーを確認する。実機の GPU / ロック / Zoom の動作は別途確認が必要。

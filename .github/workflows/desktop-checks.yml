@@ -43,7 +43,9 @@ jobs:
           echo '::endgroup::'
           git diff --exit-code -- flake.lock
       - name: Shell syntax
-        run: sh -n install.sh update.sh
+        run: |
+          sh -n install.sh update.sh scripts/check-boot-filesystems.sh
+          bash -n installer/prepare-windows-dualboot.sh
       - name: Python regression tests
         run: python3 -m unittest discover -s tests -v
       - name: Nix evaluation
@@ -55,13 +57,14 @@ jobs:
           test "$(nix eval --raw .#nixosConfigurations.nixos-windows.config.networking.hostName)" = nixos
           test "$(nix eval --raw .#nixosConfigurations.nixos-windows.config.boot.loader.efi.efiSysMountPoint)" = /efi
           test "$(nix eval --raw .#nixosConfigurations.nixos-windows.config.boot.loader.systemd-boot.xbootldrMountPoint)" = /boot
-      - name: Validate declarative disk layout
+      - name: Validate production boot layout and compatibility alias
         run: |
-          nix run github:nix-community/disko/de5708739256238fb912c62f03988815db89ec9a -- \
-            --dry-run \
-            --mode destroy,format,mount \
-            --argstr diskDevice /dev/disk/by-id/dotfiles-ci \
-            ./hosts/nixos/disko.nix
+          test "$(nix eval --raw .#nixosConfigurations.nixos.config.boot.loader.efi.efiSysMountPoint)" = /efi
+          test "$(nix eval --raw .#nixosConfigurations.nixos.config.boot.loader.systemd-boot.xbootldrMountPoint)" = /boot
+          test "$(nix eval --raw .#nixosConfigurations.nixos.config.system.build.toplevel.drvPath)" = \
+            "$(nix eval --raw .#nixosConfigurations.nixos-windows.config.system.build.toplevel.drvPath)"
+      - name: Hibernate policy
+        run: nix build --no-link --print-build-logs .#checks.x86_64-linux.hibernate-policy
       - name: Build and validate Home Manager desktop entries
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-entries
       - name: Hyprland Lua validation (real pinned compositor)
@@ -70,8 +73,6 @@ jobs:
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-tools
       - name: Build complete NixOS system
         run: |
-          nix build --no-link --print-build-logs \
-            .#nixosConfigurations.nixos.config.system.build.toplevel \
-            .#nixosConfigurations.nixos-windows.config.system.build.toplevel
+          nix build --no-link --print-build-logs .#nixosConfigurations.nixos.config.system.build.toplevel
       - name: Report system closure size
         run: nix path-info -Sh .#nixosConfigurations.nixos.config.system.build.toplevel

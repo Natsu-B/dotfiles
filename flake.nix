@@ -24,7 +24,7 @@
     let
       system = "x86_64-linux";
       hostName = "nixos";
-      mkNixos = extraModules: nixpkgs.lib.nixosSystem {
+      nixosSystem = nixpkgs.lib.nixosSystem {
         inherit system;
         specialArgs = {
           # Pass host identity and package sets to the configuration.
@@ -47,7 +47,7 @@
           inputs.microvm.nixosModules.host
           ./hosts/${hostName}
           home-manager.nixosModules.home-manager
-        ] ++ extraModules;
+        ];
       };
     in {
       checks.${system} = {
@@ -68,8 +68,9 @@
         };
       };
       nixosConfigurations = {
-        nixos = mkNixos [];
-        nixos-windows = mkNixos [ ./nixos/windows-dualboot.nix ];
+        nixos = nixosSystem;
+        # Backward-compatible name for existing dual-boot installations.
+        nixos-windows = nixosSystem;
       };
   };
 }

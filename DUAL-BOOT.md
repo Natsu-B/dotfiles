@@ -1,4 +1,48 @@
-# Windows 11 + NixOS 26.05: 完全再インストール（同一ディスク / UEFI）
+# Windows 11 + NixOS 26.05: 本番構成と再インストール
+
+## 本番環境の構成
+
+ThinkPad P14s Gen 5 Intel の本番出力は `.#nixos`。
+以前のインストールで使った `.#nixos-windows` も同じ構成への互換名として残す。
+どちらを指定しても、Windows と共有する ESP は `/efi`、XBOOTLDR は `/boot` になる。
+今後の `/etc/dotfiles-nixos-flake-profile` には `nixos` を記録する。
+
+2026-10-11 に再生成して起動できたハードウェア設定をコミットしている。
+
+| マウント先 | ファイルシステム | UUID |
+| --- | --- | --- |
+| `/` | ext4 | `75833fd8-6751-4dfa-ae64-b02932a78fcf` |
+| `/efi` | vfat（Windows ESP） | `2A21-BEBB` |
+| `/boot` | vfat（XBOOTLDR） | `A000-173D` |
+
+これは現在の実機の設定。別のマシンや再フォーマット後は、実際のマウントから
+`hosts/nixos/hardware-configuration.nix` を再生成する。
+通常の更新は `./update.sh`。Git の更新は `--ff-only` とし、実際のデバイスを照合してから反映する。
+`./install.sh` は Git を更新せず、チェックアウト済みの構成を反映する。
+
+PR の `main` マージ後にブランチを切り替える際は、未コミットのハードウェア設定を
+先にリポジトリ外へ保存する。他の未コミット変更がある場合は、それも保存してから進める。
+
+```sh
+(
+set -eu
+cd ~/dotfiles
+backup_dir=$(mktemp -d "$HOME/dotfiles-hardware.XXXXXX")
+cp hosts/nixos/hardware-configuration.nix "$backup_dir/hardware-configuration.nix"
+git status --short
+git restore --source=HEAD --staged --worktree -- hosts/nixos/hardware-configuration.nix
+git switch main
+git pull --ff-only origin main
+sh scripts/check-boot-filesystems.sh nixos
+./install.sh nixos
+)
+```
+
+保存した設定と `main` の内容が異なる場合、`lsblk -f` で実際の UUID を確認する。
+起動デバイスが一致しないとチェックで停止するため、差分を確認するまで反映しない。
+
+## 完全再インストール
+
 
 この手順は **既存の Windows/NixOS をすべて削除して入れ直す** 場合のもの。重要なデータと復旧キー、Windows のライセンス情報を事前に控える。対象ディスクを取り違えるとデータが失われる。
 
@@ -19,7 +63,7 @@ Windows の自動生成パーティションの個数・順序・容量は Windo
 
 ## 1. Windows 11 を Rufus から入れる
 
-1. 公式の Windows 11 ISO を入手し、Rufus で **GPT / UEFI（CSM なし）** の USB インストーラーを作る。NixOS 用 ISO は別の USB を用意する。
+1. 公式の Windows 11 ISO を入手し、Rufus で **GPT / UEFI（CSM なし）** の USB インストーラーを作る。Windows をインストールした後、同じ USB を NixOS ISO で書き直して使える。
 2. Rufus の Windows User Experience では、必要に応じてローカルアカウント用の設定やプライバシー項目を選ぶ。Rufus 自体は Windows の標準アプリを削除する debloater ではない。TPM/Secure Boot 要件を不要に回避しない。
 3. Windows Setup を UEFI モードで起動し、対象内蔵ディスクの既存パーティションを削除する。**別ディスクや USB を削除しない**。
 4. 未割り当て領域から「新規」を選び、Windows 用に例えば **131072 MiB (128 GiB)** を指定する。Windows Setup が作る ESP / MSR / Recovery を維持したまま Windows をインストールする。
@@ -32,10 +76,10 @@ Windows 11 の公称ストレージ最小要件は 64 GB だが、更新や一�
 **注意:** `disko` の標準的なディスク構成適用はディスク全体を再初期化するため、Windows インストール後の同一ディスクに使用しない。このリポジトリは `systemd-repart` で未割り当て領域だけに NixOS 用パーティションを追加する。
 
 1. NixOS ISO を UEFI モードで起動。現在の設定は署名付き Secure Boot 対応ではないため、必要ならファームウェア側で Secure Boot を無効化する。BitLocker 回復キーは必ず保持する。
-2. GitHub の PR を merge 済みなら `main`、未 merge の検証なら `feat/windows-dual-boot` を clone する。
+2. 本番の `main` を clone する。PR の検証中だけ、ブランチ名を `feat/windows-dual-boot` に置き換える。
 
    ```sh
-   git clone -b feat/windows-dual-boot https://github.com/Natsu-B/dotfiles.git
+   git clone -b main https://github.com/Natsu-B/dotfiles.git
    cd dotfiles
    lsblk -o NAME,SIZE,FSTYPE,PARTTYPE,PARTLABEL,MODEL,MOUNTPOINTS
    ls -l /dev/disk/by-id/
@@ -66,6 +110,8 @@ Windows 11 の公称ストレージ最小要件は 64 GB だが、更新や一�
 ディスクをマウントしたまま、Live ISO で次を実行する。
 
 ```sh
+(
+set -eu
 # Clone した dotfiles を新しい /home にコピー。
 sudo mkdir -p /mnt/home/hotaru
 sudo cp -a . /mnt/home/hotaru/dotfiles
@@ -83,18 +129,19 @@ sudo cp "$recovery_config" /mnt/home/hotaru/dotfiles/hosts/nixos/hardware-config
 sudo git -C /mnt/home/hotaru/dotfiles add hosts/nixos/hardware-configuration.nix
 
 # 専用の Windows デュアルブート設定を指定する。
-sudo nixos-install --flake '/mnt/home/hotaru/dotfiles#nixos-windows'
+sudo nixos-install --flake '/mnt/home/hotaru/dotfiles#nixos'
 
 # 初回ログインできるようユーザーパスワードを設定する。
 sudo nixos-enter --root /mnt -c 'passwd hotaru'
 sudo nixos-enter --root /mnt -c 'chown -R hotaru:users /home/hotaru/dotfiles'
+)
 ```
 
 パスワード設定を終えたら再起動し、NixOS と Windows の両方が systemd-boot メニューから起動することを確かめる。
 
 ## 4. 再インストール後の管理
 
-- `nixos` と `nixos-windows` はともに `feat/hyprland-private-desktop` のデスクトップ設定を使う。`nixos-windows` はこれにデュアルブート設定を追加する。`nixos/windows-dualboot.nix` は `/etc/dotfiles-nixos-flake-profile` に出力名を記録し、`update.sh` が `nixos-windows` を使って再ビルドする。
+- `nixos` は Hyprland / DMS と Windows デュアルブートを含む本番構成。`nixos-windows` は同じ構成への互換名。`nixos/windows-dualboot.nix` は `/etc/dotfiles-nixos-flake-profile` に `nixos` を記録する。古い `nixos-windows` の記録も引き続き使える。
 - 新しい `hardware-configuration.nix` の UUID はこのマシンに固有。インストール後、差分を確認してコミット・同期する。元の UUID をそのまま復元しない。
 - Windows と systemd-boot が同じ ESP にあるので、Windows の起動エントリは自動検出され、`boot.loader.systemd-boot.windows` の手動ハンドル設定は不要。
 - Secure Boot を再び有効化するなら、NixOS 側でも適切な署名付き起動設定を別途整える。
@@ -173,7 +220,8 @@ sudo nixos-rebuild boot --flake .#nixos-windows
 
 成功後に再起動する。`boot` は現在のセッションを切り替えず、次回起動用の構成を更新する。
 `update.sh` / `install.sh` は再ビルド前に、設定のデバイスと実際にマウントされた
-`/`・`/boot`（`nixos-windows` は `/efi` も）を照合し、不一致なら停止する。
+`/`・`/boot` と、構成から取得した ESP のマウント先を照合し、不一致なら停止する。
+本番構成では `nixos` / `nixos-windows` の両方で `/efi` も確認する。
 このチェックはインストール済みのこのディスク構成向け。Live ISO の新規インストールには使わない。
 
 以前の世代も起動しない場合は Live USB を UEFI モードで起動する。

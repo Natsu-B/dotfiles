@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class FlakeProfileTests(unittest.TestCase):
-    def run_script(self, script, marker=None, override=None, args=(), configured='nixos', device_state='valid', missing_mount=''):
+    def run_script(self, script, marker=None, override=None, args=(), configured='nixos', device_state='valid', missing_mount='', esp_mount='/efi'):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             log = base / 'commands'
@@ -35,6 +35,7 @@ class FlakeProfileTests(unittest.TestCase):
                 'git': 'printf "git %s\\n" "$*" >> "$TEST_LOG"',
                 'nix': 'printf "nix %s\\n" "$*" >> "$TEST_LOG"; '
                        'case "$*" in *networking.hostName) printf %s "$CONFIGURED_HOST" ;; '
+                       '*efiSysMountPoint) printf %s "$ESP_MOUNT" ;; '
                        '*) printf %s "$EXPECTED_DEVICE" ;; esac',
                 'findmnt': 'printf "findmnt %s\\n" "$*" >> "$TEST_LOG"; '
                            '[ "$6" != "$MISSING_MOUNT" ] || exit 1; printf %s "$MOUNTED_DEVICE"',
@@ -46,7 +47,7 @@ class FlakeProfileTests(unittest.TestCase):
                 stub.chmod(0o755)
             env = dict(os.environ, PATH=str(base) + ':' + os.environ['PATH'],
                        TEST_LOG=str(log), TARGET_HOST='nixos', CONFIGURED_HOST=configured, EXPECTED_DEVICE=str(expected),
-                       MOUNTED_DEVICE=str(mounted), MISSING_MOUNT=missing_mount)
+                       MOUNTED_DEVICE=str(mounted), MISSING_MOUNT=missing_mount, ESP_MOUNT=esp_mount)
             env.pop('NIXOS_FLAKE_PROFILE', None)
             if override is not None:
                 env['NIXOS_FLAKE_PROFILE'] = override
@@ -96,11 +97,19 @@ class FlakeProfileTests(unittest.TestCase):
 
     def test_shared_esp_must_be_mounted(self):
         for script in ('install.sh', 'update.sh'):
-            with self.subTest(script=script):
-                result, log = self.run_script(script, marker='nixos-windows', missing_mount='/efi')
-                self.assertEqual(result.returncode, 2)
-                self.assertIn('/efi is not mounted', result.stderr)
-                self.assertNotIn('sudo', log)
+            for profile in ('nixos', 'nixos-windows'):
+                with self.subTest(script=script, profile=profile):
+                    result, log = self.run_script(script, marker=profile, missing_mount='/efi')
+                    self.assertEqual(result.returncode, 2)
+                    self.assertIn('/efi is not mounted', result.stderr)
+                    self.assertNotIn('sudo', log)
+
+    def test_esp_check_uses_configuration_not_profile_name(self):
+        for esp_mount in ('/boot', '/efi'):
+            with self.subTest(esp_mount=esp_mount):
+                result, log = self.run_script('install.sh', marker='nixos', esp_mount=esp_mount)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual('--mountpoint /efi' in log, esp_mount == '/efi')
 
     def test_wrong_host_is_rejected_before_rebuild(self):
         for script in ('install.sh', 'update.sh'):

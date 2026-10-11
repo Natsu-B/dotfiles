@@ -5,8 +5,12 @@ set -eu
 
 PROFILE=${1:?Usage: check-boot-filesystems.sh FLAKE_PROFILE}
 MOUNTS="/ /boot"
-if [ "$PROFILE" = nixos-windows ]; then
-  MOUNTS="$MOUNTS /efi"
+if ! esp_mount=$(nix eval --raw ".#nixosConfigurations.${PROFILE}.config.boot.loader.efi.efiSysMountPoint"); then
+  echo "ERROR: cannot determine the configured EFI mount point." >&2
+  exit 2
+fi
+if [ "$esp_mount" != /boot ]; then
+  MOUNTS="$MOUNTS $esp_mount"
 fi
 
 for mountpoint in $MOUNTS; do
