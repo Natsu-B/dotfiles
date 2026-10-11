@@ -4,10 +4,13 @@ set -euo pipefail
 # Run on NixOS. Mac's ~/data is the archive; ~/work holds selected working copies.
 usage() {
   cat >&2 <<'USAGE'
-Usage: mac-data-sync pick                 Select files/directories from Mac with fzf
+Usage: mac-data-sync                      Open interactive management dashboard
+       mac-data-sync menu                 Open interactive management dashboard
+       mac-data-sync pick                 Select files/directories from Mac with fzf
        mac-data-sync ls                   List Mac files/directories
        mac-data-sync start <relative-path> Sync one Mac file/directory into ~/work
        mac-data-sync {status|flush|pause|resume|terminate} <relative-path>
+       mac-data-sync release <relative-path> Safely delete only Linux copy after verification
        mac-data-sync list                 List Mutagen sessions
 
 Example: mac-data-sync start documents/report.pdf
@@ -16,7 +19,8 @@ Environment:
   MAC_DATA_REMOTE=mac    SSH alias for Mac (configured in NixOS ~/.ssh/config)
   MAC_DATA_DEPTH=4      Maximum directory depth for pick/ls (1..99)
 
-File contents are never automatically cleaned up from ~/work.
+Linux files are never automatically cleaned up from ~/work.
+The release command requires explicit confirmation and a full checksum match.
 Within a running two-way session, ordinary deletions DO synchronize to Mac.
 USAGE
 }
@@ -139,7 +143,7 @@ pick_sync() {
   if ! fzf --read0 --print0 --multi --no-multi-line --height=90% \
       --border --layout=reverse \
       --prompt='Mac ~/data > ' \
-      --header='TAB: 複数選択 / Enter: 確定 / Esc: 中止（ディレクトリ選択は内部全体を同期）' \
+      --header='Tab: multi-select | Enter: confirm | Esc: cancel | Directory = entire subtree' \
       < "$picker_tmp_dir/remote" > "$picker_tmp_dir/selected"; then
     printf 'Selection canceled.\n' >&2
     return 0
@@ -167,10 +171,19 @@ pick_sync() {
   for entry in "${selection[@]}"; do start_sync "$entry"; done
 }
 
-(( $# > 0 )) || set -- pick
+(( $# > 0 )) || set -- menu
 command=$1
 shift
 case "$command" in
+  menu)
+    (( $# == 0 )) || { usage; exit 2; }
+    exec mac-data-sync-ui
+    ;;
+  release)
+    (( $# == 1 )) || { usage; exit 2; }
+    validate_path "$1"
+    exec mac-data-sync-release "$1"
+    ;;
   pick)
     (( $# == 0 )) || { usage; exit 2; }
     pick_sync
