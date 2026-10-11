@@ -1,11 +1,14 @@
 # macOS を保管先、NixOS を作業用コピーにする
 
-macOS の `~/data/<name>` にデータを永続保存し、必要なディレクトリだけ NixOS の `~/work/mac-cache/<name>` に置く。NixOS での編集は、SSH 接続が復旧すると Mac に自動同期される。Linux 上のファイルは同期完了後も**自動削除しない**。
+macOS の `~/data/` にデータを永続保存し、指定した相対パスのファイル・ディレクトリだけ NixOS の `~/work/` 以下に置く。Mac の `~/data/<path>` は NixOS の `~/work/<path>` に対応する。NixOS での編集は、SSH 接続が復旧すると Mac に自動同期される。Linux 上のファイルは同期完了後も**自動削除しない**。
 
 ```text
-macOS: ~/data/                      NixOS: ~/work/mac-cache/
-       ├── project-a/  <==== SSH ====>     └── project-a/
-       ├── project-b/   (未同期)
+macOS: ~/data/                      NixOS: ~/work/
+       ├── project-a/  <==== SSH ====>     ├── project-a/
+       ├── project-b/   (未同期)            │
+       ├── documents/                     └── documents/
+       │   ├── report.pdf <== SSH =========>   └── report.pdf
+       │   └── notes/   (未同期)
        └── datasets/    (未同期)
 ```
 
@@ -62,17 +65,22 @@ install -m 755 scripts/mac-data-sync ~/.local/bin/mac-data-sync
 
 最後の `install` はこのリポジトリのルートディレクトリで実行。`~/.local/bin` を `PATH` に通すか、フルパスで呼び出す。
 
-## 3. 必要なディレクトリだけ同期
+## 3. 必要なファイルやディレクトリだけ同期
 
 Mac 側にデータを置き、Mac からセッションを開始する。**Mac 側の保存先が存在しない場合、スクリプトは作成せず中止する**。
 
 ```sh
 mkdir -p ~/data/project-a
-mac-data-sync start project-a
+mac-data-sync start project-a               # ディレクトリ全体
+mac-data-sync start documents/report.pdf    # 既存の単一ファイル
 mac-data-sync status project-a
 ```
 
-作業時は Linux の `~/work/mac-cache/project-a` を編集する。Mac の Mutagen デーモンと SSH が使えるときに変更が同期され、切断中も Linux で編集できる。Mac のデータ全体を複製する必要はない。
+作業時は Linux の `~/work/project-a` や `~/work/documents/report.pdf` を編集する。Mac の Mutagen デーモンと SSH が使えるときに変更が同期され、切断中も Linux で編集できる。Mac の `~/data` 全体を複製する必要はない。
+
+`mac-data-sync start project-a/src` のようにサブディレクトリだけ指定することもできる。ただし **`project-a` と `project-a/src` のような親子パスを同時に同期しない**。同じファイルを複数セッションが管理すると、競合や不整合の原因になる。
+
+指定は `~/data` からの相対パス。各パス要素には英数字・ピリオド・アンダースコア・ハイフンのみを使用できる（`..` や絶対パスは不可）。既存の通常ファイル・ディレクトリのみを許可し、シンボリックリンクそのものを同期ルートにはできない。指定したファイル・ディレクトリは開始前にMac側で用意し、`start` は同じ対象に繰り返し実行しない。
 
 操作：
 
@@ -82,6 +90,7 @@ mac-data-sync status project-a    # 状態と競合を確認
 mac-data-sync flush project-a     # 同期を明示的に実行
 mac-data-sync pause project-a     # 一時停止。ファイルは残る
 mac-data-sync resume project-a    # 自動同期を再開
+mac-data-sync terminate project-a # 同期を終了。双方のファイルは削除しない
 ```
 
 `MAC_DATA_ROOT=/Volumes/External/data` と `MAC_DATA_REMOTE=nixos` でそれぞれ保存先の親ディレクトリと SSH 接続先エイリアスを変更可能。
@@ -94,9 +103,9 @@ mac-data-sync resume project-a    # 自動同期を再開
 mac-data-sync flush project-a
 mac-data-sync status project-a
 # Mac の ~/data/project-a に編集結果があることを確認
-mutagen sync terminate mac-data-project-a
+mac-data-sync terminate project-a
 # この後、必要な場合だけ Linux 側で実行
-ssh nixos 'rm -ri ~/work/mac-cache/project-a'
+ssh nixos 'rm -ri ~/work/project-a'
 ```
 
 `terminate` は同期セッションを終了するだけで、両側のファイルは削除しない。次回は `mac-data-sync start project-a` で同期を作り直す。Linux 側の削除を望まなければ、何もしなければよい。
