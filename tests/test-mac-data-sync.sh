@@ -34,6 +34,10 @@ set -euo pipefail
 printf 'mutagen' >> "$TEST_LOG"
 for arg in "$@"; do printf ' [%s]' "$arg" >> "$TEST_LOG"; done
 printf '\n' >> "$TEST_LOG"
+if [[ "${1:-}" == sync && "${2:-}" == list && "${3:-}" == --template ]]; then
+  id=${5:-}
+  printf '[{"name":"%s","paused":false,"status":"watching","successfulCycles":1,"alpha":{"connected":true,"scanned":true},"beta":{"connected":true,"scanned":true}}]\n' "$id"
+fi
 SH
 cat > "$root/bin/fzf" <<'SH'
 #!/usr/bin/env bash
@@ -70,11 +74,18 @@ grep -q 'Overlapping' "$root/error"
 "$script" terminate project-b
 [[ -d "$HOME/work/project-b" ]]
 
+# Selecting a parent plus a child creates one recursive session for the parent.
 count_before=$(grep -c 'mutagen \[sync\] \[create\]' "$TEST_LOG")
-if printf 'y\n' | FZF_SELECTION=clash "$script" pick > "$root/error" 2>&1; then exit 1; fi
-grep -q 'nested paths' "$root/error"
+printf 'y\n' | FZF_SELECTION=clash "$script" pick > "$root/recursive" 2>&1
 count_after=$(grep -c 'mutagen \[sync\] \[create\]' "$TEST_LOG")
-[[ "$count_before" == "$count_after" ]]
+[[ "$count_after" -eq $((count_before + 1)) ]]
+grep -qF '[mac:~/data/project-a]' "$TEST_LOG"
+! grep -qF '[mac:~/data/project-a/src]' "$TEST_LOG"
+grep -qF '[--no-global-configuration]' "$TEST_LOG"
+grep -qF '[--no-ignore-vcs]' "$TEST_LOG"
+! grep -qF '[--ignore-vcs]' "$TEST_LOG"
+grep -qF '[--template] [{{json .}}]' "$TEST_LOG"
+grep -q 'Ready: Mac ~/data/project-a' "$root/recursive"
 
 if "$script" start ../secrets > "$root/error" 2>&1; then exit 1; fi
 if "$script" start project-a/../../secrets > "$root/error" 2>&1; then exit 1; fi
