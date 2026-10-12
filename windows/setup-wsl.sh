@@ -66,6 +66,10 @@ for name in mac-data-sync mac-data-sync-ui mac-data-sync-release; do
 done
 install -m 755 "$repo_root/windows/wsl-keepalive.sh" "$bin_dir/mac-data-sync-keepalive"
 bash -n "$bin_dir/mac-data-sync-keepalive"
+# PowerShell invokes this fixed absolute path with arguments, without bash -lc
+# re-parsing user-supplied Windows file names.
+bash -n "$repo_root/windows/wsl-entry.sh"
+sudo install -m 755 "$repo_root/windows/wsl-entry.sh" /usr/local/bin/mac-data-sync-wsl
 
 if [[ -n "$mac_host" ]]; then
   ssh_config="$HOME/.ssh/config"
