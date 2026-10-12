@@ -171,9 +171,9 @@ start_sync() {
 }
 
 pick_sync() {
-  local entry relative answer existing
+  local entry relative answer existing skip duplicate
   # Keep picker_tmp_dir global because the EXIT trap outlives this function.
-  local -a selection=()
+  local -a requested=() selection=()
   picker_tmp_dir=$(mktemp -d)
   trap 'rm -rf -- "$picker_tmp_dir"' EXIT
   remote_list > "$picker_tmp_dir/remote" || fail "Unable to list Mac files (try: ssh $remote)"
@@ -190,17 +190,30 @@ pick_sync() {
   while IFS= read -r -d '' entry; do
     relative=${entry#./}
     validate_path "$relative"
-    for existing in "${selection[@]}"; do
-      if [[ "$existing" == "$relative" || "$existing" == "$relative/"* || "$relative" == "$existing/"* ]]; then
-        fail "Do not select nested paths together: $existing and $relative"
+    requested+=("$relative")
+  done < "$picker_tmp_dir/selected"
+
+  # Selecting a directory implicitly selects its entire subtree. Collapse
+  # redundant children even if they were explicitly selected with Tab.
+  for relative in "${requested[@]}"; do
+    skip=0
+    for existing in "${requested[@]}"; do
+      if [[ "$relative" != "$existing" && "$relative" == "$existing/"* ]]; then
+        skip=1
+        break
       fi
     done
-    check_overlapping_state "$relative"
-    selection+=("$relative")
-  done < "$picker_tmp_dir/selected"
+    (( skip )) && continue
+    duplicate=0
+    for existing in "${selection[@]}"; do
+      [[ "$existing" == "$relative" ]] && { duplicate=1; break; }
+    done
+    (( duplicate )) || selection+=("$relative")
+  done
   ((${#selection[@]} > 0)) || return 0
+  for relative in "${selection[@]}"; do check_overlapping_state "$relative"; done
 
-  printf '\nStart bidirectional sync for:\n' >&2
+  printf '\nStart bidirectional sync (folders include all descendants):\n' >&2
   for entry in "${selection[@]}"; do
     printf '  Mac ~/data/%s -> Linux ~/work/%s\n' "$entry" "$entry" >&2
   done
