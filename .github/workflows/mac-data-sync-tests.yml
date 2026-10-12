@@ -33,3 +33,24 @@ jobs:
         run: bash tests/test-mac-data-sync.sh
       - name: Test UI and guarded release
         run: bash tests/test-mac-data-sync-interface.sh
+
+  recursive-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Mutagen v0.18.1
+        run: |
+          mkdir -p "$RUNNER_TEMP/mutagen"
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 3 --silent --show-error \
+            --output mutagen_linux_amd64_v0.18.1.tar.gz \
+            https://github.com/mutagen-io/mutagen/releases/download/v0.18.1/mutagen_linux_amd64_v0.18.1.tar.gz
+          curl --fail --location --retry 3 --silent --show-error \
+            --output SHA256SUMS \
+            https://github.com/mutagen-io/mutagen/releases/download/v0.18.1/SHA256SUMS
+          grep -F 'mutagen_linux_amd64_v0.18.1.tar.gz' SHA256SUMS | sha256sum --check
+          tar -xzf mutagen_linux_amd64_v0.18.1.tar.gz -C "$RUNNER_TEMP/mutagen"
+          test -x "$RUNNER_TEMP/mutagen/mutagen"
+          echo "$RUNNER_TEMP/mutagen" >> "$GITHUB_PATH"
+      - name: Verify recursive files, hidden files, and later edits
+        run: bash tests/test-mac-data-sync-recursive.sh
