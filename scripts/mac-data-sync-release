@@ -106,8 +106,8 @@ if [[ -f "$root" ]]; then
   printf 'F\t.\t%s\0' "${sum%% *}"
 else
   cd "$root"
-  # Mutagen --ignore-vcs omits these on Mac; Linux copies remain fully checked.
-  /usr/bin/find . \( -name .git -o -name .svn -o -name .hg \) -prune -o -print0 | while IFS= read -r -d '' entry; do
+  # Every nested file/directory is synchronized, including VCS metadata.
+  /usr/bin/find . -print0 | while IFS= read -r -d '' entry; do
     if [[ -L "$entry" ]]; then
       sum=$(/usr/bin/readlink "$entry" | /usr/bin/shasum -a 256)
       printf 'L\t%s\t%s\0' "$entry" "${sum%% *}"
