@@ -8,7 +8,7 @@ Usage: mac-data-sync                      Open interactive management dashboard
        mac-data-sync menu                 Open interactive management dashboard
        mac-data-sync pick                 Select files/directories from Mac with fzf
        mac-data-sync ls                   List Mac files/directories
-       mac-data-sync start <relative-path> Sync one Mac file/directory into ~/work
+       mac-data-sync start <relative-path> Copy one file or the full directory tree to ~/work
        mac-data-sync {status|flush|pause|resume|terminate} <relative-path>
        mac-data-sync release <relative-path> Safely delete only Linux copy after verification
        mac-data-sync list                 List Mutagen sessions
@@ -19,6 +19,8 @@ Environment:
   MAC_DATA_REMOTE=mac    SSH alias for Mac (configured in NixOS ~/.ssh/config)
   MAC_DATA_DEPTH=4      Maximum directory depth for pick/ls (1..99)
 
+Selecting a directory copies ALL descendants, including hidden files and .git.
+The initial copy waits for completion. Later edits sync automatically.
 Linux files are never automatically cleaned up from ~/work.
 The release command requires explicit confirmation and a full checksum match.
 Within a running two-way session, ordinary deletions DO synchronize to Mac.
@@ -125,10 +127,47 @@ start_sync() {
 
   session=$(session_id "$relative")
   printf 'Sync: %s:~/data/%s <=> %s\n' "$remote" "$relative" "$target" >&2
-  mutagen sync create --name="$session" --sync-mode=two-way-safe --ignore-vcs \
+  # The selected directory root is recursively synchronized. Picker depth
+  # limits only the list displayed by fzf, never the copied directory depth.
+  # Override global ignores and propagate VCS as part of the directory tree.
+  printf 'Copying Mac %s recursively into Linux %s ...\n' "$relative" "$target" >&2
+  mutagen sync create --name="$session" --sync-mode=two-way-safe \
+    --no-global-configuration --no-ignore-vcs \
     "$remote:~/data/$relative" "$target"
   mkdir -p -- "$state_dir"
   printf '%s\n' "$relative" > "$state_dir/$session"
+
+  # Wait for the first complete cycle before saying the copy is ready.
+  # On failure, retain the session and the downloaded data for reconnection.
+  if ! mutagen sync flush "$session"; then
+    printf 'Initial copy is incomplete; session remains active. Inspect: mac-data-sync status %s\n' "$relative" >&2
+    return 1
+  fi
+  local snapshot
+  if ! snapshot=$(mutagen sync list --template '{{json .}}' "$session") ||
+    ! jq -e --arg name "$session" '
+      type == "array" and length == 1 and
+      .[0].name == $name and .[0].paused == false and
+      (.[0].status == "watching" or .[0].status == 6) and
+      (.[0].successfulCycles // 0) > 0 and
+      .[0].alpha.connected == true and .[0].beta.connected == true and
+      .[0].alpha.scanned == true and .[0].beta.scanned == true and
+      (.[0].lastError // "") == "" and
+      ((.[0].conflicts // []) | length) == 0 and
+      (.[0].excludedConflicts // 0) == 0 and
+      ((.[0].alpha.scanProblems // []) | length) == 0 and
+      ((.[0].beta.scanProblems // []) | length) == 0 and
+      ((.[0].alpha.transitionProblems // []) | length) == 0 and
+      ((.[0].beta.transitionProblems // []) | length) == 0 and
+      (.[0].alpha.excludedScanProblems // 0) == 0 and
+      (.[0].beta.excludedScanProblems // 0) == 0 and
+      (.[0].alpha.excludedTransitionProblems // 0) == 0 and
+      (.[0].beta.excludedTransitionProblems // 0) == 0
+    ' <<< "$snapshot" >/dev/null; then
+    printf 'Initial copy could not be verified; session remains active. Inspect: mac-data-sync status %s\n' "$relative" >&2
+    return 1
+  fi
+  printf 'Ready: Mac ~/data/%s <=> Linux ~/work/%s (all descendants)\n' "$relative" "$relative"
 }
 
 pick_sync() {
