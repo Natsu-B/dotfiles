@@ -76,7 +76,7 @@ The dashboard is in English and offers:
 | **Storage cleanup** | Sort work copies by Linux disk use and safely release chosen copies |
 | **Conflicts and errors** | Show disconnected, conflicted, or unhealthy sessions and inspect their Mutagen details |
 
-In selection lists: type to search, use **Tab** for multi-select, **Enter** for actions, and **Esc** to go back. Selecting a directory in the Mac browser selects its **entire subtree**. The picker shows 4 levels by default; use `MAC_DATA_DEPTH=8 mac-data-sync pick` for deeper search (maximum: 99).
+In selection lists: type to search, use **Tab** for multi-select, **Enter** for actions, and **Esc** to go back. **Selecting a directory copies its entire subtree automatically**, including nested subdirectories at any depth, hidden files, and `.git` metadata. There is no need to select its children separately. If a parent and its child are both selected, the child is automatically folded into the parent selection. The picker shows only 4 levels by default; this is a **listing limit, not a copying limit**. Use `MAC_DATA_DEPTH=8 mac-data-sync pick` to browse deeper (maximum: 99), but even a folder nested 100 levels down will be copied when its parent is selected.
 
 The actions available for working copies are **Sync now**, **Pause sync**, **Resume sync**, **Inspect**, **End sync (keep copies)**, and **Release Linux copy**. Pausing, resuming, and ending a session do not remove either copy.
 
@@ -96,6 +96,8 @@ mac-data-sync terminate project-a      # End synchronization but keep both copie
 mac-data-sync release project-a        # Safely delete ONLY the Linux work copy
 ```
 
+**Initial copy waits** for Mutagen's first complete synchronization cycle and checks that both endpoints are connected, scanned, and free from reported errors and conflicts before printing `Ready`. If the initial copy is interrupted or cannot be verified, the session and any copied data remain, and syncing continues automatically after reconnection. Inspect with `mac-data-sync status <path>`.
+
 Sync sessions resume automatically whenever the NixOS daemon and Mac SSH/Tailscale are reachable. Editing existing Linux files while disconnected remains possible. **Completion of synchronization never deletes Linux files on its own.**
 
 ## Safely release a Linux working copy
@@ -105,7 +107,7 @@ Only choose **Release Linux copy** after closing editors and builds that use the
 1. Requires explicit confirmation by typing `RELEASE <relative-path>`.
 2. Flushes Mutagen, checks that the specific session and endpoints match, both endpoints are connected, a successful cycle occurred, no conflicts/problems remain, and the session is watching for changes.
 3. Pauses the session; temporarily renames the Linux copy inside `~/work` to reduce write races; refuses open files when detected by lsof.
-4. Compares file names, types, directory layout, SHA-256 content hashes, and symlink targets against the Mac. **Linux-only files, including excluded `.git` directories, block deletion.** Mac-only VCS directories may be omitted because Mutagen explicitly ignores them.
+4. Compares all file names, types, directory layout, SHA-256 content hashes, and symlink targets against the Mac, **including hidden files, `.git`, and deeply nested subdirectories**. Extra Linux-only files block deletion.
 5. If everything matches, terminates the session and deletes **only** the quarantined Linux working copy. Any error before termination attempts to restore the original directory and resume synchronization.
 
 If verification fails, no Linux working data is intentionally deleted. A failed restoration or a cleanup failure may leave a `.mac-data-release.*` directory beside the work copy; recover it manually before trying again.
@@ -119,7 +121,7 @@ If you need to retain Linux-only Git history or build products, **End sync (keep
 - Manual `rm` **inside an active two-way sync** may propagate deletion to the Mac. Use **Release Linux copy**, not `rm -r`, to reclaim space safely.
 - A copy with errors, conflicts, missing SSH access, or different content is **not** eligible for release.
 - Neither disk-pressure eviction nor automatic work-copy deletion is implemented.
-- `.git`, `.svn`, and `.hg` are excluded by the picker/sync. The release verifier inspects Linux copies for ignored material so it cannot silently discard local-only commits.
+- The picker hides `.git`, `.svn`, and `.hg` for navigability, but selecting their **parent directory still copies all VCS contents**. Mutagen is invoked with `--no-global-configuration --no-ignore-vcs` so its global ignore rules and VCS exclusion do not silently omit files. This can consume significant Linux disk space and syncing Git metadata while both Macs and Linux run Git operations concurrently may cause conflicts. Avoid concurrent Git writes.
 - Nested/overlapping sessions (e.g. `project-a` and `project-a/src`) are blocked by the CLI.
 - SSH paths containing `:`, tabs, newlines, or traversal components `..` cannot be chosen. Unicode and spaces are supported.
 - Connection over Tailscale is not restricted to Wi-Fi specifically: any permitted network connection works.
