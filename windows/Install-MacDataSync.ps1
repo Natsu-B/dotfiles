@@ -55,14 +55,29 @@ New-Item -ItemType Directory -Path $installDir -Force | Out-Null
 $launcher = Join-Path $installDir 'MacDataSync.ps1'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'MacDataSync.ps1') -Destination $launcher -Force
 
+# Search "Mac Data Sync" in Start Menu, no terminal command required.
+$windowsPowerShell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$wsh = New-Object -ComObject WScript.Shell
+$programs = [Environment]::GetFolderPath('Programs')
+$launchShortcut = $wsh.CreateShortcut((Join-Path $programs 'Mac Data Sync.lnk'))
+$launchShortcut.TargetPath = $windowsPowerShell
+$launchShortcut.Arguments = "-NoLogo -NoProfile -NoExit -ExecutionPolicy Bypass -File `"$launcher`" -Distribution `"$Distribution`""
+$launchShortcut.WorkingDirectory = $installDir
+$launchShortcut.Save()
+
+$filesShortcut = $wsh.CreateShortcut((Join-Path $programs 'Mac Data Sync Files.lnk'))
+$filesShortcut.TargetPath = $windowsPowerShell
+$filesShortcut.Arguments = "-NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$launcher`" -Distribution `"$Distribution`" -OpenWork"
+$filesShortcut.WorkingDirectory = $installDir
+$filesShortcut.Save()
+
 if (-not $SkipStartup) {
     # An ordinary current-user Startup shortcut. Does not need admin rights.
     # This launches a hidden, long-running WSL keeper on each Windows login.
     $startup = [Environment]::GetFolderPath('Startup')
     $shortcutPath = Join-Path $startup 'Mac Data Sync (WSL).lnk'
-    $shell = New-Object -ComObject WScript.Shell
-    $shortcut = $shell.CreateShortcut($shortcutPath)
-    $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    $shortcut = $wsh.CreateShortcut($shortcutPath)
+    $powershell = $windowsPowerShell
     $shortcut.TargetPath = $powershell
     $shortcut.Arguments = "-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$launcher`" -Distribution `"$Distribution`" -Daemon"
     $shortcut.WorkingDirectory = $installDir
@@ -76,7 +91,8 @@ if (-not $SkipStartup) {
 }
 
 Write-Host ''
-Write-Host 'Setup completed. Next steps:'
+Write-Host 'Setup completed. Start Menu shortcuts: Mac Data Sync / Mac Data Sync Files.'
+Write-Host 'Next steps:'
 Write-Host "  1. In Windows WSL: wsl.exe --distribution $Distribution --exec bash -lc 'cat ~/.ssh/id_ed25519.pub'"
 Write-Host '     Add that public key to the Mac account authorized_keys file.'
 Write-Host '  2. Confirm the Mac has Remote Login enabled and that WSL can run: ssh mac "ls ~/data"'
