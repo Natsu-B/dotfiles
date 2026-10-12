@@ -35,6 +35,7 @@ jobs:
           bash -n tests/test-mac-data-sync-windows-setup.sh
           bash -n windows/setup-wsl.sh
           bash -n windows/wsl-keepalive.sh
+          bash -n windows/wsl-entry.sh
       - name: Test CLI and picker
         run: bash tests/test-mac-data-sync.sh
       - name: Test UI and guarded release
@@ -71,7 +72,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($path in @('windows/MacDataSync.ps1', 'windows/Install-MacDataSync.ps1')) {
+          foreach ($path in @('windows/MacDataSync.ps1', 'windows/Install-MacDataSync.ps1', 'tests/test-mac-data-sync-windows.ps1')) {
             $tokens = $null
             $issues = $null
             [System.Management.Automation.Language.Parser]::ParseFile(
@@ -83,3 +84,6 @@ jobs:
             }
             Write-Host "PowerShell syntax OK: $path"
           }
+      - name: Test PowerShell launcher (mock WSL)
+        shell: pwsh
+        run: ./tests/test-mac-data-sync-windows.ps1
