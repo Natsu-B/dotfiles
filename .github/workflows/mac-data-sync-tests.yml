@@ -8,12 +8,15 @@ on:
       - 'home/home.nix'
       - 'nixos/configuration.nix'
       - 'MAC-DATA-SYNC.md'
+      - 'WINDOWS-MAC-DATA-SYNC.md'
+      - 'windows/**'
       - '.github/workflows/mac-data-sync-tests.yml'
   push:
     branches: [main]
     paths:
       - 'scripts/mac-data-sync*'
       - 'tests/test-mac-data-sync*'
+      - 'windows/**'
 
 jobs:
   mock-tests:
@@ -29,10 +32,15 @@ jobs:
           bash -n scripts/mac-data-sync-release
           bash -n tests/test-mac-data-sync.sh
           bash -n tests/test-mac-data-sync-interface.sh
+          bash -n tests/test-mac-data-sync-windows-setup.sh
+          bash -n windows/setup-wsl.sh
+          bash -n windows/wsl-keepalive.sh
       - name: Test CLI and picker
         run: bash tests/test-mac-data-sync.sh
       - name: Test UI and guarded release
         run: bash tests/test-mac-data-sync-interface.sh
+      - name: Test Windows WSL bootstrap (mocked apt/Mutagen)
+        run: bash tests/test-mac-data-sync-windows-setup.sh
 
   recursive-integration:
     runs-on: ubuntu-latest
@@ -54,3 +62,24 @@ jobs:
           echo "$RUNNER_TEMP/mutagen" >> "$GITHUB_PATH"
       - name: Verify recursive files, hidden files, and later edits
         run: bash tests/test-mac-data-sync-recursive.sh
+
+  windows-syntax:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell launchers
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($path in @('windows/MacDataSync.ps1', 'windows/Install-MacDataSync.ps1')) {
+            $tokens = $null
+            $issues = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Join-Path (Get-Location) $path), [ref]$tokens, [ref]$issues
+            ) | Out-Null
+            if ($issues.Count -gt 0) {
+              $issues | ForEach-Object { Write-Error $_.ToString() }
+              throw "Invalid PowerShell: $path"
+            }
+            Write-Host "PowerShell syntax OK: $path"
+          }
