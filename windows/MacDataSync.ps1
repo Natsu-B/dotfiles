@@ -37,7 +37,7 @@ if ($null -eq $wsl) {
 }
 
 if ($OpenWork) {
-    $path = & $wsl.Source --distribution $Distribution --exec /usr/local/bin/mac-data-sync-wsl --windows-path
+    $path = & $wsl.Name --distribution $Distribution --exec /usr/local/bin/mac-data-sync-wsl --windows-path
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace(($path | Out-String))) {
         throw "Could not open WSL directory for distribution '$Distribution'."
     }
@@ -48,11 +48,11 @@ if ($OpenWork) {
 
 if ($Daemon) {
     # Foreground on purpose: the Windows Startup shortcut keeps WSL alive.
-    & $wsl.Source --distribution $Distribution --exec /usr/local/bin/mac-data-sync-wsl --daemon
+    & $wsl.Name --distribution $Distribution --exec /usr/local/bin/mac-data-sync-wsl --daemon
     exit $LASTEXITCODE
 }
 
 # Run the installed WSL entrypoint directly. PowerShell never interpolates
 # file names into shell source; each argument keeps its own boundary.
-& $wsl.Source --distribution $Distribution --exec /usr/local/bin/mac-data-sync-wsl @CliArgs
+& $wsl.Name --distribution $Distribution --exec /usr/local/bin/mac-data-sync-wsl @CliArgs
 exit $LASTEXITCODE
