@@ -27,6 +27,20 @@ mutagen sync create --name="$session" --sync-mode=two-way-safe \
   "$source_dir" "$destination_dir"
 timeout 120s mutagen sync flush "$session"
 
+# The production CLI uses this JSON status after flushing. Verify the actual
+# Mutagen template format and reported session state, not just mocked values.
+snapshot=$(mutagen sync list --template '{{json .}}' "$session")
+jq -e --arg name "$session" '
+  type == "array" and length == 1 and
+  .[0].name == $name and .[0].paused == false and
+  (.[0].status == "watching" or .[0].status == 6) and
+  (.[0].successfulCycles // 0) > 0 and
+  .[0].alpha.connected == true and .[0].beta.connected == true and
+  .[0].alpha.scanned == true and .[0].beta.scanned == true and
+  (.[0].lastError // "") == "" and
+  ((.[0].conflicts // []) | length) == 0
+' <<< "$snapshot" >/dev/null
+
 cmp "$source_dir/README.md" "$destination_dir/README.md"
 cmp "$source_dir/src/deep/level5/nested.txt" "$destination_dir/src/deep/level5/nested.txt"
 cmp "$source_dir/.hidden/config" "$destination_dir/.hidden/config"
