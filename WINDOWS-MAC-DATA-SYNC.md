@@ -45,7 +45,7 @@ Use the Mac's Tailscale IP or resolvable MagicDNS name and the Mac account's **s
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\Install-MacDataSync.ps1 -Distribution Ubuntu -MacHost 100.x.y.z -MacUser YOUR_MAC_USER
 ```
 
-The installer runs `windows/setup-wsl.sh` inside Ubuntu. It installs Ubuntu packages (`fzf`, `jq`, `lsof`, `openssh-client`), a pinned Mutagen v0.18.1 release (verified against its published SHA256SUMS), and the repository's English TUI/CLI. No Git files are installed into the Mac archive.
+The installer adds **Start Menu shortcuts** named **Mac Data Sync** (opens the English dashboard) and **Mac Data Sync Files** (opens the working directory in Explorer). The installer runs `windows/setup-wsl.sh` inside Ubuntu. It installs Ubuntu packages (`fzf`, `jq`, `lsof`, `openssh-client`), a pinned Mutagen v0.18.1 release (verified against its published SHA256SUMS), and the repository's English TUI/CLI. No Git files are installed into the Mac archive.
 
 By default, it also creates a **Windows per-user Startup shortcut** named `Mac Data Sync (WSL)`, which launches a hidden WSL keeper at Windows login. That process keeps WSL running and retries the Mutagen daemon once a minute, so existing sessions can resume automatically when SSH/Tailscale becomes available. **This keeps the WSL virtual machine running while logged in**, consuming some memory and battery. Use `-SkipStartup` during setup if you prefer to sync only while WSL is open.
 
