@@ -32,20 +32,20 @@ if ($null -eq $wsl) {
 }
 
 # Check that this distro can execute shell commands as the intended user.
-& $wsl.Source --distribution $Distribution --exec bash -c 'printf "WSL_READY"'
+& $wsl.Name --distribution $Distribution --exec bash -c 'printf "WSL_READY"'
 if ($LASTEXITCODE -ne 0) {
     throw "Could not launch '$Distribution'. Install or initialize it first with 'wsl --install -d $Distribution'."
 }
 
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
-$repoWsl = & $wsl.Source --distribution $Distribution --exec wslpath -u $repoRoot
+$repoWsl = & $wsl.Name --distribution $Distribution --exec wslpath -u $repoRoot
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace(($repoWsl | Out-String))) {
     throw "WSL could not translate the repository directory: $repoRoot"
 }
 $repoWsl = ($repoWsl | Select-Object -First 1).Trim()
 
 Write-Host "Installing Mac Data Sync in WSL distribution $Distribution ..."
-& $wsl.Source --distribution $Distribution --exec bash "$repoWsl/windows/setup-wsl.sh" $repoWsl $MacHost $MacUser
+& $wsl.Name --distribution $Distribution --exec bash "$repoWsl/windows/setup-wsl.sh" $repoWsl $MacHost $MacUser
 if ($LASTEXITCODE -ne 0) { throw "WSL setup failed with exit code $LASTEXITCODE." }
 
 # Install the PowerShell launcher outside the git checkout, so shortcuts survive
