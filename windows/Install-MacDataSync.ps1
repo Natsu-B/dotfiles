@@ -62,7 +62,7 @@ if (-not $SkipStartup) {
     $shortcutPath = Join-Path $startup 'Mac Data Sync (WSL).lnk'
     $shell = New-Object -ComObject WScript.Shell
     $shortcut = $shell.CreateShortcut($shortcutPath)
-    $powershell = Join-Path $PSHOME 'powershell.exe'
+    $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
     $shortcut.TargetPath = $powershell
     $shortcut.Arguments = "-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$launcher`" -Distribution `"$Distribution`" -Daemon"
     $shortcut.WorkingDirectory = $installDir
