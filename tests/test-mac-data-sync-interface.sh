@@ -126,11 +126,20 @@ fi
 grep -q 'Mac/Linux differ' "$root/fail"
 printf 'same\n' > "$HOME/work/project-a/file.txt"
 
-# Once local and remote are identical, release is possible and Mac is untouched.
+# A complete recursively matched subtree, including .git, can be released.
+# Subdirectories deeper than the picker view must also be considered.
+mkdir -p "$HOME/work/project-a/src/deep/level5" "$TEST_MAC/project-a/src/deep/level5"
+printf 'nested data\n' > "$HOME/work/project-a/src/deep/level5/nested.txt"
+printf 'nested data\n' > "$TEST_MAC/project-a/src/deep/level5/nested.txt"
+mkdir -p "$HOME/work/project-a/.git" "$TEST_MAC/project-a/.git"
+printf 'shared history\n' > "$HOME/work/project-a/.git/log"
+printf 'shared history\n' > "$TEST_MAC/project-a/.git/log"
 write_state healthy
 printf 'RELEASE project-a\n' | bash "$scripts/mac-data-sync-release" project-a > "$root/pass" 2>&1
 ! test -e "$HOME/work/project-a"
 test -f "$TEST_MAC/project-a/file.txt"
+test -f "$TEST_MAC/project-a/.git/log"
+test -f "$TEST_MAC/project-a/src/deep/level5/nested.txt"
 ! test -e "$XDG_STATE_HOME/mac-data-sync/$id"
 grep -q 'Released Linux copy' "$root/pass"
 
