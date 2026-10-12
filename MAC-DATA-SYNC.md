@@ -1,6 +1,6 @@
-# Mac archive / NixOS working copies
+# Mac archive / NixOS and Windows working copies
 
-The Mac is the **archive** at `~/data`. NixOS keeps **only selected working copies** under `~/work`. Run the interactive dashboard on NixOS to select Mac files, synchronize edits back to the Mac, pause, resume, inspect errors, and safely free Linux disk space.
+The Mac is the **archive** at `~/data`. NixOS keeps **only selected working copies** under `~/work`. **Windows 10/11 is supported as another working client through WSL2.** See [WINDOWS-MAC-DATA-SYNC.md](WINDOWS-MAC-DATA-SYNC.md) for setup and the same English interface. Run the interactive dashboard on NixOS to select Mac files, synchronize edits back to the Mac, pause, resume, inspect errors, and safely free Linux disk space.
 
 ```text
 Mac ~/data/                        NixOS ~/work/
