@@ -481,3 +481,18 @@ Lua チェックの実行コマンド文字列だけはダミーであり、ア�
 補助スクリプトと DMS パッケージのビルド、実際の xremap による生成プロファイル検証も行う。
 CI では本番の NixOS システム全体もビルドし、起動領域の設定と互換名の一致、
 休止ポリシーを確認する。実機の GPU / ロック / Zoom の動作は別途確認が必要。
+
+## Dvorak が効かない場合
+
+`keyboard-profile status` が `dvorak` でも、xremap が停止すると入力は QWERTY に戻る。
+`systemctl --user status xremap.service` と
+`journalctl --user -u xremap.service -b` を確認する。
+`Failed to prepare an output device` / `Permission denied` は `/dev/uinput` のアクセス権を確認する。
+NixOS の `hardware.uinput.enable` は `/dev/uinput` を `root:uinput`、0660 に設定するため、
+ユーザーには `input`（入力の読み取り）と `uinput`（仮想入力の作成）の両グループが必要。
+
+修正を `sudo nixos-rebuild switch --flake .#nixos` で適用後、ログアウトしてログインし直す
+（既存セッションの補助グループは更新されない）。その後 `id` と
+`ls -l /dev/uinput`、`systemctl --user is-active xremap.service` を確認する。
+必要なら `systemctl --user restart xremap.service` を実行する。
+XKB は Hyprland / GNOME とも `jp` のままにし、Dvorak の変換は xremap に任せる。

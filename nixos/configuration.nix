@@ -115,7 +115,7 @@ in {
     uid = 1000;
     isNormalUser = true;
     linger = true; # Keep the per-user Mutagen daemon alive after logout.
-    extraGroups = [ "wheel" "input" "networkmanager" "libvirtd" "serial" "dialout" "plugdev" "render" ]; # Add user to wheel and input groups
+    extraGroups = [ "wheel" "input" "uinput" "networkmanager" "libvirtd" "serial" "dialout" "plugdev" "render" ]; # Add user to wheel and input groups
     shell = pkgs.zsh;
   };
 
@@ -189,10 +189,11 @@ in {
     };
   };
 
+  # xremap reads input events via input; hardware.uinput owns /dev/uinput
+  # with the separate uinput group. Do not override its device rule.
   # Enable udev rules for xremap
   services.udev.extraRules = ''
     KERNEL=="event*", GROUP="input", MODE="0660"
-    KERNEL=="uinput", GROUP="input", MODE="0660"
     # Allow probe-rs compatible debug probes for users in plugdev
     SUBSYSTEM=="usb", ATTR{idVendor}=="2e8a", ATTR{idProduct}=="000c", MODE="0660", GROUP="plugdev", TAG+="uaccess"
     SUBSYSTEM=="usb", ATTR{idVendor}=="0d28", MODE="0660", GROUP="plugdev", TAG+="uaccess"
