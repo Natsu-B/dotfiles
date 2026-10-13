@@ -33,6 +33,7 @@ in {
     ./codex-usb.nix
     ./desktop.nix
     ./hibernate.nix
+    ./vivado.nix
   ];
 
   # disable nvidia driver

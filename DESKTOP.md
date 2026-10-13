@@ -22,6 +22,11 @@ DMS のアイドル時間は GUI で変更できる。hypridle は logind とサ
 カーネル、Codex USB、開発環境の構成方針と、他の flake 入力の pin は維持する。
 ただし stable の更新に伴う各パッケージのバージョン変更はある。
 
+## Vivado
+
+FPGA 開発向けの FHS 環境・CLI ラッパー・USB JTAG アクセスの設定は [VIVADO.md](VIVADO.md) を参照する。
+Vivado 本体は AMD から別途インストールする。
+
 ## 操作
 
 Win は Super。英字・数字のショートカットは JIS キーボードの物理位置。

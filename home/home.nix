@@ -20,6 +20,7 @@
       gef = pkgs.callPackage ./app/gef.nix { };
       gemini-cli = pkgs.callPackage ./app/gemini.nix { };
       codex-desktop = pkgs.callPackage ./app/codex-desktop.nix { };
+      vivado = pkgs.callPackage ./app/vivado.nix { };
       temurin-jdk = pkgs.javaPackages.compiler.temurin-bin.jdk-25;
       javafx-sdk = pkgs.openjfx25;
       javafx-modules = "javafx.controls,javafx.fxml,javafx.swing";
@@ -210,6 +211,8 @@
         # verilog
         pkgs.gtkwave
         pkgs.iverilog
+        vivado.launcher
+        vivado.fhs
 
         pkgs.obsidian
 
