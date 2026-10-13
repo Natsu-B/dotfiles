@@ -1,6 +1,65 @@
 local c = require("commands")
 local toggle_touchpad = require("input")
 
+local restore_frames = {}
+local function apply_frame(window, frame)
+    local selector = "address:" .. window.address
+    hl.dispatch(hl.dsp.window.float({ window = selector, action = "on" }))
+    hl.dispatch(hl.dsp.window.resize({ window = selector,
+        x = frame.size.x, y = frame.size.y, relative = false }))
+    hl.dispatch(hl.dsp.window.move({ window = selector,
+        x = frame.at.x, y = frame.at.y, relative = false }))
+end
+
+local function restore_display(window, frame)
+    -- Ignore geometry belonging to a reused address or another monitor.
+    local monitor = window.monitor
+    if frame and (frame.pid ~= window.pid or frame.monitor ~= (monitor and monitor.id)) then frame = nil end
+    if frame and frame.floating then
+        apply_frame(window, frame)
+        return
+    end
+    if window.floating or not window.workspace then return end
+    for _, other in ipairs(hl.get_windows()) do
+        if other.address ~= window.address and not other.hidden and not other.floating
+            and other.workspace and other.workspace.name == window.workspace.name then return end
+    end
+    -- An only tiled window still fills the workspace after unmaximizing.
+    -- Restore its previous smaller rectangle, or use 80% of the working area.
+    local at, size = window.at, window.size
+    if not frame or (frame.size.x >= size.x * 0.95 and frame.size.y >= size.y * 0.95) then
+        local width, height = math.max(1, math.floor(size.x * 0.8)), math.max(1, math.floor(size.y * 0.8))
+        frame = { size = { x = width, y = height },
+            at = { x = at.x + math.floor((size.x - width) / 2), y = at.y + math.floor((size.y - height) / 2) } }
+    end
+    apply_frame(window, frame)
+end
+
+-- Read both states at keypress time. Hyprland's maximized toggle can leave a
+-- combined fullscreen/maximized window maximized, or retain a client-only flag.
+local function display_toggle(mode)
+    return function()
+        local window = hl.get_active_window()
+        if not window then return end
+        local current = window.fullscreen | window.fullscreen_client
+        local state = mode
+        -- Win+F restores from every expanded state; Win+Shift+F can still
+        -- promote a maximized window to fullscreen before restoring it.
+        if (mode == 1 and current ~= 0) or (current & mode) ~= 0 then state = 0 end
+        if state ~= 0 and current == 0 then
+            local at, size, monitor = window.at, window.size, window.monitor
+            restore_frames[window.address] = { pid = window.pid, monitor = monitor and monitor.id,
+                floating = window.floating, at = { x = at.x, y = at.y }, size = { x = size.x, y = size.y } }
+        end
+        hl.dispatch(hl.dsp.window.fullscreen_state({ window = "address:" .. window.address,
+            internal = state, client = state, action = "set" }))
+        if state == 0 then
+            restore_display(window, restore_frames[window.address])
+            restore_frames[window.address] = nil
+        end
+    end
+end
+
 -- A shared minimized workspace brings every hidden window back together.
 -- Give each window its own workspace, and always address the active window.
 local function minimize()
@@ -71,9 +130,9 @@ hl.bind("SUPER + CTRL + F5", hl.dsp.exec_cmd(c.restartShell), { description = "R
 hl.bind("SUPER + SHIFT + code:24", hl.dsp.window.close(), { description = "Close window (Win+Shift+Q)" })
 hl.bind("SUPER + code:58", minimize, { description = "Minimize selected window (Win+M)" })
 hl.bind("SUPER + CTRL + code:58", toggle_minimized, { description = "Show / hide minimized windows (Win+Ctrl+M)" })
-hl.bind("SUPER + code:41", hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }), { description = "Maximize with bar (Win+F)" })
-hl.bind("SUPER + SHIFT + code:41", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }), { description = "Fullscreen (Win+Shift+F)" })
-hl.bind("SUPER + CTRL + code:41", hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }), { description = "Maximize with bar (Win+Ctrl+F)" })
+hl.bind("SUPER + code:41", display_toggle(1), { description = "Maximize with bar (Win+F)" })
+hl.bind("SUPER + SHIFT + code:41", display_toggle(2), { description = "Fullscreen (Win+Shift+F)" })
+hl.bind("SUPER + CTRL + code:41", display_toggle(1), { description = "Maximize with bar (Win+Ctrl+F)" })
 hl.bind("SUPER + SHIFT + space", hl.dsp.window.float({ action = "toggle" }), { description = "Toggle floating" })
 hl.bind("SUPER + SHIFT + code:58", hl.dsp.exec_cmd(c.logout), { description = "End UWSM session (Win+Shift+M)" })
 hl.bind("SUPER + left", hl.dsp.focus({ direction = "l" }), { description = "Focus left" })

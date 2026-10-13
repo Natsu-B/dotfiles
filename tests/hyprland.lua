@@ -4,7 +4,7 @@ local bindings, count, input, devices, notices = {}, 0, nil, {}, {}
 local tick, startup, cursor, monitors, executions = nil, nil, { x = 0, y = 0 }, {{x=0,y=0,dpms_status=true}}, {}
 local locked, realOpen, realGetenv = false, io.open, os.getenv
 local activeWindow, activeWorkspace, moves, specialToggles = nil, {id=1}, {}, {}
-local windows = {}
+local windows, fullscreenStates = {}, {}
 os.getenv = function(name) return name == 'XDG_RUNTIME_DIR' and '/dotfiles-test' or realGetenv(name) end
 io.open = function(path, mode)
     if path == '/dotfiles-test/dotfiles-screen-locked' then
@@ -36,8 +36,20 @@ hl = {
     get_cursor_pos = function() return cursor end,
     get_monitors = function() return monitors end,
     dispatch = function(action)
-        if action.dispatcher == 'move' then moves[#moves+1] = action.argument; return end
+        if action.dispatcher == 'move' then
+            moves[#moves+1] = action.argument
+            if action.argument.x then activeWindow.at = {x=action.argument.x, y=action.argument.y} end
+            return
+        end
+        if action.dispatcher == 'float' then activeWindow.floating = action.argument.action == 'on'; return end
+        if action.dispatcher == 'resize' then activeWindow.size = {x=action.argument.x, y=action.argument.y}; return end
         if action.dispatcher == 'toggle_special' then specialToggles[#specialToggles+1] = action.argument; return end
+        if action.dispatcher == 'fullscreen_state' then
+            fullscreenStates[#fullscreenStates+1] = action.argument
+            activeWindow.fullscreen = action.argument.internal
+            activeWindow.fullscreen_client = action.argument.client
+            return
+        end
         assert(action.dispatcher == 'exec')
         executions[#executions+1] = action.argument
     end,
@@ -55,7 +67,7 @@ hl = {
         count = count + 1
     end,
 }
-for _, name in ipairs({'close','fullscreen','float','move','drag','resize'}) do
+for _, name in ipairs({'close','fullscreen','fullscreen_state','float','move','drag','resize'}) do
     hl.dsp.window[name] = dispatcher(name)
 end
 require('hyprland')
@@ -117,9 +129,67 @@ assert(bindings['SUPER + Tab'].action.argument == 'windowSwitcher')
 assert(bindings['SUPER + code:55'].action.argument == 'clipboard')
 assert(bindings['SUPER + space'].action.argument == 'launcher')
 assert(bindings['SUPER + F2'].options.release)
-assert(bindings['SUPER + code:41'].action.argument.mode == 'maximized')
-assert(bindings['SUPER + SHIFT + code:41'].action.argument.mode == 'fullscreen')
-assert(bindings['SUPER + CTRL + code:41'].action.argument.mode == 'maximized')
+-- Electron can leave the compositor/client flags different, or combine
+-- maximized and fullscreen bits. Every restore must clear both states.
+for _, chord in ipairs({'SUPER + code:41', 'SUPER + CTRL + code:41', 'SUPER + SHIFT + code:41'}) do
+    local toggle = bindings[chord].action
+    local mode = chord == 'SUPER + SHIFT + code:41' and 2 or 1
+    activeWindow = nil
+    local countBefore = #fullscreenStates
+    toggle(); assert(#fullscreenStates == countBefore) -- empty desktop
+    for internal = 0, 3 do
+        for client = 0, 3 do
+            activeWindow = { address='0x123', pid=12, monitor={id=0}, workspace={name='1'},
+                at={x=100,y=100}, size={x=800,y=500}, floating=false,
+                fullscreen=internal, fullscreen_client=client }
+            windows = {activeWindow, {address='0x456', workspace={name='1'}, floating=false}}
+            local current = internal | client
+            local restore = mode == 1 and current ~= 0 or (current & mode) ~= 0
+            local expected = restore and 0 or mode
+            toggle()
+            local action = fullscreenStates[#fullscreenStates]
+            assert(action.window == 'address:0x123' and action.action == 'set')
+            assert(action.internal == expected and action.client == expected)
+            if expected ~= 0 then
+                toggle()
+                assert(activeWindow.fullscreen == 0 and activeWindow.fullscreen_client == 0)
+            end
+        end
+    end
+end
+-- A single tiled window needs a visible normal size, even on a recalled
+-- minimized workspace; subsequent toggles must preserve that exact rectangle.
+local maximize = bindings['SUPER + code:41'].action
+activeWindow = {address='0x100', pid=100, monitor={id=0}, workspace={name='special:minimized-100'},
+    at={x=2,y=40}, size={x=1800,y=1000}, floating=false, fullscreen=0, fullscreen_client=0}
+windows = {activeWindow}
+maximize(); assert(activeWindow.fullscreen == 1 and not activeWindow.floating)
+maximize(); assert(activeWindow.fullscreen == 0 and activeWindow.floating)
+assert(activeWindow.size.x == 1440 and activeWindow.size.y == 800)
+assert(activeWindow.at.x == 182 and activeWindow.at.y == 140)
+maximize()
+activeWindow.at, activeWindow.size = {x=0,y=0}, {x=1800,y=1100}
+maximize()
+assert(activeWindow.size.x == 1440 and activeWindow.size.y == 800)
+assert(activeWindow.at.x == 182 and activeWindow.at.y == 140)
+-- Keep normal tiling when another tiled app remains in the same workspace.
+activeWindow = {address='0x200', pid=200, monitor={id=0}, workspace={name='1'},
+    at={x=2,y=40}, size={x=800,y=1000}, floating=false, fullscreen=0, fullscreen_client=0}
+local neighbour = {address='0x201', workspace={name='1'}, floating=false}
+windows = {activeWindow, neighbour}
+maximize(); maximize(); assert(not activeWindow.floating)
+-- If the neighbour was minimized while maximized, restore the smaller original
+-- rectangle instead of expanding the remaining app to fill the whole workspace.
+maximize()
+activeWindow.size = {x=1600,y=1000}
+neighbour.workspace.name = 'special:minimized-201'
+maximize()
+assert(activeWindow.floating and activeWindow.size.x == 800 and activeWindow.at.x == 2)
+-- Config reloads or an already-maximized app may have no saved rectangle.
+activeWindow = {address='0x300', pid=300, monitor={id=0}, workspace={name='1'},
+    at={x=0,y=40}, size={x=1800,y=1000}, floating=false, fullscreen=1, fullscreen_client=1}
+windows = {activeWindow}
+maximize(); assert(activeWindow.floating and activeWindow.size.x == 1440)
 for _, direction in ipairs({'left','right','up','down'}) do
     assert(bindings['SUPER + SHIFT + ' .. direction].action.argument == 'snapAssist ' .. direction)
 end
