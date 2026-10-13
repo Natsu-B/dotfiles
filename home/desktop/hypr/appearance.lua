@@ -16,7 +16,12 @@ hl.config({
         shadow = { enabled = true, range = 12, render_power = 3, color = "rgba(00000055)" },
     },
     dwindle = { preserve_split = true },
-    misc = { disable_hyprland_logo = true, disable_splash_rendering = true },
+    misc = {
+        disable_hyprland_logo = true,
+        disable_splash_rendering = true,
+        -- Raise existing apps when a clicked URL or notification requests activation.
+        focus_on_activate = true,
+    },
 })
 hl.animation({ leaf = "windows", enabled = true, speed = 4, bezier = "default" })
 hl.animation({ leaf = "workspaces", enabled = true, speed = 4, bezier = "default", style = "slide" })

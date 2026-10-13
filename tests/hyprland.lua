@@ -1,6 +1,6 @@
 -- Execute the actual modules with a recorder; validate expansion and key ownership.
 package.path = './home/desktop/hypr/?.lua;' .. package.path
-local bindings, count, input, devices, notices = {}, 0, nil, {}, {}
+local bindings, count, input, misc, devices, notices = {}, 0, nil, nil, {}, {}
 local tick, startup, cursor, monitors, executions = nil, nil, { x = 0, y = 0 }, {{x=0,y=0,dpms_status=true}}, {}
 local locked, realOpen, realGetenv = false, io.open, os.getenv
 local activeWindow, activeWorkspace, moves, specialToggles = nil, {id=1}, {}, {}
@@ -53,7 +53,10 @@ hl = {
         assert(action.dispatcher == 'exec')
         executions[#executions+1] = action.argument
     end,
-    config = function(options) input = options.input or input end, monitor = function(_) end,
+    config = function(options)
+        input = options.input or input
+        misc = options.misc or misc
+    end, monitor = function(_) end,
     device = function(options) devices[options.name] = options end,
     notification = { create = function(options) notices[#notices+1] = options.text end },
     animation = function(_) end, window_rule = function(_) end,
@@ -71,6 +74,7 @@ for _, name in ipairs({'close','fullscreen','fullscreen_state','float','move','d
     hl.dsp.window[name] = dispatcher(name)
 end
 require('hyprland')
+assert(misc and misc.focus_on_activate == true, 'Application activation must focus the requested window')
 startup() -- timer is not duplicated if startup follows an already-live monitor
 assert(count == 81, 'Expected 81 bindings, got ' .. count)
 local minimize = bindings['SUPER + code:58'].action
