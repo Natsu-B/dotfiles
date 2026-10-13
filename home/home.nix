@@ -21,6 +21,7 @@
       gemini-cli = pkgs.callPackage ./app/gemini.nix { };
       codex-desktop = pkgs.callPackage ./app/codex-desktop.nix { };
       vivado = pkgs.callPackage ./app/vivado.nix { };
+      cfuProvingGround = pkgs.callPackage ./app/cfu-proving-ground.nix { inherit vivado; };
       temurin-jdk = pkgs.javaPackages.compiler.temurin-bin.jdk-25;
       javafx-sdk = pkgs.openjfx25;
       javafx-modules = "javafx.controls,javafx.fxml,javafx.swing";
@@ -213,6 +214,7 @@
         pkgs.iverilog
         vivado.launcher
         vivado.fhs
+        cfuProvingGround
 
         pkgs.obsidian
 
@@ -238,6 +240,8 @@
         PATH_TO_FX = "${javafx-sdk}";
         JAVAFX_MODULE_PATH = "${javafx-sdk}";
         JAVAFX_MODULES = javafx-modules;
+        # Vendor-installed Vivado (no manual export on every shell launch).
+        XILINX_VIVADO = "${homeDirectory}/xilinx/Vivado/2024.1";
       };
       file.".local/bin/jfx-module-path" = {
         executable = true;

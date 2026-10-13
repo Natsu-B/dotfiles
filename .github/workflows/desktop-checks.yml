@@ -45,7 +45,7 @@ jobs:
       - name: Shell syntax
         run: |
           sh -n install.sh update.sh scripts/check-boot-filesystems.sh
-          bash -n installer/prepare-windows-dualboot.sh scripts/vivado.sh
+          bash -n installer/prepare-windows-dualboot.sh scripts/vivado.sh scripts/cfu-make.sh
       - name: Python regression tests
         run: python3 -m unittest discover -s tests -v
       - name: Nix evaluation

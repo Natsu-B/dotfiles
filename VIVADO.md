@@ -1,5 +1,8 @@
 # Vivado on NixOS
 
+CFU-Proving-Ground の RISC-V/Verilator/ディスプレイシミュレーター環境は
+[CFU-PROVING-GROUND.md](CFU-PROVING-GROUND.md) を参照。
+
 Vivado は AMD から別途入手する。dotfiles は Vivado 本体やライセンスを配布せず、
 Home Manager で `vivado` と `vivado-fhs` を提供する。
 `vivado-fhs` は AMD のインストーラーおよび実行ファイル向けの FHS 環境。
