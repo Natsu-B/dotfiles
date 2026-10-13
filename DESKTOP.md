@@ -372,6 +372,12 @@ fractional scale を使うため、XWayland ではぼやけ・倍率ずれが出
 を常時付け、native Wayland で起動する。倍率を `--force-device-scale-factor` で固定しないので、
 DMS でモニター倍率を変えてもアプリ側が追従できる。
 
+配布済みバイナリの interpreter / runpath は `autoPatchelfHook` で Nix のライブラリに合わせ、
+Steam ランタイムを介さずホストのデスクトップ環境で直接起動する。
+`/tmp` を隔離すると、同じ Chrome プロファイルの `SingletonSocket` が見えず、既存 Chrome
+への引き渡しに失敗するため、起動 wrapper に一時領域の隔離を追加しない。
+`libsecret` は runpath に含め、子プロセスにライブラリ設定を広げる `LD_LIBRARY_PATH` は使わない。
+
 確認:
 
 ```sh

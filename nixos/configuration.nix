@@ -310,11 +310,6 @@ in {
     ZE_ENABLE_ALT_DRIVERS = "${npuRuntime}/lib/libze_intel_npu.so";
   };
 
-  # Enable Steam
-  programs.steam = {
-    enable = true;
-  };
-
   fonts = {
     packages = with pkgs; [
       noto-fonts-cjk-serif
@@ -334,24 +329,6 @@ in {
         monospace = ["JetBrainsMono Nerd Font" "Noto Color Emoji"];
         emoji = ["Noto Color Emoji"];
       };
-           localConf = ''
-        <?xml version="1.0"?>
-        <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
-        <fontconfig>
-          <description>Change default fonts for Steam client</description>
-          <match>
-            <test name="prgname">
-              <string>steamwebhelper</string>
-            </test>
-            <test name="family" qual="any">
-              <string>sans-serif</string>
-            </test>
-            <edit mode="prepend" name="family">
-              <string>Migu 1P</string>
-            </edit>
-          </match>
-        </fontconfig>
-      '';
     };
   };
 }
