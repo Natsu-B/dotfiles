@@ -63,6 +63,8 @@ jobs:
           test "$(nix eval --raw .#nixosConfigurations.nixos.config.boot.loader.systemd-boot.xbootldrMountPoint)" = /boot
           test "$(nix eval --raw .#nixosConfigurations.nixos.config.system.build.toplevel.drvPath)" = \
             "$(nix eval --raw .#nixosConfigurations.nixos-windows.config.system.build.toplevel.drvPath)"
+      - name: Keyboard device access policy
+        run: nix build --no-link --print-build-logs .#checks.x86_64-linux.keyboard-access
       - name: Hibernate policy
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.hibernate-policy
       - name: Build and validate Home Manager desktop entries

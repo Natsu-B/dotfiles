@@ -51,6 +51,10 @@
       };
     in {
       checks.${system} = {
+        keyboard-access = import ./tests/keyboard-access.nix {
+          pkgs = nixpkgs.legacyPackages.${system};
+          config = self.nixosConfigurations.nixos.config;
+        };
         hibernate-policy = import ./tests/hibernate.nix {
           pkgs = nixpkgs.legacyPackages.${system};
           config = self.nixosConfigurations.nixos.config;
