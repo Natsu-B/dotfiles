@@ -43,6 +43,8 @@ let
         name = "Main Bar";
         enabled = true;
         position = 0;
+        innerPadding = 0;
+        spacing = 2;
         screenPreferences = [ "all" ];
         showOnLastDisplay = true;
         leftWidgets = [ "launcherButton" "workspaceSwitcher" "runningApps" ];
