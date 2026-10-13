@@ -13,7 +13,7 @@ io.open = function(path, mode)
     return realOpen(path, mode)
 end
 local commands = {}
-for _, name in ipairs({'launcher','windowSwitcher','cheatsheet','keyboard','clipboard','clipboardPrivacy','clipboardClear','terminal','fileManager','lock','dms','logout','restartShell'}) do
+for _, name in ipairs({'launcher','windowSwitcher','snapAssist','cheatsheet','keyboard','clipboard','clipboardPrivacy','clipboardClear','terminal','fileManager','lock','dms','logout','restartShell'}) do
     commands[name] = name
 end
 package.preload.commands = function() return commands end
@@ -60,7 +60,7 @@ for _, name in ipairs({'close','fullscreen','float','move','drag','resize'}) do
 end
 require('hyprland')
 startup() -- timer is not duplicated if startup follows an already-live monitor
-assert(count == 80, 'Expected 80 bindings, got ' .. count)
+assert(count == 81, 'Expected 81 bindings, got ' .. count)
 local minimize = bindings['SUPER + code:58'].action
 minimize(); assert(#moves == 0) -- empty desktop
 activeWindow = {address='0x123', workspace={name='1'}}
@@ -117,6 +117,12 @@ assert(bindings['SUPER + Tab'].action.argument == 'windowSwitcher')
 assert(bindings['SUPER + code:55'].action.argument == 'clipboard')
 assert(bindings['SUPER + space'].action.argument == 'launcher')
 assert(bindings['SUPER + F2'].options.release)
+assert(bindings['SUPER + code:41'].action.argument.mode == 'maximized')
+assert(bindings['SUPER + SHIFT + code:41'].action.argument.mode == 'fullscreen')
+assert(bindings['SUPER + CTRL + code:41'].action.argument.mode == 'maximized')
+for _, direction in ipairs({'left','right','up','down'}) do
+    assert(bindings['SUPER + SHIFT + ' .. direction].action.argument == 'snapAssist ' .. direction)
+end
 assert(bindings['SUPER + code:46'].action.argument == 'lock')
 for i = 1, 10 do
     local code = tostring(i + 9)
@@ -145,4 +151,4 @@ move(-1920,100,3) -- unlocking in the corner must not open the switcher
 move(-1800,200,3); move(-1920,100,4)
 for _, command in ipairs(executions) do assert(command == 'windowSwitcher') end
 io.open, os.getenv = realOpen, realGetenv
-print('Lua: 80 bindings, numbered apps, workspace shortcuts, input and hot corner verified')
+print('Lua: 81 bindings, maximize/fullscreen, snap assist, numbered apps, workspace shortcuts, input and hot corner verified')
