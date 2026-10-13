@@ -20,10 +20,12 @@ pkgs.runCommand "dotfiles-desktop-tools-check" {
     ${tools.locker}/bin/desktop-lock \
     ${tools.cheatsheet}/bin/hypr-cheatsheet \
     ${tools.launcher}/bin/desktop-launcher \
-    ${tools.windowSwitcher}/bin/desktop-window-switcher; do
+    ${tools.windowSwitcher}/bin/desktop-window-switcher \
+    ${tools.snapAssist}/bin/desktop-snap-assist; do
     test -x "$executable"
   done
   ${tools.trackpoint}/bin/desktop-trackpoint --help > /dev/null
+  ${tools.snapAssist}/bin/desktop-snap-assist --help > /dev/null
   ${tools.dms}/bin/dms --help > /dev/null
   touch "$out"
 ''

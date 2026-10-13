@@ -12,6 +12,7 @@ let
     dms
     launcher
     windowSwitcher
+    snapAssist
     wallpaper
     keyboard
     clipboard
@@ -100,6 +101,7 @@ let
     fileManager = "${pkgs.uwsm}/bin/uwsm app -- ${pkgs.nautilus}/bin/nautilus";
     launcher = "${launcher}/bin/desktop-launcher";
     windowSwitcher = "${windowSwitcher}/bin/desktop-window-switcher";
+    snapAssist = "${snapAssist}/bin/desktop-snap-assist";
     dms = "${dms}/bin/dms";
     cheatsheet = "${dms}/bin/dms ipc call keybinds toggle hyprland";
     keyboard = "${keyboard}/bin/keyboard-profile toggle";
@@ -131,6 +133,7 @@ in
   home.packages = [
     launcher
     windowSwitcher
+    snapAssist
     configure
     pkgs.brightnessctl
   ];

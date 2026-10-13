@@ -79,6 +79,11 @@ let
     runtimeInputs = [ rofiWithOutsideClick ];
     text = ''exec rofi -show window -modi window -click-to-exit -display-window '起動中のアプリ' -me-select-entry "" -me-accept-entry MousePrimary -theme-str 'entry { placeholder: "起動中のアプリを検索"; }' "$@"'';
   };
+  snapAssist = pkgs.writeShellApplication {
+    name = "desktop-snap-assist";
+    runtimeInputs = [ pkgs.python3 pkgs.hyprland rofiWithOutsideClick ];
+    text = ''exec python3 ${./snap.py} "$@"'';
+  };
 in {
-  inherit wallpaper xremap profiles keyboard trackpoint clipboard clipboardMenu locker cheatsheet dms launcher windowSwitcher;
+  inherit wallpaper xremap profiles keyboard trackpoint clipboard clipboardMenu locker cheatsheet dms launcher windowSwitcher snapAssist;
 }
