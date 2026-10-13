@@ -114,6 +114,7 @@ in {
   users.users.hotaru = {
     uid = 1000;
     isNormalUser = true;
+    linger = true; # Keep the per-user Mutagen daemon alive after logout.
     extraGroups = [ "wheel" "input" "networkmanager" "libvirtd" "serial" "dialout" "plugdev" "render" ]; # Add user to wheel and input groups
     shell = pkgs.zsh;
   };

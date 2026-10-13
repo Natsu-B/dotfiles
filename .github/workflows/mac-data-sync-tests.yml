@@ -1,0 +1,89 @@
+name: Mac Data Sync Tests
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/mac-data-sync*'
+      - 'tests/test-mac-data-sync*'
+      - 'home/home.nix'
+      - 'nixos/configuration.nix'
+      - 'MAC-DATA-SYNC.md'
+      - 'WINDOWS-MAC-DATA-SYNC.md'
+      - 'windows/**'
+      - '.github/workflows/mac-data-sync-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/mac-data-sync*'
+      - 'tests/test-mac-data-sync*'
+      - 'windows/**'
+
+jobs:
+  mock-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make repository scripts executable for mock tests
+        run: chmod +x scripts/mac-data-sync scripts/mac-data-sync-ui scripts/mac-data-sync-release
+      - name: Check shell syntax
+        run: |
+          bash -n scripts/mac-data-sync
+          bash -n scripts/mac-data-sync-ui
+          bash -n scripts/mac-data-sync-release
+          bash -n tests/test-mac-data-sync.sh
+          bash -n tests/test-mac-data-sync-interface.sh
+          bash -n tests/test-mac-data-sync-windows-setup.sh
+          bash -n windows/setup-wsl.sh
+          bash -n windows/wsl-keepalive.sh
+          bash -n windows/wsl-entry.sh
+      - name: Test CLI and picker
+        run: bash tests/test-mac-data-sync.sh
+      - name: Test UI and guarded release
+        run: bash tests/test-mac-data-sync-interface.sh
+      - name: Test Windows WSL bootstrap (mocked apt/Mutagen)
+        run: bash tests/test-mac-data-sync-windows-setup.sh
+
+  recursive-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Mutagen v0.18.1
+        run: |
+          mkdir -p "$RUNNER_TEMP/mutagen"
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 3 --silent --show-error \
+            --output mutagen_linux_amd64_v0.18.1.tar.gz \
+            https://github.com/mutagen-io/mutagen/releases/download/v0.18.1/mutagen_linux_amd64_v0.18.1.tar.gz
+          curl --fail --location --retry 3 --silent --show-error \
+            --output SHA256SUMS \
+            https://github.com/mutagen-io/mutagen/releases/download/v0.18.1/SHA256SUMS
+          grep -F 'mutagen_linux_amd64_v0.18.1.tar.gz' SHA256SUMS | sha256sum --check
+          tar -xzf mutagen_linux_amd64_v0.18.1.tar.gz -C "$RUNNER_TEMP/mutagen"
+          test -x "$RUNNER_TEMP/mutagen/mutagen"
+          echo "$RUNNER_TEMP/mutagen" >> "$GITHUB_PATH"
+      - name: Verify recursive files, hidden files, and later edits
+        run: bash tests/test-mac-data-sync-recursive.sh
+
+  windows-syntax:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell launchers
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($path in @('windows/MacDataSync.ps1', 'windows/Install-MacDataSync.ps1', 'tests/test-mac-data-sync-windows.ps1')) {
+            $tokens = $null
+            $issues = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Join-Path (Get-Location) $path), [ref]$tokens, [ref]$issues
+            ) | Out-Null
+            if ($issues.Count -gt 0) {
+              $issues | ForEach-Object { Write-Error $_.ToString() }
+              throw "Invalid PowerShell: $path"
+            }
+            Write-Host "PowerShell syntax OK: $path"
+          }
+      - name: Test PowerShell launcher (mock WSL)
+        shell: pwsh
+        run: ./tests/test-mac-data-sync-windows.ps1

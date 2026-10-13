@@ -149,6 +149,11 @@
       packages = [
         # Development tools
         pkgs.gh
+        pkgs.mutagen
+        pkgs.fzf
+        pkgs.jq
+        pkgs.lsof
+        pkgs.openssh
         pkgs.gcc
         pkgs.gnumake
         pkgs.bison
@@ -329,12 +334,36 @@
         target = ".zshrc";
         force = true;
       };
+      file.".local/bin/mac-data-sync" = {
+        source = ../scripts/mac-data-sync;
+        executable = true;
+      };
+      file.".local/bin/mac-data-sync-ui" = {
+        source = ../scripts/mac-data-sync-ui;
+        executable = true;
+      };
+      file.".local/bin/mac-data-sync-release" = {
+        source = ../scripts/mac-data-sync-release;
+        executable = true;
+      };
       file.".local/bin/codex-usb-start".source = "${codexUsb}/bin/codex-usb";
       file.".local/bin/codex-usb-stop".source = "${codexUsb}/bin/codex-usb";
       file.".local/bin/codex-usb-shell".source = "${codexUsb}/bin/codex-usb";
       file.".local/bin/codex-usb-status".source = "${codexUsb}/bin/codex-usb";
       file.".local/bin/codex-usb-diagnose".source = "${codexUsb}/bin/codex-usb";
     };
+
+  # Mutagen coordinates selected Mac <-> NixOS files using SSH. The systemd
+  # user daemon stays active via users.users.hotaru.linger in NixOS.
+  systemd.user.services.mutagen = {
+    Unit.Description = "Mutagen synchronization daemon";
+    Service = {
+      ExecStart = "${pkgs.mutagen}/bin/mutagen daemon run";
+      Restart = "on-failure";
+      Environment = [ "PATH=${lib.makeBinPath [ pkgs.openssh pkgs.coreutils pkgs.mutagen ]}" ];
+    };
+    Install.WantedBy = [ "default.target" ];
+  };
 
   # Configure Zsh and Oh My Zsh
   programs.zsh = {
