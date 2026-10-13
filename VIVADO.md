@@ -12,7 +12,22 @@ NixOS は AMD の公式サポート対象 OS ではないため、全機能・�
 2. [AMD のダウンロードページ](https://www.amd.com/en/support/adaptive-socs-and-fpgas/installer-info-general.html)
    から Linux 用 Vivado インストーラーを取得する。AMD アカウントとライセンスへの同意が必要。
    NixOS ではオフラインインストーラー（展開後に `xsetup` を含むもの）を推奨する。
-3. 展開したディレクトリで、FHS 環境内からインストーラーを起動する。例:
+3. インストーラーを FHS 環境内で起動する。**Web インストーラー (.bin) は展開不要**。
+   以下は 2026.1 Linux 版を `~/Downloads` に保存した例:
+
+   ```sh
+   cd ~/Downloads
+   chmod u+x FPGAs_AdaptiveSoCs_Unified_SDI_2026.1_0616_1700_Lin64.bin
+   vivado-fhs -c 'exec "$1"' installer \
+     "$PWD/FPGAs_AdaptiveSoCs_Unified_SDI_2026.1_0616_1700_Lin64.bin"
+   ```
+
+   AMD アカウントでログインし、通常は `Download and Install Now` を選択する。
+   使用する FPGA に対応する device family と Vivado を選ぶ。Web インストーラーは
+   選択したデータを追加でダウンロードする。
+
+   オフライン版 (SFD / Full Image) を展開した場合は、代わりに展開先の
+   `xsetup` を FHS 内で起動する:
 
    ```sh
    vivado-fhs -c 'exec "$1"' installer "$PWD/xsetup"
