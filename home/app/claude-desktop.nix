@@ -208,8 +208,11 @@ stdenv.mkDerivation (finalAttrs: {
   '';
 
   postFixup = ''
+    # Hyprland is not recognized by Electron's automatic keyring selection.
+    # Use the running GNOME Keyring service, not basic_text.
     makeWrapper "$out/lib/claude-desktop/claude-desktop" "$out/bin/claude-desktop" \
-      "''${gappsWrapperArgs[@]}"
+      "''${gappsWrapperArgs[@]}" \
+      --add-flags "--password-store=gnome-libsecret"
   '';
 
   passthru = {
