@@ -188,8 +188,9 @@
         pkgs.python3
 
         pkgs.nodejs
-        # Claude Code CLI
-        pkgs.claude-code
+        # Claude Code >= 2.1.284 is required for Opus 5.5 and Sonnet 5.5.
+        # The locked nixpkgs-master provides 2.1.289; stable is still 2.1.223.
+        pkgs.master.claude-code
         # Gemini cli
         gemini-cli
 
