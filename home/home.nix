@@ -20,6 +20,7 @@
       gef = pkgs.callPackage ./app/gef.nix { };
       gemini-cli = pkgs.callPackage ./app/gemini.nix { };
       codex-desktop = pkgs.callPackage ./app/codex-desktop.nix { };
+      claude-desktop = pkgs.callPackage ./app/claude-desktop.nix { };
       vivado = pkgs.callPackage ./app/vivado.nix { };
       cfuProvingGround = pkgs.callPackage ./app/cfu-proving-ground.nix { inherit vivado; };
       temurin-jdk = pkgs.javaPackages.compiler.temurin-bin.jdk-25;
@@ -175,6 +176,7 @@
 
         # Chat
         codex-desktop
+        claude-desktop
         pkgs.discord
         pkgs.slack
         pkgs.mattermost
@@ -186,6 +188,8 @@
         pkgs.python3
 
         pkgs.nodejs
+        # Claude Code CLI
+        pkgs.claude-code
         # Gemini cli
         gemini-cli
 
