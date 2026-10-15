@@ -60,7 +60,7 @@ if [[ ! -x "$bin_dir/mutagen" || "$("$bin_dir/mutagen" version 2>/dev/null)" != 
   install -m 644 "$tmp_dir/extracted/mutagen-agents.tar.gz" "$bin_dir/mutagen-agents.tar.gz"
 fi
 
-for name in mac-data-sync mac-data-sync-ui mac-data-sync-release; do
+for name in mac-data-sync mac-data-sync-ui mac-data-sync-browse mac-data-sync-release; do
   install -m 755 "$repo_root/scripts/$name" "$bin_dir/$name"
   bash -n "$bin_dir/$name"
 done
