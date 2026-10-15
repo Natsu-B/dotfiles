@@ -82,6 +82,7 @@ printf 'fzf mock could not find %s\n' "$target" >&2
 exit 5
 SH
 chmod +x "$root/bin/"*
+install -m 755 "$repo/scripts/mac-data-sync-browse" "$root/bin/mac-data-sync-browse"
 
 bash -n "$repo/scripts/mac-data-sync"
 bash -n "$repo/scripts/mac-data-sync-browse"
