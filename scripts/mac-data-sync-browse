@@ -151,7 +151,7 @@ while true; do
   [[ "$mode" == linux ]] && source_name='Linux ~/work'
   file=$tmp_dir/result
   if ! fzf --read0 --print0 --multi --border --layout=reverse --height=90% \
-     --delimiter=$'\t' --with-nth=2 \
+     --delimiter=$'\t' --with-nth=1,2 \
      --prompt="$source_name/$current > " \
      --header='Enter: open directory or sync | Tab: select several SYNC rows | Esc: exit' \
      < "$tmp_dir/options" > "$file"; then
@@ -185,8 +185,7 @@ while true; do
     continue
   fi
   if [[ "$nav" == up ]]; then
-    current=${current%/*}
-    [[ "$current" != */* && "$current" != "${current##*/}" ]] && : # harmless
+    if [[ "$current" == */* ]]; then current=${current%/*}; else current=''; fi
   elif [[ "$nav" == open:* ]]; then
     leaf=${nav#open:}
     current="${current:+$current/}$leaf"
