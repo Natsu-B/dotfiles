@@ -149,8 +149,14 @@ working_menu() {
 }
 
 mac_browser() {
-  printf 'Select files and directories from Mac ~/data.\n'
+  printf 'Browse Mac folders and choose files to sync. Only the current folder is listed.\n'
   "$cli" pick || true
+  wait_key
+}
+
+linux_browser() {
+  printf 'Browse Linux ~/work; you can also publish folders absent from Mac ~/data.\n'
+  "$cli" browse-local || true
   wait_key
 }
 
@@ -164,12 +170,14 @@ main() {
     printf '\nMac Data Sync | Linux work: %s | Free: %s\n' "$work_dir" "$(free_space)"
     action=$(menu_choice 'Main menu' \
       'Browse Mac and add' \
+      'Browse Linux and sync' \
       'Working copies' \
       'Storage cleanup' \
       'Conflicts and errors' \
       'Quit')
     case "$action" in
       'Browse Mac and add')   mac_browser ;;
+      'Browse Linux and sync') linux_browser ;;
       'Working copies')       working_menu all ;;
       'Storage cleanup')      working_menu cleanup ;;
       'Conflicts and errors') working_menu errors ;;
