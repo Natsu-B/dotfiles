@@ -28,6 +28,7 @@ jobs:
       - name: Check shell syntax
         run: |
           bash -n scripts/mac-data-sync
+          bash -n scripts/mac-data-sync-browse
           bash -n scripts/mac-data-sync-ui
           bash -n scripts/mac-data-sync-release
           bash -n tests/test-mac-data-sync.sh
