@@ -7,7 +7,8 @@ usage() {
 Usage: mac-data-sync                      Open interactive management dashboard
        mac-data-sync menu                 Open interactive management dashboard
        mac-data-sync pick                 Select files/directories from Mac with fzf
-       mac-data-sync ls                   List Mac files/directories
+       mac-data-sync ls [relative-dir]    List one Mac directory (nonrecursive)
+       mac-data-sync browse-local         Browse Linux ~/work and sync to Mac
        mac-data-sync start <relative-path> Copy one file or the full directory tree to ~/work
        mac-data-sync {status|flush|pause|resume|terminate} <relative-path>
        mac-data-sync release <relative-path> Safely delete only Linux copy after verification
@@ -17,7 +18,7 @@ Example: mac-data-sync start documents/report.pdf
 
 Environment:
   MAC_DATA_REMOTE=mac    SSH alias for Mac (configured in NixOS ~/.ssh/config)
-  MAC_DATA_DEPTH=4      Maximum directory depth for pick/ls (1..99)
+  Browse: Enter opens a directory, select SYNC to copy its full subtree.
 
 Selecting a directory copies ALL descendants, including hidden files and .git.
 The initial copy waits for completion. Later edits sync automatically.
@@ -128,11 +129,12 @@ check_overlapping_state() {
 }
 
 start_sync() {
-  local relative=$1 kind session target cursor part
+  local relative=$1 kind mac_kind linux_kind session target cursor part
   validate_path "$relative"
   check_overlapping_state "$relative"
-  kind=$(remote_type "$relative") || fail "Mac file not accessible: ~/data/$relative (try: ssh $remote)"
-  [[ "$kind" == file || "$kind" == directory ]] || fail "Not a regular Mac file or directory: $relative"
+  mac_kind=$(remote_type "$relative") || fail "Cannot inspect Mac path ~/data/$relative (check SSH and permissions)"
+  [[ "$mac_kind" == file || "$mac_kind" == directory || "$mac_kind" == missing ]] ||
+    fail "Unsupported Mac type for $relative"
 
   [[ ! -L "$work_dir" ]] || fail "$work_dir is a symlink; refusing to write outside ~/work"
   mkdir -p -- "$work_dir"
@@ -144,6 +146,23 @@ start_sync() {
     [[ ! -L "$cursor" ]] || fail "Path contains a Linux symlink: $cursor"
   done
   target="$work_dir/$relative"
+  linux_kind=missing
+  if [[ -d "$target" ]]; then linux_kind=directory
+  elif [[ -f "$target" ]]; then linux_kind=file
+  elif [[ -e "$target" ]]; then fail "Unsupported Linux file type: $target"; fi
+
+  if [[ "$mac_kind" == missing ]]; then
+    [[ "$linux_kind" != missing ]] ||
+      fail "Neither Mac ~/data/$relative nor Linux ~/work/$relative exists"
+    kind=$linux_kind
+    prepare_remote_parent "$relative" ||
+      fail "Could not prepare missing Mac parent or Mac path changed"
+    printf 'Mac path is absent; synchronizing the existing Linux copy to Mac.\n' >&2
+  else
+    kind=$mac_kind
+    [[ "$linux_kind" == missing || "$linux_kind" == "$kind" ]] ||
+      fail "Mac and Linux file types differ: $relative"
+  fi
   if [[ "$kind" == directory ]]; then
     [[ ! -e "$target" || -d "$target" ]] || fail "Linux target is not a directory: $target"
     mkdir -p -- "$target"
@@ -197,59 +216,6 @@ start_sync() {
   printf 'Ready: Mac ~/data/%s <=> Linux ~/work/%s (all descendants)\n' "$relative" "$relative"
 }
 
-pick_sync() {
-  local entry relative answer existing skip duplicate
-  # Keep picker_tmp_dir global because the EXIT trap outlives this function.
-  local -a requested=() selection=()
-  picker_tmp_dir=$(mktemp -d)
-  trap 'rm -rf -- "$picker_tmp_dir"' EXIT
-  remote_list > "$picker_tmp_dir/remote" || fail "Unable to list Mac files (try: ssh $remote)"
-  [[ -s "$picker_tmp_dir/remote" ]] || fail 'Mac ~/data is empty at the requested depth'
-
-  if ! fzf --read0 --print0 --multi --no-multi-line --height=90% \
-      --border --layout=reverse \
-      --prompt='Mac ~/data > ' \
-      --header='Tab: multi-select | Enter: confirm | Esc: cancel | Directory = entire subtree' \
-      < "$picker_tmp_dir/remote" > "$picker_tmp_dir/selected"; then
-    printf 'Selection canceled.\n' >&2
-    return 0
-  fi
-  while IFS= read -r -d '' entry; do
-    relative=${entry#./}
-    validate_path "$relative"
-    requested+=("$relative")
-  done < "$picker_tmp_dir/selected"
-
-  # Selecting a directory implicitly selects its entire subtree. Collapse
-  # redundant children even if they were explicitly selected with Tab.
-  for relative in "${requested[@]}"; do
-    skip=0
-    for existing in "${requested[@]}"; do
-      if [[ "$relative" != "$existing" && "$relative" == "$existing/"* ]]; then
-        skip=1
-        break
-      fi
-    done
-    (( skip )) && continue
-    duplicate=0
-    for existing in "${selection[@]}"; do
-      [[ "$existing" == "$relative" ]] && { duplicate=1; break; }
-    done
-    (( duplicate )) || selection+=("$relative")
-  done
-  ((${#selection[@]} > 0)) || return 0
-  for relative in "${selection[@]}"; do check_overlapping_state "$relative"; done
-
-  printf '\nStart bidirectional sync (folders include all descendants):\n' >&2
-  for entry in "${selection[@]}"; do
-    printf '  Mac ~/data/%s -> Linux ~/work/%s\n' "$entry" "$entry" >&2
-  done
-  printf 'Start? [y/N] ' >&2
-  if ! IFS= read -r answer; then return 0; fi
-  [[ "$answer" == y || "$answer" == Y ]] || return 0
-  for entry in "${selection[@]}"; do start_sync "$entry"; done
-}
-
 (( $# > 0 )) || set -- menu
 command=$1
 shift
@@ -265,14 +231,15 @@ case "$command" in
     ;;
   pick)
     (( $# == 0 )) || { usage; exit 2; }
-    pick_sync
+    exec mac-data-sync-browse mac pick
     ;;
   ls)
+    (( $# <= 1 )) || { usage; exit 2; }
+    exec mac-data-sync-browse mac ls "${1:-}"
+    ;;
+  browse-local)
     (( $# == 0 )) || { usage; exit 2; }
-    temp_dir=$(mktemp -d)
-    trap 'rm -rf -- "$temp_dir"' EXIT
-    remote_list > "$temp_dir/remote" || fail "Unable to list Mac files (try: ssh $remote)"
-    while IFS= read -r -d '' entry; do printf '%s\n' "${entry#./}"; done < "$temp_dir/remote"
+    exec mac-data-sync-browse linux pick
     ;;
   start)
     (( $# == 1 )) || { usage; exit 2; }
