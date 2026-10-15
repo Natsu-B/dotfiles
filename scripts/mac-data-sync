@@ -53,38 +53,65 @@ session_id() {
   printf 'mac-data-%s' "${hash:0:20}"
 }
 
-# The Mac command is fixed. The selected name is transmitted as base64, not shell code.
+# Shallow remote probe, never scanning the Mac subtree. File paths are
+# passed as base64, not interpolated into remote shell source.
 remote_type() {
   local encoded
   encoded=$(printf '%s' "$1" | base64 -w 0)
-  ssh "${ssh_opts[@]}" "$remote" "MAC_REL_B64=$encoded /bin/sh -s" <<'REMOTE'
-set -eu
-cd "$HOME/data" || exit 2
-path=$(printf '%s' "$MAC_REL_B64" | /usr/bin/base64 -D) || exit 2
-[ -n "$path" ] && [ ! -L "$path" ] || exit 2
-root=$(pwd -P)
-parent=$(cd "$(dirname "$path")" && pwd -P) || exit 2
-case "$parent" in "$root"|"$root"/*) ;; *) exit 2 ;; esac
-if [ -d "$path" ]; then
-  printf 'directory'
-elif [ -f "$path" ]; then
-  printf 'file'
-else
-  exit 2
-fi
+  ssh "${ssh_opts[@]}" "$remote" "MAC_REL_B64=$encoded /bin/bash -s" <<'REMOTE'
+set -euo pipefail
+relative=$(printf %s "$MAC_REL_B64" | /usr/bin/base64 -D)
+root="$HOME/data"
+[[ ! -L "$root" ]] || exit 2
+[[ -d "$root" ]] || { printf missing; exit 0; }
+cd -- "$root"
+IFS='/' read -r -a parts <<< "$relative"
+last=$((${#parts[@]}-1))
+for ((i=0; i<=last; i++)); do
+  part=${parts[i]}
+  [[ -n "$part" && "$part" != . && "$part" != .. &&
+     "$part" != *:* && "$part" != *[$'\t\r\n']* &&
+     ! -L "$part" ]] || exit 2
+  [[ -e "$part" ]] || { printf missing; exit 0; }
+  if (( i<last )); then
+    cd -- "$part" || exit 2
+  else
+    if [[ -d "$part" ]]; then printf directory
+    elif [[ -f "$part" ]]; then printf file
+    else exit 2; fi
+  fi
+done
 REMOTE
 }
 
-remote_list() {
-  local depth=${MAC_DATA_DEPTH:-4}
-  [[ "$depth" =~ ^[1-9][0-9]?$ ]] || fail 'MAC_DATA_DEPTH must be an integer from 1 to 99'
-  ssh "${ssh_opts[@]}" "$remote" "MAC_DEPTH=$depth /bin/sh -s" <<'REMOTE'
-set -eu
-cd "$HOME/data" || exit 2
-# -print0 works on macOS BSD find and preserves whitespace in filenames.
-/usr/bin/find . -mindepth 1 -maxdepth "$MAC_DEPTH" \
-  \( -name .git -o -name .svn -o -name .hg \) -prune -o \
-  \( -type f -o -type d \) -print0
+# Create only missing Mac parent folders. Mutagen creates the missing final
+# path from Linux data; we do not create an empty competing sync root.
+prepare_remote_parent() {
+  local encoded
+  encoded=$(printf '%s' "$1" | base64 -w 0)
+  ssh "${ssh_opts[@]}" "$remote" "MAC_REL_B64=$encoded /bin/bash -s" <<'REMOTE'
+set -euo pipefail
+relative=$(printf %s "$MAC_REL_B64" | /usr/bin/base64 -D)
+root="$HOME/data"
+[[ ! -L "$root" ]] || exit 2
+[[ -e "$root" ]] || mkdir -- "$root"
+[[ -d "$root" && ! -L "$root" ]] || exit 2
+cd -- "$root"
+IFS='/' read -r -a parts <<< "$relative"
+last=$((${#parts[@]}-1))
+for ((i=0; i<last; i++)); do
+  part=${parts[i]}
+  [[ -n "$part" && "$part" != . && "$part" != .. &&
+     "$part" != *:* && "$part" != *[$'\t\r\n']* &&
+     ! -L "$part" ]] || exit 2
+  [[ -e "$part" ]] || mkdir -- "$part"
+  [[ -d "$part" && ! -L "$part" ]] || exit 2
+  cd -- "$part"
+done
+leaf=${parts[last]}
+[[ -n "$leaf" && "$leaf" != . && "$leaf" != .. &&
+   "$leaf" != *:* && "$leaf" != *[$'\t\r\n']* &&
+   ! -e "$leaf" && ! -L "$leaf" ]] || exit 2
 REMOTE
 }
 
