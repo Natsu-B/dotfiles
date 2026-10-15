@@ -40,6 +40,9 @@ in {
   hardware.nvidia.modesetting.enable = lib.mkForce false;
   services.xserver.videoDrivers = lib.mkForce [ "modesetting" ];
 
+  # Clear /tmp on boot while keeping it on disk (not tmpfs).
+  boot.tmp.cleanOnBoot = true;
+
   # Optimize nix store
   nix = {
     settings = {
