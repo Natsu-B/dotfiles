@@ -38,7 +38,7 @@ grep -qF 'sudo apt-get install' "$SETUP_TEST_LOG"
 grep -qF 'sudo install -m 755' "$SETUP_TEST_LOG"
 grep -qF '/usr/local/bin/mac-data-sync-wsl' "$SETUP_TEST_LOG"
 
-for helper in mac-data-sync mac-data-sync-ui mac-data-sync-release mac-data-sync-keepalive; do
+for helper in mac-data-sync mac-data-sync-ui mac-data-sync-browse mac-data-sync-release mac-data-sync-keepalive; do
   test -x "$HOME/.local/bin/$helper"
   bash -n "$HOME/.local/bin/$helper"
 done
