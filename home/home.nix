@@ -354,6 +354,10 @@
         source = ../scripts/mac-data-sync-ui;
         executable = true;
       };
+      file.".local/bin/mac-data-sync-browse" = {
+        source = ../scripts/mac-data-sync-browse;
+        executable = true;
+      };
       file.".local/bin/mac-data-sync-release" = {
         source = ../scripts/mac-data-sync-release;
         executable = true;
