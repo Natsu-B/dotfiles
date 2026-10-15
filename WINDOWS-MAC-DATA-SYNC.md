@@ -92,7 +92,8 @@ The interface is unchanged between NixOS and Windows:
 
 | Menu | Behavior |
 | --- | --- |
-| Browse Mac and add | Pick Mac files or entire folders recursively |
+| Browse Mac and add | Browse one Mac directory at a time (OPEN/UP/SYNC), without recursively listing all files; selected folders still sync recursively |
+| Browse Linux and sync | Browse WSL `~/work` and publish local-only files/folders, creating missing Mac paths |
 | Working copies | View status and usage; sync, pause, resume, inspect, terminate |
 | Storage cleanup | Safely remove **only the WSL working copy** after verification |
 | Conflicts and errors | Inspect unhealthy or disconnected sessions |
