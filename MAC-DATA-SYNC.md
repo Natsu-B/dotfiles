@@ -71,20 +71,25 @@ The dashboard is in English and offers:
 
 | Menu | Purpose |
 | --- | --- |
-| **Browse Mac and add** | Search Mac `~/data` with fzf and select which files/folders to sync |
+| **Browse Mac and add** | `ls`-like directory browser: list only the current Mac folder; open subfolders or sync individual files/entire directories |
+| **Browse Linux and sync** | Navigate local `~/work` and publish an existing file or folder to Mac even when `~/data/<path>` has not been created |
 | **Working copies** | View Linux usage and synchronization state, select one or multiple copies, and run actions |
 | **Storage cleanup** | Sort work copies by Linux disk use and safely release chosen copies |
 | **Conflicts and errors** | Show disconnected, conflicted, or unhealthy sessions and inspect their Mutagen details |
 
-In selection lists: type to search, use **Tab** for multi-select, **Enter** for actions, and **Esc** to go back. **Selecting a directory copies its entire subtree automatically**, including nested subdirectories at any depth, hidden files, and `.git` metadata. There is no need to select its children separately. If a parent and its child are both selected, the child is automatically folded into the parent selection. The picker shows only 4 levels by default; this is a **listing limit, not a copying limit**. Use `MAC_DATA_DEPTH=8 mac-data-sync pick` to browse deeper (maximum: 99), but even a folder nested 100 levels down will be copied when its parent is selected.
+**Browse Mac and add** opens at `~/data`, like a normal file manager. Each screen lists **only the immediate children** of the current folder using a single shallow SSH listing; it does not walk the archive tree or precompute sizes/hashes. Select an **OPEN** row to enter a directory, **UP** to go to its parent, or a **SYNC** row to start copying. Use **Tab** to select several SYNC rows and **Enter** to proceed, then confirm. **SYNC this folder** copies the current directory (except for the root), and **SYNC folder/** copies the selected folder recursively, including all nested files, dotfiles and `.git`. **Esc** exits. Only the listing is shallow; a selected folder is fully synchronized. Unsupported names containing colons, tabs, or newlines are not listed.
+
+**Browse Linux and sync** works the same way under `~/work`. Existing Linux content can be selected even if the matching Mac path does not exist. The CLI creates any missing Mac **parent directories** and lets Mutagen create the absent file or folder from the Linux copy. If neither side has that path, synchronization is refused. A mismatch between existing Mac and Linux file types is also refused.
 
 The actions available for working copies are **Sync now**, **Pause sync**, **Resume sync**, **Inspect**, **End sync (keep copies)**, and **Release Linux copy**. Pausing, resuming, and ending a session do not remove either copy.
 
 ## Direct CLI shortcuts
 
 ```sh
-mac-data-sync ls                       # List Mac archive files
-mac-data-sync pick                     # Select files and folders
+mac-data-sync ls                       # List only the Mac ~/data root (no recursion)
+mac-data-sync ls documents             # List only one Mac subdirectory
+mac-data-sync pick                     # Navigate Mac folders and select SYNC entries
+mac-data-sync browse-local             # Navigate Linux ~/work and publish local-only files
 mac-data-sync start project-a          # Sync Mac ~/data/project-a to Linux ~/work/project-a
 mac-data-sync start documents/file.md  # Sync an individual file
 mac-data-sync list                     # List Mutagen sessions
@@ -121,8 +126,8 @@ If you need to retain Linux-only Git history or build products, **End sync (keep
 - Manual `rm` **inside an active two-way sync** may propagate deletion to the Mac. Use **Release Linux copy**, not `rm -r`, to reclaim space safely.
 - A copy with errors, conflicts, missing SSH access, or different content is **not** eligible for release.
 - Neither disk-pressure eviction nor automatic work-copy deletion is implemented.
-- The picker hides `.git`, `.svn`, and `.hg` for navigability, but selecting their **parent directory still copies all VCS contents**. Mutagen is invoked with `--no-global-configuration --no-ignore-vcs` so its global ignore rules and VCS exclusion do not silently omit files. This can consume significant Linux disk space and syncing Git metadata while both Macs and Linux run Git operations concurrently may cause conflicts. Avoid concurrent Git writes.
-- Nested/overlapping sessions (e.g. `project-a` and `project-a/src`) are blocked by the CLI.
+- The browser displays hidden files and VCS directories only when visiting their immediate parent. Selecting any **parent directory still copies all VCS contents**. Mutagen is invoked with `--no-global-configuration --no-ignore-vcs` so its global ignore rules and VCS exclusion do not silently omit files. This can consume significant Linux disk space and syncing Git metadata while both Macs and Linux run Git operations concurrently may cause conflicts. Avoid concurrent Git writes.
+- Nested/overlapping sessions (e.g. `project-a` and `project-a/src`) are blocked by the CLI. Do not start competing sessions for the same subtree from different devices simultaneously.
 - SSH paths containing `:`, tabs, newlines, or traversal components `..` cannot be chosen. Unicode and spaces are supported.
 - Connection over Tailscale is not restricted to Wi-Fi specifically: any permitted network connection works.
 - The UI manages sessions created by `mac-data-sync`, not arbitrary Mutagen sessions.
