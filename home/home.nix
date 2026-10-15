@@ -174,7 +174,8 @@
         # Rust toolchain
         pkgs.rustup
 
-        # Chat
+        # Chat and coding agents
+        pkgs.codex
         codex-desktop
         claude-desktop
         pkgs.discord
