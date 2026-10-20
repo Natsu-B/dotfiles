@@ -4,6 +4,7 @@ Only unmodified/Shift typing is translated. Ctrl/Alt/Super chords pass through.
 Do not also enable XKB us(dvp) or the legacy custom_dvorak.xkb.
 """
 import argparse
+from itertools import combinations
 import json
 from pathlib import Path
 
@@ -46,6 +47,24 @@ def output_key(character):
     raise ValueError(f'Character not available on JIS: {character!r}')
 
 
+def desktop_shortcuts():
+    # Use physical keys in both typing profiles. Explicit modifier combinations
+    # preserve Shift/Ctrl/Alt rather than letting a plain F14 chord consume them.
+    keys = list(JIS) + [f'F{n}' for n in range(1, 13)] + [
+        'Space', 'Tab', 'Enter', 'ESC', 'Backspace', 'Delete',
+        'Left', 'Right', 'Up', 'Down', 'Home', 'End', 'PageUp', 'PageDown',
+    ]
+    directions = {'W': 'Up', 'A': 'Left', 'S': 'Down', 'D': 'Right'}
+    remap = {}
+    for count in range(4):
+        for modifiers in combinations(('Shift', 'Ctrl', 'Alt'), count):
+            for key in keys:
+                # Win+A is quick settings; Henkan+A is left, so use Henkan+C.
+                target = directions.get(key, 'A' if key == 'C' else key)
+                remap['-'.join((*modifiers, 'F14', key))] = '-'.join(('Super', *modifiers, target))
+    return {'name': 'Henkan desktop shortcuts', 'exact_match': True, 'remap': remap}
+
+
 def profile(name):
     if name not in ('qwerty', 'dvorak'):
         raise ValueError('Unknown keyboard profile')
@@ -54,8 +73,6 @@ def profile(name):
         'F15-SEMICOLON': 'Enter', 'F15-O': 'Delete', 'F15-P': 'Backspace',
         'F15-H': 'Tab', 'F15-U': JAPANESE_TOGGLE,
         **{f'F15-{n}': n for n in '1234567890'},
-        # Retain access to %, which the custom Shift-number row displaces.
-        'F14-5': 'Shift-5',
     }
     result = {
         'virtual_modifiers': ['F15', 'F14'],
@@ -78,6 +95,7 @@ def profile(name):
             'name': 'Programmer Dvorak typing only', 'exact_match': True,
             'remap': remap,
         })
+    result['keymap'].append(desktop_shortcuts())
     return result
 
 

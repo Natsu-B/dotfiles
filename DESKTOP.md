@@ -30,6 +30,7 @@ Vivado 本体は AMD から別途インストールする。
 ## 操作
 
 Win は Super。英字・数字のショートカットは JIS キーボードの物理位置。
+Win キーへ手を伸ばさず使うための変換キー操作は、[キーボード](#キーボード) の表を参照する。
 
 | キー | 操作 |
 |---|---|
@@ -53,15 +54,16 @@ Win は Super。英字・数字のショートカットは JIS キーボード�
 | Win+F / Win+Shift+F | バーを残して最大化 / 全画面（再度押すと解除） |
 | Win+Shift+Space | フローティング切替 |
 | Win+矢印 / Win+Shift+矢印 | フォーカス移動 / ウィンドウ移動。最大化・全画面中は半分に配置し、反対側のアプリを選択 |
-| Win+1..9 / Win+0 | バーの左から１〜９番目 / 10 番目のアプリを前面に出す |
+| Win+1..6 / Win+7..0 | 固定６アプリ / 固定以外のバーのアプリを起動・選択 |
 | Win+Ctrl+1..0 / Win+Shift+1..0 | ワークスペース切替 / ウィンドウを送る |
 | Win+左ドラッグ / Win+右ドラッグ | ウィンドウ移動 / サイズ変更 |
 | Win+Shift+M | UWSM を終了し GDM に戻る |
 | Print | DMS の領域スクリーンショット |
 
-SandS は Space を離す際に単独 Space を送る。Win+Space は Win を押したまま Space を離す。
-認識されない離し方の場合は Win+D を使う。DMS が起動しない場合も Win+Enter / Win+L は
-DMS を経由しない。`hypr-cheatsheet` で Rofi の復旧用一覧も開ける。
+SandS は Space 単独なら離した時に空白、他のキーと組み合わせると Shift を送る。
+Win+Space は押した時に、変換+Space は単独の組み合わせを離した時に一覧を開く。
+DMS が起動しない場合も変換+Enter / 変換+L（Win+Enter / Win+L）は DMS を経由しない。
+`hypr-cheatsheet` で変換キーの操作を含む Rofi の復旧用一覧も開ける。
 
 バーは DMS 標準の Running Apps を使い、別ワークスペース・別モニター・最小化中も
 含めてアプリごとのアイコンを表示する。クリックすると既存のウィンドウを前面に出す。
@@ -208,14 +210,38 @@ DMS の標準 binds も読み込まない。Win+V、SandS、配列切替との�
 XKB は GNOME / Hyprland / Fcitx5 とも **jp 固定**。
 独自 Dvorak の通常入力と Shift 入力だけを xremap の `exact_match: true` で変換する。
 Ctrl / Alt / Win 付きは JIS/QWERTY の物理位置のまま。DMS や GNOME の GUI から
-XKB を us(dvp) に変えると二重変換になるため、切替には Win+F2 を使う。
+XKB を us(dvp) に変えると二重変換になるため、切替には変換+F2 / Win+F2 を使う。
 
 初期値は独自 Dvorak。選択状態を `~/.local/state/dotfiles/keyboard-profile` に保存する。
 Shift+物理数字列は数字 1..0、Shift+物理 -（QWERTY 位置）は %、JIS の ] は $ / ~、Yen はバックラッシュ / 縦棒。
 CapsLock / 半角全角は従来どおり xremap の `CODE_93` で日本語モードを切り替える。Space 長押しは Shift。
 無変換+I/J/K/L は上下左右、+; は Enter、+O は Delete、+P は Backspace、
-+H は Tab、+U は日本語入力切替、+数字列は数字。変換+5 は %。
-QWERTY モードでも SandS、日本語切替、無変換レイヤーは維持する。
++H は Tab、+U は日本語入力切替、+数字列は数字。
+QWERTY モードでも SandS、日本語切替、無変換・変換レイヤーを使える。
+
+変換はウィンドウ操作用。以下はすべて物理 QWERTY の位置で、Win キーを押さずに使える。
+
+| 操作 | 動作 |
+|---|---|
+| 変換+W/A/S/D | 上 / 左 / 下 / 右のウィンドウを選択 |
+| 変換+Shift+W/A/S/D | ウィンドウ移動、最大化・全画面中は分割配置 |
+| 変換+Ctrl+W/A/S/D | ウィンドウのサイズ変更 |
+| 変換+1..6 | Chrome / kitty / VS Code / ChatGPT / Discord / Slack を起動・選択 |
+| 変換+7..0 | 固定６アプリ以外のバーのアプリを選択 |
+| 変換+Ctrl+数字 / Shift+数字 | ワークスペース切替 / ウィンドウを送る |
+| 変換+F / Shift+F | 最大化 / 全画面 |
+| 変換+Space / Tab | アプリ起動一覧 / 起動中ウィンドウ一覧 |
+| 変換+V / E / Enter | クリップボード / ファイル / ターミナル |
+| 変換+M / Ctrl+M | １枚を最小化 / 最小化ウィンドウ一覧 |
+| 変換+Shift+Q | ウィンドウを閉じる |
+| 変換+L / I / P / C | ロック / 設定 / 画面設定 / クイック設定 |
+| 変換+F1 / F2 / F3 | ショートカット一覧 / 配列切替 / タッチパッド切替 |
+
+Shift は Space 長押しでも使える（例：変換+Space を押したまま D で右へ移動）。
+変換+Space だけなら、Space または変換を離した時にアプリ起動一覧が開く。
+離す順番による空白の誤入力を防ぎ、移動に使った Space では一覧を開かない。
+その他の変換+キーは同じ物理位置の Win+キーへ送り、Shift / Ctrl / Alt も引き継ぐ。
+WASD と C は上表の割り当てを優先する。% は Shift+物理 -（独自 Dvorak）で入力する。
 
 定義は `home/desktop/generate_xremap.py`。選択変更を排他制御し、xremap の起動失敗時は
 以前の選択に戻す。xremap は両デスクトップのログイン時に一つだけ起動し、GDM では起動しない。

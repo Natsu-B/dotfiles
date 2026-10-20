@@ -24,7 +24,7 @@ case "${1:-status}" in
   status) printf '%s\n' "$current" ;;
   json)
     if systemctl --user is-active --quiet xremap.service; then
-      printf '{"text":"%s","tooltip":"Win+F2: QWERTY / Dvorak","class":"%s"}\n' "$current" "$current"
+      printf '{"text":"%s","tooltip":"Henkan+F2 / Win+F2: QWERTY / Dvorak","class":"%s"}\n' "$current" "$current"
     else
       printf '{"text":"QWERTY !","tooltip":"xremap is not running","class":"error"}\n'
     fi

@@ -85,7 +85,27 @@ class KeyboardTests(unittest.TestCase):
             self.assertEqual(p['keymap'][0]['remap']['F15-9'], '9')
             self.assertIn('alone_timeout_millis', p['modmap'][1]['remap']['Space'])
     def test_qwerty_has_no_typing_translation(self):
-        self.assertEqual(len(keys.profile('qwerty')['keymap']), 1)
+        self.assertEqual([m['name'] for m in keys.profile('qwerty')['keymap']],
+                         ['Muhenkan navigation', 'Henkan desktop shortcuts'])
+    def test_henkan_shortcuts_are_shared_and_preserve_modifiers(self):
+        dvorak = keys.profile('dvorak')['keymap'][-1]
+        self.assertEqual(dvorak, keys.profile('qwerty')['keymap'][-1])
+        self.assertTrue(dvorak['exact_match'])
+        remap = dvorak['remap']
+        for key, direction in {'W': 'Up', 'A': 'Left', 'S': 'Down', 'D': 'Right'}.items():
+            self.assertEqual(remap[f'F14-{key}'], f'Super-{direction}')
+            self.assertEqual(remap[f'Shift-F14-{key}'], f'Super-Shift-{direction}')
+            self.assertEqual(remap[f'Ctrl-F14-{key}'], f'Super-Ctrl-{direction}')
+        for digit in '1234567890':
+            self.assertEqual(remap[f'F14-{digit}'], f'Super-{digit}')
+            self.assertEqual(remap[f'Ctrl-F14-{digit}'], f'Super-Ctrl-{digit}')
+            self.assertEqual(remap[f'Shift-F14-{digit}'], f'Super-Shift-{digit}')
+        for key in ('Space', 'Tab', 'Enter', 'F', 'V', 'E', 'M', 'L', 'I', 'P', 'F1', 'F2', 'F3'):
+            self.assertEqual(remap[f'F14-{key}'], f'Super-{key}')
+        self.assertEqual(remap['Shift-F14-Q'], 'Super-Shift-Q')
+        self.assertEqual(remap['F14-C'], 'Super-A')
+        self.assertEqual(remap['Shift-Ctrl-F14-V'], 'Super-Shift-Ctrl-V')
+        self.assertEqual(keys.DVP['MINUS'][1], '%')
     def test_shortcuts_are_not_translated(self):
         typing = keys.profile('dvorak')['keymap'][1]
         self.assertTrue(typing['exact_match'])

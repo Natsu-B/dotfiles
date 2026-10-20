@@ -2,7 +2,7 @@
 let
   wallpaper = pkgs.nixos-artwork.wallpapers.nineish-catppuccin-mocha-alt.gnomeFilePath;
   remapper = unstable.xremap.overrideAttrs (old: {
-    patches = (old.patches or []) ++ [ ./xremap-super-space.patch ];
+    patches = (old.patches or []) ++ [ ./xremap-super-space.patch ./xremap-henkan-space.patch ];
   });
   # Preserve the package's supported feature/install combination and normalize
   # its executable name. Global-only profiles do not query desktop app filters.

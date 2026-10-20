@@ -24,7 +24,15 @@ if __name__ == '__main__':
              'Muhenkan + I/J/K/L             Up / Left / Down / Right',
              'Muhenkan + 1..0                Digits 1..0',
              'Shift + - (QWERTY position)    % (Dvorak)',
-             'Henkan + 5                     %',
+             'Henkan + W/A/S/D               Focus up / left / down / right',
+             'Henkan + Shift + W/A/S/D       Move / snap window',
+             'Henkan + Ctrl + W/A/S/D        Resize window',
+             'Henkan + 1..6                 Chrome / kitty / VS Code / ChatGPT / Discord / Slack',
+             'Henkan + F / Shift+F          Maximize / fullscreen',
+             'Henkan + Space / Tab          Apps / running windows',
+             'Henkan + V / E / Enter        Clipboard / files / terminal',
+             'Henkan + C                    Quick settings',
+             'Henkan + key                  Win shortcut (physical QWERTY keys)',
              'CapsLock / Hankaku             Japanese input toggle']
     sp.run(['rofi', '-dmenu', '-i', '-no-custom', '-no-history', '-p', 'Shortcuts'],
            input='\n'.join(rows), text=True, stdout=sp.DEVNULL, check=False)

@@ -1,0 +1,108 @@
+--- a/src/event_handler.rs
++++ b/src/event_handler.rs
+@@ -178,6 +178,24 @@
+         config: &Config,
+         wmclient: &mut WMClient,
+     ) -> Result<bool, Box<dyn Error>> {
++        // Resolve a pending SandS tap before the desktop modifier goes up.
++        // Keep an interrupted Space held as Shift; it must not open the launcher.
++        if key == Key::KEY_F14 && value == RELEASE && config.virtual_modifiers.contains(&key) {
++            let tap = self.multi_purpose_keys.get_mut(&Key::KEY_SPACE).and_then(|state| {
++                if matches!(state.state, MultiPurposeKeyStateEnum::TapPreferred | MultiPurposeKeyStateEnum::HoldPreferred) {
++                    state.state = MultiPurposeKeyStateEnum::TapChosen;
++                    Some(state.press_and_release(&state.tap))
++                } else {
++                    None
++                }
++            });
++            if let Some(events) = tap {
++                for (tap_key, tap_value) in events {
++                    self.on_key_event(tap_key, tap_value, device, config, wmclient)?;
++                }
++            }
++        }
++
+         let mod_trigger = config.virtual_modifiers.contains(&key) || MODIFIER_KEYS.contains(&key);
+         // Apply keymap
+         let mut matched = false;
+--- a/src/tests/tests_virtual_modifier.rs
++++ b/src/tests/tests_virtual_modifier.rs
+@@ -229,3 +229,78 @@
+         ],
+     )
+ }
++
++
++#[test]
++fn test_henkan_space_tap_is_independent_of_release_order() {
++    let config = indoc! {"
++        virtual_modifiers: [F14]
++        modmap:
++            - remap:
++                HENKAN: F14
++                Space:
++                    held: Shift_L
++                    alone: Space
++                    alone_timeout_millis: 999999999999
++        keymap:
++            - exact_match: true
++              remap:
++                F14-Space: { launch: [launcher] }
++    "};
++    for henkan_first in [false, true] {
++        let mut handler = crate::tests::EventHandlerForTest::new(config);
++        handler.assert(vec![Event::key_press(Key::KEY_HENKAN), Event::key_press(Key::KEY_SPACE)], vec![]);
++        let releases = if henkan_first { [Key::KEY_HENKAN, Key::KEY_SPACE] } else { [Key::KEY_SPACE, Key::KEY_HENKAN] };
++        handler.assert(releases.into_iter().map(Event::key_release).collect(), vec![
++            Action::Command(vec!["launcher".to_string()]),
++            Action::KeyEvent(KeyEvent::new(Key::KEY_SPACE, KeyValue::Release)),
++        ]);
++        handler.assert_base_state();
++        // The completed shortcut must not change subsequent ordinary spaces.
++        handler.assert(vec![Event::key_press(Key::KEY_SPACE), Event::key_release(Key::KEY_SPACE)], vec![
++            Action::KeyEvent(KeyEvent::new(Key::KEY_SPACE, KeyValue::Press)),
++            Action::KeyEvent(KeyEvent::new(Key::KEY_SPACE, KeyValue::Release)),
++        ]);
++        handler.assert_base_state();
++    }
++}
++
++#[test]
++fn test_henkan_sands_move_does_not_launch_or_leave_shift_held() {
++    let config = indoc! {"
++        virtual_modifiers: [F14]
++        modmap:
++            - remap:
++                HENKAN: F14
++                Space:
++                    held: Shift_L
++                    alone: Space
++                    alone_timeout_millis: 999999999999
++        keymap:
++            - exact_match: true
++              remap:
++                F14-Space: { launch: [launcher] }
++                Shift-F14-D: { launch: [move-right] }
++    "};
++    let henkan = Key::KEY_HENKAN;
++    let space = Key::KEY_SPACE;
++    let d = Key::KEY_D;
++    for space_first in [false, true] {
++        for releases in [[henkan, space, d], [henkan, d, space], [space, henkan, d],
++                         [space, d, henkan], [d, henkan, space], [d, space, henkan]] {
++            let mut handler = crate::tests::EventHandlerForTest::new(config);
++            let presses = if space_first { [space, henkan, d] } else { [henkan, space, d] };
++            handler.assert(presses.into_iter().map(Event::key_press).collect(), vec![
++                Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
++                Action::Command(vec!["move-right".to_string()]),
++            ]);
++            for key in releases {
++                let actions = if key == henkan { vec![] } else {
++                    vec![Action::KeyEvent(KeyEvent::new(if key == space { Key::KEY_LEFTSHIFT } else { key }, KeyValue::Release))]
++                };
++                handler.assert(vec![Event::key_release(key)], actions);
++            }
++            handler.assert_base_state();
++        }
++    }
++}
