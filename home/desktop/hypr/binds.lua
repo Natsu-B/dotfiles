@@ -152,7 +152,7 @@ hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true, description
 
 for workspace = 1, 10 do
     local code = tostring(workspace + 9)
-    hl.bind("SUPER + code:" .. code, hl.dsp.exec_cmd(c.dms .. " ipc call dotfiles-apps activate " .. workspace), { description = "Activate bar app " .. workspace })
+    hl.bind("SUPER + code:" .. code, hl.dsp.exec_cmd(c.dms .. " ipc call dotfiles-apps activate " .. workspace), { description = "Activate app " .. workspace .. (workspace <= 6 and " (fixed)" or " (bar)") })
     hl.bind("SUPER + CTRL + code:" .. code, hl.dsp.focus({ workspace = workspace }), { description = "Workspace " .. workspace })
     hl.bind("SUPER + SHIFT + code:" .. code, hl.dsp.window.move({ workspace = workspace, follow = false }), { description = "Send to workspace " .. workspace })
 end

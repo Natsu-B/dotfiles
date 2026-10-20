@@ -1,8 +1,8 @@
 {
   "id": "dotfilesAppShortcuts",
-  "name": "Numbered running apps",
-  "description": "Activate the Running Apps bar entries with Win+1 through Win+0",
-  "version": "1.0.0",
+  "name": "Fixed app shortcuts",
+  "description": "Win+1..6 launch or focus fixed apps; Win+7..0 select other bar apps",
+  "version": "1.1.0",
   "author": "dotfiles",
   "type": "daemon",
   "capabilities": ["daemon"],

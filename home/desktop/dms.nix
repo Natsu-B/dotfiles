@@ -8,11 +8,13 @@
 let
   target = "wayland-session@hyprland.desktop.target";
   tools = import ./packages.nix { inherit pkgs unstable; };
+  chatgpt = pkgs.callPackage ../app/codex-desktop.nix { };
   inherit (tools)
     dms
     launcher
     windowSwitcher
     snapAssist
+    focusWindow
     wallpaper
     keyboard
     clipboard
@@ -150,6 +152,18 @@ in
     "DankMaterialShell/plugins/dotfilesAppShortcuts/plugin.json".source = ./dms-app-shortcuts/plugin.json;
     "DankMaterialShell/plugins/dotfilesAppShortcuts/AppShortcuts.qml".source = ./dms-app-shortcuts/AppShortcuts.qml;
     "DankMaterialShell/plugins/dotfilesAppShortcuts/AppIndex.js".source = ./dms-app-shortcuts/AppIndex.js;
+    "DankMaterialShell/plugins/dotfilesAppShortcuts/AppCommands.js".source = "${pkgs.writeTextDir "AppCommands.js" ''
+      .pragma library
+      var focus = ${builtins.toJSON "${focusWindow}/bin/desktop-focus-window"};
+      var launch = ${builtins.toJSON {
+        "google-chrome" = [ "${pkgs.uwsm}/bin/uwsm" "app" "--" "${pkgs.google-chrome}/bin/google-chrome" ];
+        kitty = [ "${pkgs.uwsm}/bin/uwsm" "app" "--" "${pkgs.kitty}/bin/kitty" ];
+        code = [ "${pkgs.uwsm}/bin/uwsm" "app" "--" "${pkgs.vscode}/bin/code" ];
+        chatgpt = [ "${pkgs.uwsm}/bin/uwsm" "app" "--" "${chatgpt}/bin/chatgpt" ];
+        discord = [ "${pkgs.uwsm}/bin/uwsm" "app" "--" "${pkgs.discord}/bin/discord" ];
+        slack = [ "${pkgs.uwsm}/bin/uwsm" "app" "--" "${pkgs.slack}/bin/slack" ];
+      }};
+    ''}/AppCommands.js";
     "hypr/hyprland.lua".source = ./hypr/hyprland.lua;
     "hypr/input.lua".source = ./hypr/input.lua;
     "hypr/appearance.lua".source = ./hypr/appearance.lua;

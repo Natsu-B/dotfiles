@@ -84,6 +84,11 @@ let
     runtimeInputs = [ pkgs.python3 pkgs.hyprland rofiWithOutsideClick ];
     text = ''exec python3 ${./snap.py} "$@"'';
   };
+  focusWindow = pkgs.writeShellApplication {
+    name = "desktop-focus-window";
+    runtimeInputs = [ pkgs.python3 pkgs.hyprland ];
+    text = ''exec python3 ${./focus_window.py} "$@"'';
+  };
 in {
-  inherit wallpaper xremap profiles keyboard trackpoint clipboard clipboardMenu locker cheatsheet dms launcher windowSwitcher snapAssist;
+  inherit wallpaper xremap profiles keyboard trackpoint clipboard clipboardMenu locker cheatsheet dms launcher windowSwitcher snapAssist focusWindow;
 }
