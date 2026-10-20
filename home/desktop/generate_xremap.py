@@ -20,7 +20,7 @@ JIS = {
 # Programmer Dvorak, with the requested physical Shift+1..0 number row.
 DVP = {
     **dict(zip('1234567890', zip('&[{}(=*)+]', '1234567890'))),
-    'MINUS': ('!', '8'), 'EQUAL': ('#', '`'),
+    'MINUS': ('!', '%'), 'EQUAL': ('#', '`'),
     **dict(zip('QWERTYUIOP', zip(';, .pyfgcrl'.replace(' ', ''), ':<>PYFGCRL'))),
     'LEFTBRACE': ('/', '?'), 'RIGHTBRACE': ('@', '^'),
     **{k: (v, v.upper()) for k, v in zip('ASDFGHJKL', 'aoeuidhtn')},

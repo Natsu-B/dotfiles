@@ -207,7 +207,7 @@ Ctrl / Alt / Win 付きは JIS/QWERTY の物理位置のまま。DMS や GNOME �
 XKB を us(dvp) に変えると二重変換になるため、切替には Win+F2 を使う。
 
 初期値は独自 Dvorak。選択状態を `~/.local/state/dotfiles/keyboard-profile` に保存する。
-Shift+物理数字列は数字 1..0、JIS の ] は $ / ~、Yen はバックラッシュ / 縦棒。
+Shift+物理数字列は数字 1..0、Shift+物理 -（QWERTY 位置）は %、JIS の ] は $ / ~、Yen はバックラッシュ / 縦棒。
 CapsLock / 半角全角は従来どおり xremap の `CODE_93` で日本語モードを切り替える。Space 長押しは Shift。
 無変換+I/J/K/L は上下左右、+; は Enter、+O は Delete、+P は Backspace、
 +H は Tab、+U は日本語入力切替、+数字列は数字。変換+5 は %。

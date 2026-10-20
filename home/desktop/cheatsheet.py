@@ -23,6 +23,7 @@ if __name__ == '__main__':
     rows += ['Space (hold)                   Shift (SandS)',
              'Muhenkan + I/J/K/L             Up / Left / Down / Right',
              'Muhenkan + 1..0                Digits 1..0',
+             'Shift + - (QWERTY position)    % (Dvorak)',
              'Henkan + 5                     %',
              'CapsLock / Hankaku             Japanese input toggle']
     sp.run(['rofi', '-dmenu', '-i', '-no-custom', '-no-history', '-p', 'Shortcuts'],
