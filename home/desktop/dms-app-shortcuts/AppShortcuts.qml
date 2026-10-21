@@ -2,6 +2,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Wayland
+import QtQml.Models
 import qs.Modules.Plugins
 import qs.Services
 import "AppIndex.js" as AppIndex
@@ -16,6 +17,14 @@ PluginComponent {
         for (const app of AppIndex.fixedApps) {
             if (Array.from(allWindows).some(window => AppIndex.matches(app, window.appId)))
                 launching[app.appId] = 0;
+        }
+    }
+
+    Instantiator {
+        model: Object.values(BarWidgetService.widgetRegistry.runningApps || {})
+        delegate: NumberBadges {
+            required property var modelData
+            widget: modelData
         }
     }
 

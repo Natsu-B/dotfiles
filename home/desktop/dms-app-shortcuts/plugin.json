@@ -1,8 +1,8 @@
 {
   "id": "dotfilesAppShortcuts",
   "name": "Fixed app shortcuts",
-  "description": "Win+1..6 launch or focus fixed apps; Win+7..0 select other bar apps",
-  "version": "1.1.0",
+  "description": "Fixed app shortcuts with matching number badges on the Running Apps bar",
+  "version": "1.2.0",
   "author": "dotfiles",
   "type": "daemon",
   "capabilities": ["daemon"],

@@ -45,6 +45,15 @@ assert.equal(model.fixedApp(7), null);
 const many = {_groupByApp: false, sortedToplevels: Array.from({length: 10}, (_,i) => ({appId: String(i)}))};
 assert.equal(model.entries(many).length, 10);
 assert.equal(model.windowAt(many, 10, windows), many.sortedToplevels[3]);
+assert.equal(model.slotFor(widget, 'google-chrome-stable', chrome), 1);
+assert.equal(model.slotFor(widget, 'ChatGPT', b), 4);
+assert.equal(model.slotFor(widget, 'other', other), 7);
+assert.equal(model.slotFor(many, '3', many.sortedToplevels[3]), 10);
+assert.equal(model.slotFor(many, '4', many.sortedToplevels[4]), 0); // no shortcut after Win+0
+assert.equal(model.slotFor(null, 'kitty', null), 2);
+assert.equal(model.slotFor(null, 'missing', null), 0);
+widget._groupByApp = true;
+assert.equal(model.slotFor(widget, 'other', other2), 7); // grouped windows share the same number
 assert.equal(model.hyprlandAddress('abc123'), '0xabc123');
 assert.equal(model.hyprlandAddress('0xABC123'), '0xABC123');
 for (const address of ['', undefined, null, 123, 'active', 'abc"})', '0x', ' 123'])

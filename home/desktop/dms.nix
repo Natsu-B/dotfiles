@@ -152,6 +152,7 @@ in
     "DankMaterialShell/plugins/dotfilesAppShortcuts/plugin.json".source = ./dms-app-shortcuts/plugin.json;
     "DankMaterialShell/plugins/dotfilesAppShortcuts/AppShortcuts.qml".source = ./dms-app-shortcuts/AppShortcuts.qml;
     "DankMaterialShell/plugins/dotfilesAppShortcuts/AppIndex.js".source = ./dms-app-shortcuts/AppIndex.js;
+    "DankMaterialShell/plugins/dotfilesAppShortcuts/NumberBadges.qml".source = ./dms-app-shortcuts/NumberBadges.qml;
     "DankMaterialShell/plugins/dotfilesAppShortcuts/AppCommands.js".source = "${pkgs.writeTextDir "AppCommands.js" ''
       .pragma library
       var focus = ${builtins.toJSON "${focusWindow}/bin/desktop-focus-window"};

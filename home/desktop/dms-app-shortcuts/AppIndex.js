@@ -45,6 +45,15 @@ function windowAt(widget, index, toplevels) {
     return nextWindow((entry.windows || []).map(w => w.toplevel).filter(Boolean));
 }
 
+function slotFor(widget, appId, toplevel) {
+    const fixed = fixedApps.findIndex(app => matches(app, appId));
+    if (fixed >= 0)
+        return fixed + 1;
+    const index = entries(widget).findIndex((entry, i) => i >= fixedApps.length &&
+        (widget._groupByApp ? entry.appId === appId : entry === toplevel));
+    return index < 0 ? 0 : index + 1;
+}
+
 function hyprlandAddress(address) {
     if (typeof address !== "string" || !/^(?:0x)?[0-9a-f]+$/i.test(address))
         return null;
