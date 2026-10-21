@@ -45,13 +45,14 @@ function windowAt(widget, index, toplevels) {
     return nextWindow((entry.windows || []).map(w => w.toplevel).filter(Boolean));
 }
 
-function slotFor(widget, appId, toplevel) {
-    const fixed = fixedApps.findIndex(app => matches(app, appId));
-    if (fixed >= 0)
-        return fixed + 1;
-    const index = entries(widget).findIndex((entry, i) => i >= fixedApps.length &&
-        (widget._groupByApp ? entry.appId === appId : entry === toplevel));
-    return index < 0 ? 0 : index + 1;
+// Keep native app icons in shortcut order; retain the existing order within
+// each app and among the other apps, including those beyond Win+0.
+function orderedEntries(widget) {
+    const values = widget ? ((widget._groupByApp ? widget.groupedWindows : widget.sortedToplevels) || []) : [];
+    return values.map((entry, index) => {
+        const fixed = fixedApps.findIndex(app => matches(app, entry.appId));
+        return {entry: entry, index: index, rank: fixed < 0 ? fixedApps.length : fixed};
+    }).sort((a, b) => a.rank - b.rank || a.index - b.index).map(item => item.entry);
 }
 
 function hyprlandAddress(address) {

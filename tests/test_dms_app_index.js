@@ -45,15 +45,22 @@ assert.equal(model.fixedApp(7), null);
 const many = {_groupByApp: false, sortedToplevels: Array.from({length: 10}, (_,i) => ({appId: String(i)}))};
 assert.equal(model.entries(many).length, 10);
 assert.equal(model.windowAt(many, 10, windows), many.sortedToplevels[3]);
-assert.equal(model.slotFor(widget, 'google-chrome-stable', chrome), 1);
-assert.equal(model.slotFor(widget, 'ChatGPT', b), 4);
-assert.equal(model.slotFor(widget, 'other', other), 7);
-assert.equal(model.slotFor(many, '3', many.sortedToplevels[3]), 10);
-assert.equal(model.slotFor(many, '4', many.sortedToplevels[4]), 0); // no shortcut after Win+0
-assert.equal(model.slotFor(null, 'kitty', null), 2);
-assert.equal(model.slotFor(null, 'missing', null), 0);
 widget._groupByApp = true;
-assert.equal(model.slotFor(widget, 'other', other2), 7); // grouped windows share the same number
+assert.deepEqual(Array.from(model.orderedEntries(widget), entry => entry.appId),
+    ['google-chrome', 'chatgpt', 'other']);
+assert.deepEqual(widget.groupedWindows.map(entry => entry.appId),
+    ['google-chrome', 'chatgpt', 'other']); // the native model remains unmodified
+widget._groupByApp = false;
+assert.deepEqual(Array.from(model.orderedEntries(widget)), [chrome, a, b, other]);
+assert.deepEqual(widget.sortedToplevels, [other, a, b, chrome]);
+assert.equal(model.orderedEntries(many).length, 10); // keep icons beyond numbered slots
+assert.deepEqual(Array.from(model.orderedEntries(null)), []);
+const scrambled = {_groupByApp: false, sortedToplevels: [
+    {appId: 'slack'}, {appId: 'other-b'}, {appId: 'Code'},
+    {appId: 'google-chrome-stable'}, {appId: 'kitty'}, {appId: 'other-a'}
+]};
+assert.deepEqual(Array.from(model.orderedEntries(scrambled), entry => entry.appId),
+    ['google-chrome-stable', 'kitty', 'Code', 'slack', 'other-b', 'other-a']);
 assert.equal(model.hyprlandAddress('abc123'), '0xabc123');
 assert.equal(model.hyprlandAddress('0xABC123'), '0xABC123');
 for (const address of ['', undefined, null, 123, 'active', 'abc"})', '0x', ' 123'])

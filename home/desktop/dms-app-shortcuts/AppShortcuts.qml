@@ -22,7 +22,7 @@ PluginComponent {
 
     Instantiator {
         model: Object.values(BarWidgetService.widgetRegistry.runningApps || {})
-        delegate: NumberBadges {
+        delegate: AppOrder {
             required property var modelData
             widget: modelData
         }
