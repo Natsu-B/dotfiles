@@ -33,7 +33,7 @@ relative=$(printf %s "$MAC_REL_B64" | /usr/bin/base64 -D)
 # Never follow symlinks to paths outside the Mac archive.
 if [[ -n "$relative" ]]; then
   IFS='/' read -r -a parts <<< "$relative"
-  for part in "\${parts[@]}"; do
+  for part in "${parts[@]}"; do
     [[ -n "$part" && "$part" != . && "$part" != .. &&
        "$part" != *:* && "$part" != *[$'\n\r\t']* && ! -L "$part" ]] || exit 2
     cd -- "$part"
@@ -43,7 +43,7 @@ fi
 # No traversal of children; selected directories are later synced recursively.
 /usr/bin/find . -mindepth 1 -maxdepth 1 -print0 |
 while IFS= read -r -d '' entry; do
-  name=\${entry#./}
+  name=${entry#./}
   [[ "$name" != *:* && "$name" != *[$'\n\r\t']* ]] || continue
   if [[ -d "$entry" && ! -L "$entry" ]]; then
     printf 'D\t%s\0' "$name"

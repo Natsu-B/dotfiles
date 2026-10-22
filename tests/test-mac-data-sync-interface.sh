@@ -79,7 +79,8 @@ write_state() {
   local state=$1
   jq -cn --arg id "$id" --arg root "$HOME/work/project-a" --arg state "$state" '
     [{name: $id, alpha: {host:"mac",path:"~/data/project-a",connected: ($state!="offline"),scanned:true},
-       beta: {path:$root,connected:true,scanned:true},status:"watching", successfulCycles:2,
+       beta: {path:$root,connected:true,scanned:true},
+       status:(if $state == "halted" then "halted-on-root-deletion" else "watching" end), successfulCycles:2,
        paused:false, conflicts: (if $state == "conflict" then [{x:1}] else [] end)}]' > "$TEST_STATE"
 }
 write_state healthy
@@ -90,6 +91,13 @@ printf 'Working copies\nSELECT\nSync now\nBACK\nQuit\n' > "$FZF_STEPS"
 printf 0 > "$FZF_COUNT"
 printf '\n' | MAC_DATA_SYNC_BIN="$root/bin/mac-data-sync" bash "$scripts/mac-data-sync-ui" >/dev/null
 grep -q 'cli flush project-a' "$TEST_LOG"
+
+# A halted session must be visible in Conflicts and errors, not reported as syncing.
+write_state halted
+printf 'Conflicts and errors\nSELECT\nInspect\nBACK\nQuit\n' > "$FZF_STEPS"
+printf 0 > "$FZF_COUNT"
+printf '\n' | MAC_DATA_SYNC_BIN="$root/bin/mac-data-sync" bash "$scripts/mac-data-sync-ui" > "$root/halted-ui"
+grep -qF "mutagen sync list --long $id" "$TEST_LOG"
 
 # Block release if conflict: neither session nor Linux copy may be deleted.
 write_state conflict

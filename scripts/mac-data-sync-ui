@@ -44,6 +44,7 @@ session_status() {
     if . == null then "Unavailable"
     elif .paused == true then "Paused"
     elif (.lastError // "") != "" then "Error"
+    elif ((.status // "") | tostring | startswith("halted-")) then "Halted"
     elif ((.conflicts // []) | length) > 0 or (.excludedConflicts // 0) > 0 then "Conflict"
     elif (((.alpha.scanProblems // []) + (.alpha.transitionProblems // []) + (.beta.scanProblems // []) + (.beta.transitionProblems // [])) | length) > 0
       or (.alpha.excludedScanProblems // 0) > 0 or (.alpha.excludedTransitionProblems // 0) > 0
@@ -66,7 +67,7 @@ state_records() {
     id=${f##*/}
     json=$(jq -c --arg id "$id" '[.[] | select(.name == $id)][0] // null' <<< "$snapshot")
     status=$(session_status "$json")
-    if [[ "$scope" == errors && "$status" != Conflict && "$status" != Error && "$status" != Problem && "$status" != Offline && "$status" != Unavailable ]]; then
+    if [[ "$scope" == errors && "$status" != Conflict && "$status" != Error && "$status" != Halted && "$status" != Problem && "$status" != Offline && "$status" != Unavailable ]]; then
       continue
     fi
     if [[ -e "$work_dir/$path" ]]; then

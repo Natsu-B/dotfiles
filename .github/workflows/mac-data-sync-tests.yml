@@ -5,6 +5,7 @@ on:
     paths:
       - 'scripts/mac-data-sync*'
       - 'tests/test-mac-data-sync*'
+      - 'tests/test_mac_data_sync_browse.py'
       - 'home/home.nix'
       - 'nixos/configuration.nix'
       - 'MAC-DATA-SYNC.md'
@@ -16,6 +17,7 @@ on:
     paths:
       - 'scripts/mac-data-sync*'
       - 'tests/test-mac-data-sync*'
+      - 'tests/test_mac_data_sync_browse.py'
       - 'windows/**'
 
 jobs:
@@ -39,6 +41,8 @@ jobs:
           bash -n windows/wsl-entry.sh
       - name: Test CLI and picker
         run: bash tests/test-mac-data-sync.sh
+      - name: Execute Mac directory listing payload
+        run: python3 -m unittest discover -s tests -p test_mac_data_sync_browse.py
       - name: Test UI and guarded release
         run: bash tests/test-mac-data-sync-interface.sh
       - name: Test Windows WSL bootstrap (mocked apt/Mutagen)
