@@ -48,7 +48,11 @@ for arg in "$@"; do printf ' [%s]' "$arg" >> "$TEST_LOG"; done
 printf '\n' >> "$TEST_LOG"
 if [[ "${1:-}" == sync && "${2:-}" == list && "${3:-}" == --template ]]; then
   id=${5:-}
-  printf '[{"name":"%s","paused":false,"status":"watching","successfulCycles":1,"alpha":{"connected":true,"scanned":true},"beta":{"connected":true,"scanned":true}}]\n' "$id"
+  jq -cn --arg id "$id" --arg status "${TEST_SYNC_STATE:-watching}" '
+    [{name:$id, paused:($status=="paused"), status:(if $status=="paused" then "watching" else $status end), successfulCycles:1,
+      alpha:{connected:($status!="offline"),scanned:true},
+      beta:{connected:true,scanned:true,scanProblems:(if $status=="problem" then
+        [{path:".nix-python",error:"invalid symbolic link: target is absolute"}] else [] end)}}]'
 fi
 SH
 cat > "$root/bin/fzf" <<'SH'
@@ -119,6 +123,8 @@ printf 'y\n' | FZF_STEPS=SYNC-LOCAL,STOP \
 grep -qFx 'PREPARE:local-project' "$TEST_LOG"
 grep -qF '[mac:~/data/local-project]' "$TEST_LOG"
 grep -q 'Ready: Mac ~/data/local-project' "$root/linux-output"
+grep -q 'Uploading Linux .*local-project to Mac ~/data/local-project' "$root/linux-output"
+! grep -q 'Copying Mac local-project' "$root/linux-output"
 
 # The same works for a Linux-only file in a nested folder.
 echo 0 > "$FZF_COUNT"
@@ -126,6 +132,46 @@ printf 'y\n' | FZF_STEPS=OPEN-LOCALDOCS,SYNC-LOCALFILE,STOP \
   "$repo/scripts/mac-data-sync" browse-local > "$root/new-file-output" 2>&1
 grep -qFx 'PREPARE:docs/new.txt' "$TEST_LOG"
 grep -qF '[mac:~/data/docs/new.txt]' "$TEST_LOG"
+
+# Existing setup is an informational no-op, with its actual health shown.
+before=$(grep -c 'mutagen \[sync\] \[create\]' "$TEST_LOG")
+"$repo/scripts/mac-data-sync" start project-a > "$root/existing" 2>&1
+grep -q 'Already configured: project-a' "$root/existing"
+grep -q 'Status: Active' "$root/existing"
+TEST_SYNC_STATE=problem "$repo/scripts/mac-data-sync" start project-a > "$root/problem" 2>&1
+grep -q 'Needs attention' "$root/problem"
+grep -q 'Linux: .nix-python' "$root/problem"
+grep -q 'absolute symlink' "$root/problem"
+for state in paused offline halted-on-root-deletion; do
+  TEST_SYNC_STATE=$state "$repo/scripts/mac-data-sync" check project-a > "$root/$state" 2>&1
+done
+grep -q 'Status: Paused' "$root/paused"
+grep -q 'Status: Offline' "$root/offline"
+grep -q 'Status: Stopped' "$root/halted-on-root-deletion"
+"$repo/scripts/mac-data-sync" start project-a/src > "$root/covered" 2>&1
+grep -q 'Already included: project-a/src' "$root/covered"
+! grep -q 'terminate it first' "$root/existing" "$root/problem" "$root/covered"
+test "$(grep -c 'mutagen \[sync\] \[create\]' "$TEST_LOG")" = "$before"
+
+# Reselecting a configured folder needs neither a new-start confirmation nor a new session.
+echo 0 > "$FZF_COUNT"
+FZF_STEPS=SYNC-PROJECT,STOP "$repo/scripts/mac-data-sync" pick < /dev/null > "$root/reselect" 2>&1
+grep -q 'Already configured: project-a' "$root/reselect"
+grep -q 'No new synchronization to start' "$root/reselect"
+! grep -q 'Start? \[y/N\]' "$root/reselect"
+test "$(grep -c 'mutagen \[sync\] \[create\]' "$TEST_LOG")" = "$before"
+
+# A requested parent reports every separately synchronized child, without ending any.
+for child in notes/one notes/two; do
+  id="mac-data-$(printf %s "$child" | sha256sum | cut -c1-20)"
+  printf '%s\n' "$child" > "$XDG_STATE_HOME/mac-data-sync/$id"
+done
+if "$repo/scripts/mac-data-sync" start notes > "$root/overlap" 2>&1; then exit 1; fi
+grep -q 'Cannot add notes' "$root/overlap"
+grep -q 'notes/one' "$root/overlap"
+grep -q 'notes/two' "$root/overlap"
+! grep -q 'terminate it first' "$root/overlap"
+! grep -q 'mutagen \[sync\] \[terminate\]' "$TEST_LOG"
 
 # A nonexistent path on both ends must not silently initialize empty archive.
 if "$repo/scripts/mac-data-sync" start does-not-exist > "$root/fail" 2>&1; then

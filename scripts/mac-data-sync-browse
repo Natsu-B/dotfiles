@@ -104,7 +104,7 @@ trap 'rm -rf -- "$tmp_dir"' EXIT
 declare -a selected=()
 
 sync_selected() {
-  local path ans p previous skip
+  local path ans p previous skip plan
   declare -a paths=() collapsed=()
   for path in "${selected[@]}"; do
     valid_path "$path" || { echo "Unsupported path: $path" >&2; return 1; }
@@ -119,18 +119,33 @@ sync_selected() {
     (( skip )) || collapsed+=("$path")
   done
   (( ${#collapsed[@]} )) || return 0
-  printf '\nStart synchronization for:\n' >&2
+  # Explain existing entries before asking to create anything. Inspecting or
+  # reselecting a registered path must never terminate or recreate its session.
   for p in "${collapsed[@]}"; do
+    plan=$("$cli" check --json "$p") || return 1
+    if [[ "$(jq -r '.action' <<< "$plan")" == create ]]; then
+      paths+=("$p")
+    else
+      "$cli" check "$p" || true
+    fi
+  done
+  if (( ${#paths[@]} == 0 )); then
+    printf '\nNo new synchronization to start. Manage existing entries in Working copies.\n' >&2
+    return 0
+  fi
+  printf '\nCreate new synchronization for:\n' >&2
+  for p in "${paths[@]}"; do
     if [[ "$mode" == mac ]]; then
       printf '  Mac ~/data/%s -> Linux ~/work/%s\n' "$p" "$p" >&2
     else
       printf '  Linux ~/work/%s -> Mac ~/data/%s\n' "$p" "$p" >&2
     fi
   done
+  printf 'After setup, edits synchronize in both directions.\n' >&2
   printf 'Start? [y/N] ' >&2
   IFS= read -r ans || return 0
   [[ "$ans" == y || "$ans" == Y ]] || return 0
-  for p in "${collapsed[@]}"; do
+  for p in "${paths[@]}"; do
     "$cli" start "$p" || return 1
   done
 }

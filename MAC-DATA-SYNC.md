@@ -83,6 +83,8 @@ The dashboard is in English and offers:
 
 The actions available for working copies are **Sync now**, **Pause sync**, **Resume sync**, **Inspect**, **End sync (keep copies)**, and **Release Linux copy**. Pausing, resuming, and ending a session do not remove either copy.
 
+Selecting an already configured path shows its current status and any problem paths, without asking to create another synchronization. A selected subfolder already covered by a parent synchronization uses that existing entry. Only new paths appear in the start confirmation. A parent containing separately synchronized subfolders is blocked with a list of those entries; manage them from **Working copies**.
+
 ## Direct CLI shortcuts
 
 ```sh
@@ -92,6 +94,7 @@ mac-data-sync pick                     # Navigate Mac folders and select SYNC en
 mac-data-sync browse-local             # Navigate Linux ~/work and publish local-only files
 mac-data-sync start project-a          # Sync Mac ~/data/project-a to Linux ~/work/project-a
 mac-data-sync start documents/file.md  # Sync an individual file
+mac-data-sync check project-a          # Explain existing status or an overlapping setup
 mac-data-sync list                     # List Mutagen sessions
 mac-data-sync status project-a         # Detailed status
 mac-data-sync flush project-a          # Force a sync cycle
@@ -127,7 +130,7 @@ If you need to retain Linux-only Git history or build products, **End sync (keep
 - A copy with errors, conflicts, missing SSH access, or different content is **not** eligible for release.
 - Neither disk-pressure eviction nor automatic work-copy deletion is implemented.
 - The browser displays hidden files and VCS directories only when visiting their immediate parent. Selecting any **parent directory still copies all VCS contents**. Mutagen is invoked with `--no-global-configuration --no-ignore-vcs` so its global ignore rules and VCS exclusion do not silently omit files. This can consume significant Linux disk space and syncing Git metadata while both Macs and Linux run Git operations concurrently may cause conflicts. Avoid concurrent Git writes.
-- Nested/overlapping sessions (e.g. `project-a` and `project-a/src`) are blocked by the CLI. Do not start competing sessions for the same subtree from different devices simultaneously.
+- Starting an existing path or a covered subfolder reports its current status without creating another session. A new parent overlapping separately synchronized subfolders is blocked. Do not start competing sessions for the same subtree from different devices simultaneously.
 - SSH paths containing `:`, tabs, newlines, or traversal components `..` cannot be chosen. Unicode and spaces are supported.
 - Connection over Tailscale is not restricted to Wi-Fi specifically: any permitted network connection works.
 - The UI manages sessions created by `mac-data-sync`, not arbitrary Mutagen sessions.
