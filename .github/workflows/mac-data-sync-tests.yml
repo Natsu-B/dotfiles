@@ -28,6 +28,7 @@ jobs:
       - name: Check shell syntax
         run: |
           bash -n scripts/mac-data-sync
+          bash -n scripts/mac-data-sync-browse
           bash -n scripts/mac-data-sync-ui
           bash -n scripts/mac-data-sync-release
           bash -n tests/test-mac-data-sync.sh
@@ -63,6 +64,8 @@ jobs:
           echo "$RUNNER_TEMP/mutagen" >> "$GITHUB_PATH"
       - name: Verify recursive files, hidden files, and later edits
         run: bash tests/test-mac-data-sync-recursive.sh
+      - name: Verify Linux-first sync creates new Mac archive paths
+        run: bash tests/test-mac-data-sync-new-archive.sh
 
   windows-syntax:
     runs-on: windows-latest

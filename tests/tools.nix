@@ -21,7 +21,8 @@ pkgs.runCommand "dotfiles-desktop-tools-check" {
     ${tools.cheatsheet}/bin/hypr-cheatsheet \
     ${tools.launcher}/bin/desktop-launcher \
     ${tools.windowSwitcher}/bin/desktop-window-switcher \
-    ${tools.snapAssist}/bin/desktop-snap-assist; do
+    ${tools.snapAssist}/bin/desktop-snap-assist \
+    ${tools.focusWindow}/bin/desktop-focus-window; do
     test -x "$executable"
   done
   ${tools.trackpoint}/bin/desktop-trackpoint --help > /dev/null

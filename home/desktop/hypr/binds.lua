@@ -139,10 +139,10 @@ hl.bind("SUPER + left", hl.dsp.focus({ direction = "l" }), { description = "Focu
 hl.bind("SUPER + right", hl.dsp.focus({ direction = "r" }), { description = "Focus right" })
 hl.bind("SUPER + up", hl.dsp.focus({ direction = "u" }), { description = "Focus above" })
 hl.bind("SUPER + down", hl.dsp.focus({ direction = "d" }), { description = "Focus below" })
-hl.bind("SUPER + SHIFT + left", hl.dsp.exec_cmd(c.snapAssist .. " left"), { description = "Move left / snap and choose right app" })
-hl.bind("SUPER + SHIFT + right", hl.dsp.exec_cmd(c.snapAssist .. " right"), { description = "Move right / snap and choose left app" })
-hl.bind("SUPER + SHIFT + up", hl.dsp.exec_cmd(c.snapAssist .. " up"), { description = "Move above / snap and choose lower app" })
-hl.bind("SUPER + SHIFT + down", hl.dsp.exec_cmd(c.snapAssist .. " down"), { description = "Move below / snap and choose upper app" })
+hl.bind("SUPER + SHIFT + left", hl.dsp.exec_cmd(c.snapAssist .. " left"), { description = "Snap left and choose right app" })
+hl.bind("SUPER + SHIFT + right", hl.dsp.exec_cmd(c.snapAssist .. " right"), { description = "Snap right and choose left app" })
+hl.bind("SUPER + SHIFT + up", hl.dsp.exec_cmd(c.snapAssist .. " up"), { description = "Snap above and choose lower app" })
+hl.bind("SUPER + SHIFT + down", hl.dsp.exec_cmd(c.snapAssist .. " down"), { description = "Snap below and choose upper app" })
 hl.bind("SUPER + CTRL + left", hl.dsp.window.resize({ x = -30, y = 0, relative = true }), { repeating = true, description = "Resize window left" })
 hl.bind("SUPER + CTRL + right", hl.dsp.window.resize({ x = 30, y = 0, relative = true }), { repeating = true, description = "Resize window right" })
 hl.bind("SUPER + CTRL + up", hl.dsp.window.resize({ x = 0, y = -30, relative = true }), { repeating = true, description = "Resize window up" })
@@ -152,7 +152,7 @@ hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true, description
 
 for workspace = 1, 10 do
     local code = tostring(workspace + 9)
-    hl.bind("SUPER + code:" .. code, hl.dsp.exec_cmd(c.dms .. " ipc call dotfiles-apps activate " .. workspace), { description = "Activate bar app " .. workspace })
+    hl.bind("SUPER + code:" .. code, hl.dsp.exec_cmd(c.dms .. " ipc call dotfiles-apps activate " .. workspace), { description = "Activate app " .. workspace .. (workspace <= 6 and " (fixed)" or " (bar)") })
     hl.bind("SUPER + CTRL + code:" .. code, hl.dsp.focus({ workspace = workspace }), { description = "Workspace " .. workspace })
     hl.bind("SUPER + SHIFT + code:" .. code, hl.dsp.window.move({ workspace = workspace, follow = false }), { description = "Send to workspace " .. workspace })
 end

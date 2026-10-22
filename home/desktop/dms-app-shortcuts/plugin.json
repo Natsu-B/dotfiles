@@ -1,8 +1,8 @@
 {
   "id": "dotfilesAppShortcuts",
-  "name": "Numbered running apps",
-  "description": "Activate the Running Apps bar entries with Win+1 through Win+0",
-  "version": "1.0.0",
+  "name": "Fixed app shortcuts",
+  "description": "Fixed app shortcuts with pinned icons; closed apps stay visible and dimmed",
+  "version": "1.4.0",
   "author": "dotfiles",
   "type": "daemon",
   "capabilities": ["daemon"],

@@ -1,5 +1,6 @@
-"""Snap a maximized window and choose a companion using Hyprland's Lua IPC."""
+"""Snap a window to a screen edge and choose a companion using Hyprland's Lua IPC."""
 import argparse
+import configparser
 import fcntl
 import json
 import os
@@ -89,13 +90,42 @@ def label(window):
     return ' '.join(''.join(ch if ord(ch) >= 32 and ord(ch) != 127 else ' ' for ch in text).split())
 
 
+def desktop_icons():
+    """Match native app IDs and StartupWMClass to their installed desktop icons."""
+    directories = [Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local/share'))]
+    directories.extend(Path(p) for p in os.environ.get('XDG_DATA_DIRS', '/usr/local/share:/usr/share').split(':') if p)
+    icons = {}
+    for directory in directories:
+        for path in sorted((directory / 'applications').glob('*.desktop')):
+            entry = configparser.ConfigParser(interpolation=None, strict=False)
+            try:
+                entry.read(path, encoding='utf-8')
+                app = entry['Desktop Entry']
+                icon = app.get('Icon', '').strip()
+            except (OSError, UnicodeError, configparser.Error, KeyError):
+                continue
+            if not icon or any(ord(ch) < 32 or ord(ch) == 127 for ch in icon):
+                continue
+            for key in (path.stem, app.get('StartupWMClass', '')):
+                if key:
+                    icons.setdefault(key.casefold(), icon)
+    return icons
+
+
+def row(window, icons):
+    app_id = str(window.get('class', '')).casefold()
+    icon = icons.get(app_id) or icons.get(str(window.get('initialClass', '')).casefold())
+    return label(window) + '\x00icon\x1f' + (icon or 'application-x-executable')
+
+
 def choose(windows, direction):
+    icons = desktop_icons()
     result = sp.run([
-        'rofi', '-dmenu', '-i', '-no-custom', '-sync', '-format', 'i',
+        'rofi', '-dmenu', '-i', '-no-custom', '-sync', '-show-icons', '-format', 'i',
         '-p', f'{SIDE[direction]}に並べるアプリ', '-click-to-exit',
         '-me-select-entry', '', '-me-accept-entry', 'MousePrimary',
         '-theme-str', 'entry { placeholder: "起動中のアプリを検索"; }',
-    ], input='\n'.join(label(w) for w in windows) + '\n', capture_output=True, text=True)
+    ], input='\n'.join(row(w, icons) for w in windows) + '\n', capture_output=True, text=True)
     if result.returncode:
         return None
     try:
@@ -108,9 +138,6 @@ def choose(windows, direction):
 def snap(direction):
     source = query('activewindow')
     if not source.get('address'):
-        return
-    if not source.get('fullscreen'):
-        dispatch('window.move', window='address:' + source['address'], direction=direction)
         return
     monitors = query('monitors')
     monitor = next((m for m in monitors if m['id'] == source['monitor']), None)

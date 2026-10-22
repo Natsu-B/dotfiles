@@ -2,7 +2,7 @@
 let
   wallpaper = pkgs.nixos-artwork.wallpapers.nineish-catppuccin-mocha-alt.gnomeFilePath;
   remapper = unstable.xremap.overrideAttrs (old: {
-    patches = (old.patches or []) ++ [ ./xremap-super-space.patch ];
+    patches = (old.patches or []) ++ [ ./xremap-super-space.patch ./xremap-henkan-space.patch ];
   });
   # Preserve the package's supported feature/install combination and normalize
   # its executable name. Global-only profiles do not query desktop app filters.
@@ -84,6 +84,11 @@ let
     runtimeInputs = [ pkgs.python3 pkgs.hyprland rofiWithOutsideClick ];
     text = ''exec python3 ${./snap.py} "$@"'';
   };
+  focusWindow = pkgs.writeShellApplication {
+    name = "desktop-focus-window";
+    runtimeInputs = [ pkgs.python3 pkgs.hyprland ];
+    text = ''exec python3 ${./focus_window.py} "$@"'';
+  };
 in {
-  inherit wallpaper xremap profiles keyboard trackpoint clipboard clipboardMenu locker cheatsheet dms launcher windowSwitcher snapAssist;
+  inherit wallpaper xremap profiles keyboard trackpoint clipboard clipboardMenu locker cheatsheet dms launcher windowSwitcher snapAssist focusWindow;
 }
