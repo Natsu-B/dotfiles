@@ -38,8 +38,13 @@ PluginComponent {
             if (!app)
                 return "APP_INDEX_UNAVAILABLE";
             // Ignore repeats while a cold start is still creating its window.
-            if (Date.now() - (root.launching[app.appId] || 0) < 15000)
+            if (Date.now() - (root.launching[app.appId] || 0) < 15000) {
+                // This press is the newest selection even if the process is
+                // already starting. Resume its focus wait without launching twice.
+                if (CompositorService.isHyprland)
+                    Quickshell.execDetached([AppCommands.focus, "--app", app.aliases.join(",")]);
                 return "APP_LAUNCH_PENDING";
+            }
             root.launching[app.appId] = Date.now();
             Quickshell.execDetached(AppCommands.launch[app.appId]);
             if (CompositorService.isHyprland)

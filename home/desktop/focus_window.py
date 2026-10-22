@@ -1,8 +1,11 @@
 """Activate an existing Hyprland window, restore it, and make it usable in front."""
 import argparse
 import json
+import os
+from pathlib import Path
 import re
 import subprocess as sp
+import tempfile
 import time
 
 
@@ -32,9 +35,7 @@ def overlaps(a, b):
     return ax < bx + bw and bx < ax + aw and ay < by + bh and by < ay + ah
 
 
-def activate(address):
-    if not re.fullmatch(r'0x[0-9a-fA-F]+', address):
-        raise ValueError('Invalid window address')
+def reveal(address):
     windows = query('clients')
     target = next((w for w in windows if w['address'] == address and w.get('mapped')), None)
     if not target:
@@ -81,11 +82,58 @@ def activate(address):
         dispatch('window.float', window=selector, action='on')
         dispatch('window.resize', window=selector, x=width, y=height, relative=False)
         dispatch('window.move', window=selector, x=x, y=y, relative=False)
-    dispatch('focus', window=selector)
+    # Raising simulates pointer motion in Hyprland. Do it before focusing, or
+    # that synthetic motion can immediately select the window still above us.
     dispatch('window.alter_zorder', window=selector, mode='top')
-    if query('activewindow').get('address') != address:
-        raise RuntimeError('The requested window did not receive focus')
+    dispatch('focus', window=selector)
     return True
+
+
+def activate(address, is_current=lambda: True):
+    if not re.fullmatch(r'0x[0-9a-fA-F]+', address):
+        raise ValueError('Invalid window address')
+    # A map/restore or a client's delayed fullscreen request can overtake the
+    # first focus. Confirm it after the transition, retrying only while needed.
+    deadline = time.monotonic() + 1.5
+    stable_since = None
+    while True:
+        if not is_current():
+            return False
+        if stable_since is None and not reveal(address):
+            return False
+        windows = query('clients')
+        target = next((w for w in windows if w['address'] == address and w.get('mapped')), None)
+        if not target:
+            return False
+        blocked = any(w['address'] != address and w.get('mapped') and not w.get('hidden')
+                      and w['workspace']['id'] == target['workspace']['id'] and w.get('fullscreen')
+                      for w in windows)
+        now = time.monotonic()
+        if query('activewindow').get('address') == address and not blocked:
+            if stable_since is None:
+                stable_since = now
+            if now - stable_since >= 0.35:
+                return True
+        else:
+            stable_since = None
+        if now >= deadline:
+            raise RuntimeError('The requested window did not receive stable focus')
+        time.sleep(0.05)
+
+
+def new_request(directory):
+    # A later shortcut cancels both a previous cold-start wait and its focus
+    # retries. Atomically replace the token so readers never see a partial file.
+    path = directory / 'dotfiles-window-activation'
+    token = os.urandom(16).hex()
+    with tempfile.NamedTemporaryFile(mode='w', dir=directory, prefix='.dotfiles-focus-', delete=False) as output:
+        output.write(token)
+        temporary = Path(output.name)
+    try:
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return lambda: path.read_text() == token
 
 
 def main():
@@ -94,18 +142,20 @@ def main():
     group.add_argument('--address')
     group.add_argument('--app', help='Comma-separated native app classes; wait for a launched window')
     args = parser.parse_args()
+    is_current = new_request(Path(os.environ['XDG_RUNTIME_DIR']))
     if args.address:
-        activate(args.address)
+        activate(args.address, is_current)
         return
     classes = {name.casefold() for name in args.app.split(',')}
     deadline = time.monotonic() + 15
-    while time.monotonic() < deadline:
+    while is_current() and time.monotonic() < deadline:
         target = next((w for w in query('clients') if w.get('mapped') and
                        str(w.get('class', '')).casefold() in classes), None)
-        if target and activate(target['address']):
+        if target and activate(target['address'], is_current):
             return
         time.sleep(0.1)
-    raise RuntimeError('No window appeared for the requested application')
+    if is_current():
+        raise RuntimeError('No window appeared for the requested application')
 
 
 if __name__ == '__main__':

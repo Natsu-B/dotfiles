@@ -2,6 +2,7 @@
 import copy
 import importlib.util
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -22,6 +23,7 @@ class FocusTests(unittest.TestCase):
         self.monitor = dict(id=0, activeWorkspace=dict(id=1, name='1'), specialWorkspace=dict(id=0, name=''))
         self.calls = []
         self.active = None
+        self.now = 0
 
     def query(self, name):
         return copy.deepcopy({'clients': self.windows, 'monitors': [self.monitor],
@@ -41,7 +43,10 @@ class FocusTests(unittest.TestCase):
             w['fullscreenClient'] = options['client']
 
     def activate(self):
-        with patch.object(focus, 'query', self.query), patch.object(focus, 'dispatch', self.dispatch):
+        def sleep(delay):
+            self.now += delay
+        with patch.object(focus, 'query', self.query), patch.object(focus, 'dispatch', self.dispatch), \
+             patch.object(focus.time, 'monotonic', lambda: self.now), patch.object(focus.time, 'sleep', sleep):
             return focus.activate('0x123')
 
     def test_occluded_tiled_window_becomes_visible_and_keeps_geometry(self):
@@ -49,8 +54,8 @@ class FocusTests(unittest.TestCase):
         self.assertTrue(self.target['floating'])
         self.assertIn(('window.resize', dict(window='address:0x123', x=800, y=600, relative=False)), self.calls)
         self.assertIn(('window.move', dict(window='address:0x123', x=20, y=40, relative=False)), self.calls)
-        self.assertEqual(self.calls[-2:], [('focus', dict(window='address:0x123')),
-                                         ('window.alter_zorder', dict(window='address:0x123', mode='top'))])
+        self.assertEqual(self.calls[-2:], [('window.alter_zorder', dict(window='address:0x123', mode='top')),
+                                         ('focus', dict(window='address:0x123'))])
 
     def test_normal_tiling_remains_without_visible_overlap(self):
         for update in ({'hidden': True}, {'mapped': False}, {'floating': False},
@@ -104,8 +109,50 @@ class FocusTests(unittest.TestCase):
 
     def test_failed_focus_is_reported(self):
         with patch.object(focus, 'query', self.query), patch.object(focus, 'dispatch'):
-            with self.assertRaisesRegex(RuntimeError, 'did not receive focus'):
+            with self.assertRaisesRegex(RuntimeError, 'did not receive stable focus'):
                 focus.activate('0x123')
+
+    def test_delayed_fullscreen_blocker_is_cleared_after_first_focus(self):
+        query = self.query
+        reappeared = False
+        def delayed(name):
+            nonlocal reappeared
+            if self.now >= 0.1 and not reappeared:
+                self.cover['fullscreen'] = self.cover['fullscreenClient'] = 1
+                reappeared = True
+            return query(name)
+        self.query = delayed
+        self.assertTrue(self.activate())
+        self.assertTrue(reappeared)
+        self.assertEqual(self.cover['fullscreen'], 0)
+        self.assertGreaterEqual(sum(method == 'focus' for method, _ in self.calls), 2)
+
+    def test_transient_focus_loss_is_retried(self):
+        query = self.query
+        lost = False
+        def delayed(name):
+            nonlocal lost
+            if self.now >= 0.1 and not lost:
+                self.active = self.cover
+                lost = True
+            return query(name)
+        self.query = delayed
+        self.assertTrue(self.activate())
+        self.assertIs(self.active, self.target)
+        self.assertGreaterEqual(sum(method == 'focus' for method, _ in self.calls), 2)
+
+    def test_later_request_cancels_previous_wait_without_cancelling_itself(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = focus.new_request(Path(directory))
+            self.assertTrue(first())
+            latest = focus.new_request(Path(directory))
+            self.assertFalse(first())
+            self.assertTrue(latest())
+
+    def test_cancelled_activation_cannot_steal_focus(self):
+        with patch.object(focus, 'dispatch') as dispatch:
+            self.assertFalse(focus.activate('0x123', lambda: False))
+        dispatch.assert_not_called()
 
 
 if __name__ == '__main__':

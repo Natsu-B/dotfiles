@@ -25,7 +25,7 @@ if __name__ == '__main__':
              'Muhenkan + 1..0                Digits 1..0',
              'Shift + - (QWERTY position)    % (Dvorak)',
              'Henkan + W/A/S/D               Focus up / left / down / right',
-             'Henkan + Shift + W/A/S/D       Move / snap window',
+             'Henkan + Shift + W/A/S/D       Snap window to screen half',
              'Henkan + Ctrl + W/A/S/D        Resize window',
              'Henkan + 1..6                 Chrome / kitty / VS Code / ChatGPT / Discord / Slack',
              'Henkan + F / Shift+F          Maximize / fullscreen',

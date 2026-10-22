@@ -3,6 +3,7 @@ import copy
 import importlib.util
 from pathlib import Path
 import subprocess
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -56,8 +57,8 @@ class SnapTests(unittest.TestCase):
             snap.snap(direction)
         return selection
 
-    def test_maximized_and_fullscreen_choose_opposite_half(self):
-        for mode in (1, 2):
+    def test_normal_maximized_and_fullscreen_choose_opposite_half(self):
+        for mode in (0, 1, 2):
             for direction, opposite in snap.OPPOSITE.items():
                 with self.subTest(mode=mode, direction=direction):
                     self.setUp()
@@ -79,12 +80,6 @@ class SnapTests(unittest.TestCase):
                         self.assertGreaterEqual(window['at'][1], 40)  # reserved bar + border
                     self.assertEqual(self.other, untouched)
                     self.assertEqual(self.calls[-1], ('focus', {'window': 'address:0x456'}))
-
-    def test_normal_window_keeps_directional_movement(self):
-        self.source['fullscreen'] = 0
-        selection = self.run_snap()
-        selection.assert_not_called()
-        self.assertEqual(self.calls, [('window.move', {'window': 'address:0x123', 'direction': 'right'})])
 
     def test_cancel_keeps_source_half_and_leaves_other_windows_alone(self):
         untouched = copy.deepcopy(self.windows[1:])
@@ -152,9 +147,30 @@ class SnapTests(unittest.TestCase):
         with patch.object(snap.sp, 'run', return_value=subprocess.CompletedProcess([], 0, stdout='0\n')) as process:
             self.assertEqual(snap.choose(windows, 'left'), '0x456')
         self.assertEqual(process.call_args.kwargs['input'].count('\n'), 1)
-        self.assertNotIn('\x00', process.call_args.kwargs['input'])
+        self.assertNotIn('\x00', process.call_args.kwargs['input'].split('\x00icon\x1f')[0])
         self.assertIn('最小化', process.call_args.kwargs['input'])
         self.assertIn('左側に並べるアプリ', process.call_args.args[0])
+        self.assertIn('-show-icons', process.call_args.args[0])
+
+    def test_icons_use_desktop_ids_wm_class_and_user_overrides(self):
+        with tempfile.TemporaryDirectory() as directory:
+            user, system = Path(directory) / 'user', Path(directory) / 'system'
+            for base in (user, system):
+                (base / 'applications').mkdir(parents=True)
+            (user / 'applications/code.desktop').write_text('[Desktop Entry]\nIcon=custom-code\n')
+            (system / 'applications/code.desktop').write_text('[Desktop Entry]\nIcon=vscode\nStartupWMClass=Code\n')
+            (system / 'applications/com.google.Chrome.desktop').write_text(
+                '[Desktop Entry]\nIcon=google-chrome\nStartupWMClass=google-chrome\n')
+            (system / 'applications/kitty.desktop').write_text('[Desktop Entry]\nIcon=kitty\n')
+            (system / 'applications/broken.desktop').write_text('invalid desktop entry')
+            with patch.dict(snap.os.environ, XDG_DATA_HOME=str(user), XDG_DATA_DIRS=str(system)):
+                icons = snap.desktop_icons()
+        self.assertEqual(icons['code'], 'custom-code')
+        self.assertEqual(icons['google-chrome'], 'google-chrome')
+        self.assertEqual(icons['com.google.chrome'], 'google-chrome')
+        self.assertEqual(snap.row(dict(self.target, **{'class': 'Code'}), icons).split('\x00icon\x1f')[1], 'custom-code')
+        self.assertEqual(snap.row(dict(self.target, **{'class': 'kitty'}), icons).split('\x00icon\x1f')[1], 'kitty')
+        self.assertTrue(snap.row(self.target, icons).endswith('\x00icon\x1fapplication-x-executable'))
 
     def test_picker_rejects_cancel_and_invalid_indices(self):
         for code, output in [(1, '0'), (0, '-1'), (0, '99'), (0, 'typed text')]:
