@@ -1,8 +1,8 @@
 {
   "id": "dotfilesAppShortcuts",
   "name": "Fixed app shortcuts",
-  "description": "Fixed app shortcuts with Running Apps icons sorted in shortcut order",
-  "version": "1.3.0",
+  "description": "Fixed app shortcuts with pinned icons; closed apps stay visible and dimmed",
+  "version": "1.4.0",
   "author": "dotfiles",
   "type": "daemon",
   "capabilities": ["daemon"],

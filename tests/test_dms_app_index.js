@@ -61,6 +61,27 @@ const scrambled = {_groupByApp: false, sortedToplevels: [
 ]};
 assert.deepEqual(Array.from(model.orderedEntries(scrambled), entry => entry.appId),
     ['google-chrome-stable', 'kitty', 'Code', 'slack', 'other-b', 'other-a']);
+const emptyPins = model.pinnedEntries(null, []);
+assert.deepEqual(Array.from(emptyPins, entry => entry.appId),
+    ['google-chrome', 'kitty', 'code', 'chatgpt', 'discord', 'slack']);
+assert.ok(emptyPins.every(entry => entry.pinnedIdle && entry.windows.length === 0));
+widget._groupByApp = true;
+const groupedPins = model.pinnedEntries(widget, windows);
+assert.equal(groupedPins[0].pinnedIdle, false);
+assert.equal(groupedPins[1].pinnedIdle, true);
+assert.equal(groupedPins[3].windows.length, 2); // merge app ID aliases into the fixed slot
+assert.equal(groupedPins[3].windows[1].toplevel, b);
+assert.equal(groupedPins[6], widget.groupedWindows.find(entry => entry.appId === 'other'));
+widget._groupByApp = false;
+const ungroupedPins = model.pinnedEntries(widget, windows);
+assert.equal(ungroupedPins[0], chrome);
+assert.equal(ungroupedPins[1].pinnedIdle, true);
+assert.equal(ungroupedPins[1].address, 'pinned:kitty');
+assert.equal(ungroupedPins[3], a);
+assert.equal(ungroupedPins[4], b);
+assert.equal(ungroupedPins[ungroupedPins.length - 1], other);
+assert.equal(model.pinnedEntries(many, []).length, 16); // keep all non-fixed apps
+assert.equal(model.pinnedEntries(widget, []).filter(entry => entry.pinnedIdle).length, 6);
 assert.equal(model.hyprlandAddress('abc123'), '0xabc123');
 assert.equal(model.hyprlandAddress('0xABC123'), '0xABC123');
 for (const address of ['', undefined, null, 123, 'active', 'abc"})', '0x', ' 123'])

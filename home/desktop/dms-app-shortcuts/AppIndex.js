@@ -55,6 +55,27 @@ function orderedEntries(widget) {
     }).sort((a, b) => a.rank - b.rank || a.index - b.index).map(item => item.entry);
 }
 
+// Include a launchable placeholder for every fixed app, even on an empty desktop.
+// Real windows are used globally so workspace/display filters do not dim open apps.
+function pinnedEntries(widget, toplevels) {
+    const grouped = !widget || widget._groupByApp;
+    const windows = Array.from(toplevels || []);
+    const pinned = [];
+    for (const app of fixedApps) {
+        const running = windows.filter(window => matches(app, window.appId));
+        if (grouped)
+            pinned.push({appId: app.appId, pinnedIdle: running.length === 0,
+                windows: running.map(toplevel => ({toplevel: toplevel, windowId: windows.indexOf(toplevel),
+                    windowTitle: toplevel.title || ""}))});
+        else if (running.length)
+            pinned.push(...running);
+        else
+            pinned.push({appId: app.appId, pinnedIdle: true, title: "未起動", activated: false,
+                address: "pinned:" + app.appId, aqueousKey: "pinned:" + app.appId});
+    }
+    return pinned.concat(orderedEntries(widget).filter(entry => !fixedApps.some(app => matches(app, entry.appId))));
+}
+
 function hyprlandAddress(address) {
     if (typeof address !== "string" || !/^(?:0x)?[0-9a-f]+$/i.test(address))
         return null;
