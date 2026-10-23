@@ -7,6 +7,7 @@ pkgs.runCommand "karukan-async-frontend-check" {
   chmod -R u+w source
   python3 ${../nixos/patch-karukan.py} source
   python3 ${../nixos/patch-karukan-async.py} source ${../nixos/karukan-async-live.rs}
+  python3 ${../nixos/patch-karukan-candidates.py} source ${../nixos/karukan-candidate-limits.rs}
   mkdir -p "$out/bin"
   c++ -std=c++20 -DFCITX5_HAS_CANDIDATE_SET_COMMENT \
     -Isource/karukan-im/fcitx5/fcitx5-addon/src \

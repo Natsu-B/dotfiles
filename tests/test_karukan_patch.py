@@ -16,6 +16,9 @@ spec.loader.exec_module(patcher)
 async_spec = importlib.util.spec_from_file_location('karukan_async_patch', ROOT / 'nixos/patch-karukan-async.py')
 async_patcher = importlib.util.module_from_spec(async_spec)
 async_spec.loader.exec_module(async_patcher)
+limits_spec = importlib.util.spec_from_file_location('karukan_limits_patch', ROOT / 'nixos/patch-karukan-candidates.py')
+limits_patcher = importlib.util.module_from_spec(limits_spec)
+limits_spec.loader.exec_module(limits_patcher)
 
 
 @unittest.skipUnless(os.environ.get('KARUKAN_SOURCE_ROOT'), 'requires pinned upstream checkout')
@@ -32,9 +35,12 @@ class KarukanPatchTests(unittest.TestCase):
                 path.chmod(0o755 if path.is_dir() else 0o644)
             patcher.main(root)
             async_patcher.main(root, ROOT / 'nixos/karukan-async-live.rs')
+            limits_patcher.main(root, ROOT / 'nixos/karukan-candidate-limits.rs')
             self.assertIn('karukan_engine_poll_live',
                           (root / 'karukan-im/fcitx5/include/karukan.h').read_text())
             self.assertIn('mod async_live;',
+                          (root / 'karukan-im/core/src/core/engine/mod.rs').read_text())
+            self.assertIn('mod candidate_limits;',
                           (root / 'karukan-im/core/src/core/engine/mod.rs').read_text())
 
     def test_patch_preserves_converter_and_restores_default_offload(self):

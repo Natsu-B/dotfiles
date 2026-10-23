@@ -90,6 +90,7 @@ rustPlatform.buildRustPackage {
   postPatch = ''
     python3 ${./patch-karukan.py} "$PWD"
     python3 ${./patch-karukan-async.py} "$PWD" ${./karukan-async-live.rs}
+    python3 ${./patch-karukan-candidates.py} "$PWD" ${./karukan-candidate-limits.rs}
   '' + lib.optionalString vulkanSupport ''
     substituteInPlace karukan-engine/Cargo.toml \
       --replace-fail 'llama-cpp-2 = "0.1"' 'llama-cpp-2 = { version = "0.1", features = ["vulkan"] }'
@@ -100,6 +101,8 @@ rustPlatform.buildRustPackage {
   checkPhase = ''
     runHook preCheck
     cargo test --offline --release -p karukan-im --lib core::engine::async_live::tests
+    cargo test --offline --release -p karukan-im --lib core::engine::candidate_limits::tests
+    cargo test --offline --release -p karukan-im --lib core::engine::tests::predictive
     runHook postCheck
   '';
 

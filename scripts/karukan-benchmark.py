@@ -27,6 +27,22 @@ if os.environ.get('BENCH_MODEL'):
 elif not all(os.environ.get(name) for name in ['XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME']):
     raise SystemExit('Set BENCH_MODEL to a local GGUF with tokenizer.json to isolate the benchmark.')
 
+if os.environ.get('BENCH_CANDIDATE_LIMITS') == '1':
+    assert isolated, 'candidate fixtures require BENCH_MODEL and isolated user data'
+    config.write_text(config.read_text().replace('enabled = false', 'enabled = true'))
+    data = Path(os.environ['XDG_DATA_HOME']) / 'karukan-im'
+    dictionaries = data / 'user_dicts'
+    dictionaries.mkdir(parents=True)
+    dictionaries.joinpath('completions.tsv').write_text(
+        'わせだ\t早稲田\t名詞\nわせだし\t早稲田市\t名詞\n'
+        'わせだだいがく\t早稲田大学\t名詞\nよろ\tよろしくお願いします\t名詞\n')
+    data.joinpath('learning.tsv').write_text(''.join(
+        f'{reading}\t{surface}\t{frequency}\t{int(time.time())}\n'
+        for reading, surface, frequency in [
+            ('にほんご', '日本語', 1), ('にほんごで', '日本語で', 2),
+            ('にほんごをべんきょうしています', '日本語を勉強しています', 99),
+        ]))
+
 if os.environ.get('BENCH_FRONTEND_BINARY'):
     import subprocess
     subprocess.run([os.environ['BENCH_FRONTEND_BINARY']], check=True)
@@ -135,6 +151,41 @@ def create_engine():
 
 
 engine = create_engine()
+if os.environ.get('BENCH_CANDIDATE_LIMITS') == '1':
+    candidate_count = bind('get_candidate_count', C.c_uint, [C.c_void_p])
+    candidate_cursor = bind('get_candidate_cursor', C.c_uint, [C.c_void_p])
+
+    def selection():
+        return (candidate_cursor(engine), tuple(candidate(engine, i)
+                for i in range(candidate_count(engine))))
+
+    for raw, keep, reject in [
+        ('wase', {'早稲田', '早稲田市'}, {'早稲田大学'}),
+        ('nihongo', {'日本語', '日本語で'}, {'日本語を勉強しています'}),
+        ('wasedadaigaku', {'早稲田大学'}, set()),
+        ('nihongowobenkyoushiteimasu', {'日本語を勉強しています'}, set()),
+        ('yoro', {'よろしくお願いします'}, set()),
+    ]:
+        reset(engine)
+        for character in raw:
+            key(engine, ord(character), 0, 0)
+        wait_live(engine)
+        key(engine, ord(' '), 0, 0)
+        # FFI getters expose one page. Cycle the selection to check every page,
+        # using the page contents and cursor to detect wraparound.
+        first = selection()
+        found = set()
+        for _ in range(100):
+            found.add((preedit(engine) or b'').decode())
+            key(engine, ord(' '), 0, 0)
+            if selection() == first:
+                break
+        else:
+            raise AssertionError(('candidate list did not wrap', raw))
+        assert keep <= found, (raw, 'missing', keep - found, found)
+        assert not reject & found, (raw, 'excessive completion', reject & found)
+        emit({'kind': 'candidate_limits', 'romaji': raw, 'candidates': sorted(found)})
+    reset(engine)
 if asynchronous:
     # Discarded/reset/committed compositions must never receive a late rewrite.
     for raw, finish in [('nihongo', 'reset'), ('kyouhaiitenkidesu', 'commit')]:
