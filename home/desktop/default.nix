@@ -1,4 +1,4 @@
-{ config, pkgs, unstable, lib, ... }:
+{ config, osConfig, pkgs, unstable, lib, ... }:
 let
   target = "wayland-session@hyprland.desktop.target";
   tools = import ./packages.nix { inherit pkgs unstable; };
@@ -41,6 +41,10 @@ in {
   };
 
   xdg.configFile = {
+    # Use the configured addon build after a user-level activation as well as
+    # a system switch. The same desktop ID keeps Fcitx autostart single-instance.
+    "autostart/org.fcitx.Fcitx5.desktop".source =
+      "${osConfig.i18n.inputMethod.package}/etc/xdg/autostart/org.fcitx.Fcitx5.desktop";
     # Replace legacy direct store links that Home Manager does not recognize as its own.
     "gtk-3.0/settings.ini".force = true;
     "gtk-4.0/settings.ini".force = true;

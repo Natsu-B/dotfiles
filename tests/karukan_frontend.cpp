@@ -125,6 +125,33 @@ int main() {
                 client.committed.clear();
                 std::cout << "PASS: Space cycles " << count << " candidates ("
                           << aiCandidates << " AI), wraps, reverses and commits\n";
+                for (bool candidates : {false, true}) {
+                    state.reset();
+                    for (char character : std::string("nihongo")) {
+                        press(static_cast<fcitx::KeySym>(character));
+                    }
+                    if (candidates) { press(FcitxKey_space); }
+                    press(FcitxKey_Escape);
+                    assert(client.inputPanel().clientPreedit().toString() == "にほんご");
+                    assert(!client.inputPanel().candidateList());
+                    press(FcitxKey_Return);
+                    assert(client.committed == "にほんご");
+                    client.committed.clear();
+                }
+                std::cout << "PASS: Escape + Enter commits kana after live conversion or candidate selection\n";
+                state.reset();
+                for (char character : std::string("nihongo")) {
+                    press(static_cast<fcitx::KeySym>(character));
+                }
+                press(FcitxKey_space);
+                press(FcitxKey_Escape);
+                press(FcitxKey_space);
+                const auto reconverted = client.inputPanel().clientPreedit().toString();
+                assert(client.inputPanel().candidateList());
+                press(FcitxKey_Return);
+                assert(client.committed == reconverted && reconverted != "にほんご");
+                client.committed.clear();
+                std::cout << "PASS: Space after Escape explicitly converts again\n";
                 // Reset/destroy the frontend timer while the loop is running.
                 // sd-event forbids adding new sources after exit().
                 state.reset();

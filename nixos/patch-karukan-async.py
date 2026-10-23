@@ -18,15 +18,17 @@ def main(root, module):
     replace(root, core + 'mod.rs', '    suppress_suggest: bool,',
             '    suppress_suggest: bool,\n    async_live: Option<async_live::AsyncLive>,\n'
             '    async_live_active: bool,\n    async_live_requested: bool,\n'
-            '    async_live_preview: Option<(String, String)>,')
+            '    async_live_preview: Option<(String, String)>,\n'
+            '    cancelled_live_input: Option<String>,')
     replace(root, core + 'mod.rs', '            suppress_suggest: false,',
             '            suppress_suggest: false,\n            async_live: None,\n'
             '            async_live_active: false,\n            async_live_requested: false,\n'
-            '            async_live_preview: None,')
+            '            async_live_preview: None,\n            cancelled_live_input: None,')
     replace(root, core + 'mod.rs', '        self.poll_loaded_models();',
             '        self.poll_loaded_models();\n        self.drain_live_results();')
     replace(root, core + 'mod.rs', '    pub(super) fn clear_composition(&mut self) {',
             '    pub(super) fn clear_composition(&mut self) {\n'
+            '        self.cancelled_live_input = None;\n'
             '        self.async_live_preview = None;\n'
             '        if let Some(worker) = &self.async_live { worker.cancel_queued(); }')
     replace(root, core + 'mod.rs', '        let preedit = self.build_composing_preedit();',
@@ -38,6 +40,19 @@ def main(root, module):
             '        self.async_live_preview = None;')
     replace(root, core + 'input.rs', '        if !self.live_text().is_empty() {',
             '        if had_async_preview || !self.live_text().is_empty() {')
+    replace(root, core + 'input.rs',
+            '        if had_async_preview || !self.live_text().is_empty() {\n            self.live.shown = false;',
+            '        if had_async_preview || !self.live_text().is_empty() {\n            self.cancel_live_conversion();')
+    replace(root, core + 'input.rs', '        let convert = !self.suppress_suggest\n',
+            '        let convert = !self.suppress_suggest\n            && !self.live_conversion_cancelled()\n')
+    replace(root, core + 'conversion.rs',
+            '    pub(super) fn start_conversion(&mut self, learning: LearningLookup) -> EngineResult {',
+            '    pub(super) fn start_conversion(&mut self, learning: LearningLookup) -> EngineResult {\n'
+            '        self.cancelled_live_input = None;')
+    replace(root, core + 'conversion.rs',
+            '        // The composition was left untouched when the conversion started:\n',
+            '        self.cancel_live_conversion();\n'
+            '        // The composition was left untouched when the conversion started:\n')
     replace(root, core + 'types.rs', 'Option<KanaKanjiConverter>',
             'Option<std::sync::Arc<super::async_live::SharedConverter>>', count=2)
     replace(root, core + 'init.rs', 'self.converters.kanji = Some(loaded.kanji);',

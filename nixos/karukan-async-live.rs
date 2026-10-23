@@ -138,8 +138,30 @@ impl Drop for AsyncLive {
 }
 
 impl InputMethodEngine {
+    pub(super) fn cancel_live_conversion(&mut self) {
+        self.cancelled_live_input = Some(self.build_input_display());
+        self.async_live_preview = None;
+        self.async_live_requested = false;
+        self.live.shown = false;
+        self.chunks.clear();
+        self.shown_suggestions = CandidateList::default();
+        if let Some(worker) = &self.async_live { worker.cancel_queued(); }
+    }
+
+    // Escape applies to this exact input. Editing resumes live conversion;
+    // timer callbacks and Enter must keep the cancelled reading unchanged.
+    pub(super) fn live_conversion_cancelled(&mut self) -> bool {
+        if self.cancelled_live_input.as_ref().is_some_and(|input| input == &self.build_input_display()) {
+            true
+        } else {
+            self.cancelled_live_input = None;
+            false
+        }
+    }
+
     pub(super) fn async_live_preedit(&mut self) -> Option<Preedit> {
         if self.async_live.is_none() || !self.live.enabled || self.suppress_suggest
+            || self.live_conversion_cancelled()
             || self.mode.current() != InputMode::Hiragana
             || self.input_buf.cursor() != self.input_buf.char_count() {
             return None;
@@ -164,7 +186,7 @@ impl InputMethodEngine {
     pub(super) fn commit_live_composing(&mut self) -> EngineResult {
         // Keep character input asynchronous, but an explicit Enter must commit
         // the current reading's AI answer rather than an unfinished kana draft.
-        if self.live.enabled && self.async_live.is_some()
+        if self.live.enabled && self.async_live.is_some() && !self.live_conversion_cancelled()
             && self.input_buf.pending().is_empty()
             && self.mode.current() == InputMode::Hiragana {
             self.drain_live_results();
@@ -194,7 +216,8 @@ impl InputMethodEngine {
         self.poll_loaded_models();
         let changed = self.drain_live_results()
             || (was_loading && self.model_loading.is_none());
-        if changed && self.live.enabled && matches!(self.state, InputState::Composing { .. }) {
+        if changed && self.live.enabled && !self.live_conversion_cancelled()
+            && matches!(self.state, InputState::Composing { .. }) {
             // Rebuild from the CURRENT reading/context. An old result is only a
             // cache entry; it can never overwrite newer input or committed text.
             let result = self.refresh_input_state();
@@ -202,5 +225,99 @@ impl InputMethodEngine {
         } else {
             EngineResult::default()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn engine() -> InputMethodEngine {
+        let mut engine = InputMethodEngine::with_config(EngineConfig {
+            live_conversion: true,
+            ..EngineConfig::default()
+        });
+        engine.async_live = AsyncLive::start();
+        assert!(engine.async_live.is_some());
+        for (reading, surface) in [("ニホンゴ", "日本語"), ("ニホンゴデス", "日本語です")] {
+            engine.conversion_cache.insert(ConversionCacheKey {
+                katakana: reading.into(), lctx: String::new(),
+                model: ModelRole::Main, beam_width: 1,
+            }, vec![surface.into()]);
+        }
+        engine
+    }
+
+    fn type_text(engine: &mut InputMethodEngine, text: &str) {
+        for ch in text.chars() { engine.process_key(&KeyEvent::press(Keysym(ch as u32))); }
+    }
+
+    fn press(engine: &mut InputMethodEngine, key: Keysym) -> EngineResult {
+        engine.process_key(&KeyEvent::press(key))
+    }
+
+    fn committed(result: EngineResult) -> String {
+        result.actions.into_iter().find_map(|action| match action {
+            EngineAction::Commit(text) => Some(text), _ => None,
+        }).expect("Enter must commit the displayed input")
+    }
+
+    #[test]
+    fn escape_enter_commits_reading_after_live_or_candidate_conversion() {
+        for candidates in [false, true] {
+            let mut engine = engine();
+            type_text(&mut engine, "nihongo");
+            assert_eq!(engine.preedit().unwrap().text(), "日本語");
+            if candidates { press(&mut engine, Keysym::SPACE); }
+            press(&mut engine, Keysym::ESCAPE);
+            assert_eq!(engine.preedit().unwrap().text(), "にほんご");
+            assert_eq!(committed(press(&mut engine, Keysym::RETURN)), "にほんご");
+        }
+    }
+
+    #[test]
+    fn late_result_cannot_restore_cancelled_conversion() {
+        let mut engine = engine();
+        type_text(&mut engine, "nihongo");
+        press(&mut engine, Keysym::ESCAPE);
+        engine.async_live.as_ref().unwrap().slots.0.lock().unwrap().ready = Some((
+            ConversionCacheKey { katakana: "ニホンゴ".into(), lctx: String::new(),
+                model: ModelRole::Main, beam_width: 1 },
+            vec!["日本語".into()], 1,
+        ));
+        assert!(engine.poll_live_conversion().actions.is_empty());
+        assert_eq!(engine.preedit().unwrap().text(), "にほんご");
+        assert_eq!(committed(press(&mut engine, Keysym::RETURN)), "にほんご");
+    }
+
+    #[test]
+    fn space_after_escape_explicitly_converts_again() {
+        let mut engine = engine();
+        type_text(&mut engine, "nihongo");
+        press(&mut engine, Keysym::SPACE);
+        press(&mut engine, Keysym::ESCAPE);
+        press(&mut engine, Keysym::SPACE);
+        assert_eq!(committed(press(&mut engine, Keysym::RETURN)), "日本語");
+    }
+
+    #[test]
+    fn editing_after_escape_resumes_live_conversion() {
+        let mut engine = engine();
+        type_text(&mut engine, "nihongo");
+        press(&mut engine, Keysym::ESCAPE);
+        type_text(&mut engine, "desu");
+        assert_eq!(engine.preedit().unwrap().text(), "日本語です");
+        assert_eq!(committed(press(&mut engine, Keysym::RETURN)), "日本語です");
+    }
+
+    #[test]
+    fn second_escape_discards_input_and_next_composition_converts() {
+        let mut engine = engine();
+        type_text(&mut engine, "nihongo");
+        press(&mut engine, Keysym::ESCAPE);
+        press(&mut engine, Keysym::ESCAPE);
+        assert!(matches!(engine.state, InputState::Empty));
+        type_text(&mut engine, "nihongo");
+        assert_eq!(committed(press(&mut engine, Keysym::RETURN)), "日本語");
     }
 }

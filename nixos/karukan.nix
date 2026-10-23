@@ -96,7 +96,12 @@ rustPlatform.buildRustPackage {
   '';
 
   dontUseCmakeConfigure = true;
-  doCheck = false;
+  doCheck = true;
+  checkPhase = ''
+    runHook preCheck
+    cargo test --offline --release -p karukan-im --lib core::engine::async_live::tests
+    runHook postCheck
+  '';
 
   buildPhase = ''
     runHook preBuild
