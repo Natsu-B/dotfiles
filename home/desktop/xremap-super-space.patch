@@ -1,16 +1,16 @@
 --- a/src/event_handler.rs
 +++ b/src/event_handler.rs
-@@ -289,6 +289,14 @@
+@@ -312,6 +312,14 @@
              }) => {
-                 match value {
-                     PRESS => {
+                 match key_event.value {
+                     KeyValue::Press => {
 +                        // SandS must emit WM shortcuts before Super is released.
-+                        if key == Key::KEY_SPACE
++                        if key_event.key == Key::KEY_SPACE
 +                            && self.modifiers.iter().any(|modifier| {
 +                                matches!(*modifier, Key::KEY_LEFTMETA | Key::KEY_RIGHTMETA)
 +                            })
 +                        {
-+                            return Ok(vec![(key, value)]);
++                            return Ok(vec![Event::KeyEvent(device.clone(), key_event.clone())]);
 +                        }
                          // Move this to input validation.
                          let hold_threshold = if hold_threshold <= tap_timeout {

@@ -8,7 +8,7 @@
     portalPackage = pkgs.xdg-desktop-portal-hyprland.overrideAttrs (old: {
       patches = (old.patches or [ ]) ++ [ (pkgs.fetchurl {
         url = "https://github.com/hyprwm/xdg-desktop-portal-hyprland/commit/ba31964ee42b56bcb0d3b78a64ead5d8a1c3c6f6.patch";
-        hash = "sha256-S5gO1cT+5AdoUvFbQHWGcYviYi1axNvFmyp98iVLOjk=";
+        hash = "sha256-f9v/MxQILbxiRZQRWrdIP3O/QonAbmop6OdhyyHrLIM=";
       }) ];
     });
   };
