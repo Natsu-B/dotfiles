@@ -86,6 +86,10 @@ QtObject {
                 targetItem.toplevelObject !== undefined && targetItem.isGrouped !== undefined
 
             function attach() {
+                // Registry/layout changes can destroy this observer before
+                // its deferred callback runs.
+                if (!root || !watcher || !watcher.targetItem)
+                    return;
                 const model = targetItem?.model;
                 if (model && model.values !== undefined && model.objectProp !== undefined && model !== boundModel) {
                     if (orderBinding)
@@ -117,6 +121,8 @@ QtObject {
                     required property var modelData
                     property var observer: null
                     function observe() {
+                        if (!root || !branch || !branch.modelData)
+                            return;
                         if (observer && observer.targetItem === modelData)
                             return;
                         if (observer)

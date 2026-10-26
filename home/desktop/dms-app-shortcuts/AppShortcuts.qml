@@ -21,7 +21,7 @@ PluginComponent {
     }
 
     Instantiator {
-        model: Object.values(BarWidgetService.widgetRegistry.runningApps || {})
+        model: AppIndex.runningWidgets(BarWidgetService.widgetRegistry)
         delegate: AppOrder {
             required property var modelData
             widget: modelData

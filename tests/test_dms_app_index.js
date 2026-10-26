@@ -16,6 +16,18 @@ const widget = { _groupByApp: true, groupedWindows: [
     { appId: 'google-chrome', windows: [{toplevel: chrome}] }
 ], sortedToplevels: [other, a, b, chrome] };
 const windows = [other, a, b, chrome];
+const secondBar = { _groupByApp: true, groupedWindows: [], sortedToplevels: [] };
+assert.deepEqual(Array.from(model.runningWidgets(null)), []);
+assert.deepEqual(Array.from(model.runningWidgets({})), []);
+assert.deepEqual(Array.from(model.runningWidgets({runningApps: {"eDP-1": widget, "DP-1": secondBar}})),
+    [widget, secondBar]);
+assert.deepEqual(Array.from(model.runningWidgets({
+    "eDP-1:apps": {widgetId: "runningApps", item: widget},
+    "DP-1:apps": {widgetId: "runningApps", item: secondBar},
+    "eDP-1:clock": {widgetId: "clock", item: {}},
+    "eDP-1:stale": {widgetId: "runningApps", item: null},
+    "eDP-1:duplicate": {widgetId: "runningApps", item: widget}
+})), [widget, secondBar]);
 assert.deepEqual(Array.from(model.entries(null), e => e.appId),
     ['google-chrome', 'kitty', 'code', 'chatgpt', 'discord', 'slack']);
 assert.equal(model.windowAt(widget, 1, windows), chrome);

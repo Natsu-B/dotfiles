@@ -19,6 +19,17 @@ function fixedApp(index) {
     return Number.isInteger(index) ? fixedApps[index - 1] || null : null;
 }
 
+// DMS 2 registers instances by screen/instance ID; older versions nested
+// screen widgets below the widget ID. Unwrap registrations to actual items.
+function runningWidgets(registry) {
+    if (!registry)
+        return [];
+    const values = registry.runningApps
+        ? Object.values(registry.runningApps)
+        : Object.values(registry).filter(entry => entry?.widgetId === "runningApps").map(entry => entry.item);
+    return values.filter((item, index) => item && values.indexOf(item) === index);
+}
+
 function entries(widget) {
     const bar = widget ? ((widget._groupByApp ? widget.groupedWindows : widget.sortedToplevels) || []) : [];
     return fixedApps.concat(bar.filter(entry => !fixedApps.some(app => matches(app, entry.appId)))).slice(0, 10);
