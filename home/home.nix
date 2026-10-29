@@ -417,5 +417,16 @@
   #    ];
   #  };
 
+  # Keep VS Code's extension directory writable for user-installed extensions.
+  # The pinned VsRocq extension (2.3.4) matches coqPackages.vsrocq-language-server.
+  programs.vscode = {
+    enable = true;
+    package = pkgs.vscode;
+    mutableExtensionsDir = true;
+    profiles.default.extensions = [
+      pkgs.vscode-extensions.rocq-prover.vsrocq
+    ];
+  };
+
   programs.home-manager.enable = true;
 }

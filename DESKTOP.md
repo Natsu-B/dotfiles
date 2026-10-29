@@ -27,6 +27,558 @@ DMS のアイドル時間は GUI で変更できる。hypridle は logind とサ
 FPGA 開発向けの FHS 環境・CLI ラッパー・USB JTAG アクセスの設定は [VIVADO.md](VIVADO.md) を参照する。
 Vivado 本体は AMD から別途インストールする。
 
+## Rocq / VS Code
+
+NixOS の固定済み nixpkgs（Rocq 9.1 系）から Rocq、標準ライブラリ、
+VsRocq language server を入れる。Home Manager は VS Code 拡張機能
+`rocq-prover.vsrocq` を配置する。拡張とサーバーは同じ 2.3.4 に固定されている。
+VS Code の既存ユーザー設定はこの変更では管理せず、手動で入れた他の拡張機能も残す。
+
+反映は [適用と復旧](#適用と復旧) に従って `nixos-rebuild test` で確認した後
+`nixos-rebuild switch` を実行し、VS Code を再起動する。
+`*.v` ファイルを開いて Rocq の証明操作・ゴール表示を確認する。
+
+```sh
+command -v rocq
+command -v vsrocqtop
+code --list-extensions | grep '^rocq-prover.vsrocq
+Win は Super。英字・数字のショートカットは JIS キーボードの物理位置。
+Win キーへ手を伸ばさず使うための変換キー操作は、[キーボード](#キーボード) の表を参照する。
+
+| キー | 操作 |
+|---|---|
+| Win+Space / Win+D | DMS のアプリ・Action 検索 |
+| 左上端 / Win+Tab | 全ワークスペースの起動中ウィンドウを検索し、クリックまたは Enter で前面へ |
+| Win+I | DMS 設定 |
+| Win+P | DMS のディスプレイ設定（配置・複製など） |
+| Win+A | DMS クイック設定 |
+| Win+N | 通知 |
+| Win+X | 電源メニュー |
+| Win+F1 | DMS の Hyprland ショートカット一覧 |
+| Win+F2 | QWERTY / 独自 Programmer Dvorak の切替 |
+| Win+V | 一時保存の履歴からコピー。貼り付けは別途 Ctrl+V |
+| Win+Shift+V | 履歴を停止・全消去 / 空の状態から再開 |
+| Win+Ctrl+V | 履歴と現在のクリップボードを全消去 |
+| Win+L | ロックし、履歴も停止・消去 |
+| Win+Ctrl+F5 | DMS を再起動 |
+| Win+Enter / Win+E | Kitty / ファイルマネージャー |
+| Win+Shift+Q | ウィンドウを閉じる |
+| Win+M / Win+Ctrl+M | 選択中のウィンドウを最小化 / 最小化したウィンドウを表示・非表示 |
+| Win+F / Win+Shift+F | バーを残して最大化 / 全画面（再度押すと解除） |
+| Win+Shift+Space | フローティング切替 |
+| Win+矢印 / Win+Shift+矢印 | フォーカス移動 / 通常表示・最大化・全画面のどの状態からも画面半分へ配置し、反対側のアプリを選択 |
+| Win+1..6 / Win+7..0 | 固定６アプリ / 固定以外のバーのアプリを起動・選択 |
+| Win+Ctrl+1..0 / Win+Shift+1..0 | ワークスペース切替 / ウィンドウを送る |
+| Win+左ドラッグ / Win+右ドラッグ | ウィンドウ移動 / サイズ変更 |
+| Win+Shift+M | UWSM を終了し GDM に戻る |
+| Print | DMS の領域スクリーンショット |
+
+SandS は Space 単独なら離した時に空白、他のキーと組み合わせると Shift を送る。
+Win+Space は押した時に、変換+Space は単独の組み合わせを離した時に一覧を開く。
+DMS が起動しない場合も変換+Enter / 変換+L（Win+Enter / Win+L）は DMS を経由しない。
+`hypr-cheatsheet` で変換キーの操作を含む Rofi の復旧用一覧も開ける。
+
+バーは DMS 標準の Running Apps を使い、別ワークスペース・別モニター・最小化中も
+含めてアプリごとのアイコンを表示する。クリックすると既存のウィンドウを前面に出す。
+同じアプリに複数のウィンドウがある場合はクリックで順に切り替える。
+Win+1..6 は起動順・バーの並びに関係なく固定：1 Chrome、2 kitty、3 VS Code、
+4 ChatGPT、5 Discord、6 Slack。閉じていれば起動し、開いていれば前面へ出す。
+同じ番号を再度押すと同じアプリの複数ウィンドウを順に切り替え、１枚だけなら前面を維持する。
+Win+7..0 は、固定６アプリを除いた操作中モニターの Running Apps の並びから呼び出す。
+バーのアプリアイコンは、Win+数字の割り当て順に並べる。
+固定６アプリを Chrome、kitty、VS Code、ChatGPT、Discord、Slack の順に並べ、その後にその他のアプリを表示する。
+固定６アプリのアイコンは、起動していなくても同じ位置に薄く表示する。
+クリックまたは Win+数字 / 変換+数字で起動すると通常の濃さに戻り、閉じると再び薄くなる。
+ウィンドウのないトレイ常駐アプリも薄く表示する。数字のバッジは追加しない。
+最小化していたウィンドウは、そのモニターの通常ワークスペースへ１枚ずつ戻す。
+対象を覆う最大化・全画面ウィンドウは解除し、選んだウィンドウをフォーカスして前面へ出す。
+表示順を上げてからフォーカスし、起動・復元直後の切替が落ち着くまで確認する。
+その間に他のウィンドウへフォーカスが戻ったり、最大化・全画面が再適用された場合は再試行する。
+数字キーを続けて押した場合は最後の選択を優先し、前のアプリの起動待ち・再試行を取り消す。
+タイルの対象を浮動ウィンドウが覆う場合のみ、対象を同じ位置・サイズの浮動表示に変えて前面化する。
+Win+Shift+Space でタイル配置へ戻せる。
+左上端の一覧は Rofi の Wayland window モードで、ウィンドウ単位に選べる。
+トレイだけで起動していてウィンドウがないアプリは、右側のトレイから開く。
+URL や通知をクリックした際、対応するアプリがアクティブ化を要求すれば、別ワークスペースの既存ウィンドウに自動で切り替える（`misc.focus_on_activate = true`）。
+通知のクリック動作そのものは通知元アプリと DMS に依存する。
+既存バーの focusedWindow から runningApps への移行は一度だけ行い、配置や他の
+ウィジェットと、その後の GUI での変更は保持する。
+Win+M はアクティブな１枚だけを最小化する。ウィンドウごとに退避先を分けるため、
+通常の呼び戻しでは他の最小化ウィンドウは同時に出ない。Win+Ctrl+M は退避先を
+共有一覧へまとめて表示・非表示にする。この一覧で Win+M を押しても１枚だけを隠す。
+共有一覧からの呼び戻しでは、そこに残っている他のウィンドウも見える。
+
+Win+Shift+→ は、通常表示・最大化・全画面のどの状態からも操作中のウィンドウを右半分に配置し、
+左側に並べる起動中のウィンドウを Rofi で選ぶ。Win+Shift+← は左右が逆、
+↑ / ↓ は上下に分割する。候補には別ワークスペース・別モニター・最小化中も含む。
+候補にはアプリのアイコン・ウィンドウ名・ワークスペースを表示する。
+検索して Enter、またはクリックで選択する。Esc または一覧の外をクリックすると
+選択を取り消し、操作中のウィンドウだけ半分の配置に残す。
+２枚はバーを避けてフローティングで配置し、他のウィンドウより前面に出す。
+最小化から呼び戻したウィンドウは、通常のワークスペースへ移してから並べる。
+各ウィンドウの Win+Shift+Space で通常のタイル配置に戻せる。
+変換+Shift+A/D も同じ左右配置、W/S は上下配置になる。Win+Ctrl+F も最大化の別キーとして使える。
+Win+F の解除は Hyprland とアプリの最大化・全画面状態を両方クリアする。
+VS Code などで両状態が異なる場合や、最大化と全画面が重なっていても通常の配置へ戻す。
+最大化中の Win+Shift+F は全画面へ切り替え、再度押すと通常の配置へ戻す。
+解除時にタイルのウィンドウが１枚だけだと、通常状態でも画面いっぱいに配置されるため、
+その場合は小さいフローティングウィンドウに戻す。保存していた小さいサイズがなければ、
+バーを除いた作業領域の縦横 80% に縮めて中央へ配置する。
+小さいウィンドウから最大化した場合は元の位置・サイズへ戻し、複数のタイルが残っている
+場合はそのタイル配置を維持する。Win+Shift+Space で通常のタイルへ戻せる。
+
+Win+P は設定画面を開くキーであり、押すだけで複製へ切り替えるキーではない。
+複製可能なモード、スケーリング、接続先の相性は実機で確認する。
+DMS で選んだ画面配置は次項のローカルファイルに保存し、リビルドは不要。
+
+## 省電力
+
+DMS の Power & Sleep で、電源接続時は balanced、バッテリー時は power-saver へ
+自動切り替えする。既存の power-profiles-daemon と UPower のイベントを使い、
+電力管理用の常駐処理は追加しない。低残量時の省電力切り替えも有効にする。
+
+バッテリー時は対応するディスプレイを 60 Hz に落とし、電源接続時に元へ戻す。
+既に 60 Hz の画面と VRR が有効な画面は対象外。ロック後は 30 秒で画面を消灯する。
+ロック・通常の消灯・サスペンドの時間設定は従来どおり DMS の GUI から変更できる。
+
+既存の設定にも一度だけ移行を適用し、その後の GUI 変更は再構築で上書きしない。
+省電力モードで変換やビルドが遅くなる場合は、Power & Sleep の Battery の
+プロファイルを balanced に変更する。バーから選ぶ一時的なプロファイルは、
+次の電源接続・切断や DMS 起動時に、この自動切り替え設定へ戻る。
+
+CPU 負荷を調べるときは、ビルド・動画再生・入力を止めた状態で比較する。
+GUI アプリがホーム全体を Git リポジトリとして探索する場合、ブラウザや開発環境の
+生成データが大量に含まれないかも確認する。マシン固有の除外は対象リポジトリの
+`.git/info/exclude` に置き、通常のソース用リポジトリの設定とは分ける。
+
+## 蓋を閉じたらサスペンドし、10分後に S4
+
+P14s Gen 5 は通常の suspend が s2idle（S0）で、S3 は提供されない。
+蓋を閉じると `suspend-then-hibernate` で s2idle に入り、10分後に
+S4（ハイバネーション）へ移る。AC 接続時もバッテリー駆動時も同じ動作にする。
+10分以内に蓋を開いて復帰すると、その回の S4 への移行は取り消される。
+低残量では10分より早く S4 へ移る場合がある。ドックや外部画面使用中の
+蓋閉じは従来どおり無視する。
+
+手動の sleep・サスペンドキー・`systemctl suspend` は即 S4 に入る。
+DMS のアイドル時の動作も Hibernate を初期値とし、自動休止の時間は
+従来どおり 0（無効）から変更しない。
+
+`/var/lib/hibernate.swap` に 40 GiB を確保する。systemd が UEFI の
+HibernateLocation に swap のデバイスと位置を保存し、systemd initrd が復帰する。
+固定の `resume_offset` は使わない。`systemctl suspend` を使うアプリにも対応するため、
+upstream の suspend ユニットの依存関係を維持し、実行する処理を hibernate に変更する。
+蓋閉じの `suspend-then-hibernate` は専用ユニットを使うため、この上書きを経由しない。
+
+S4 はディスクへの保存・復元が必要なので、通常の suspend より休止・復帰に時間がかかる。
+現在のルートディスクは暗号化されていないため、休止イメージも暗号化されない。
+
+新しいカーネルへ切り替える場合は、休止する前に通常の再起動を行う。
+ビルド済みの構成は、次のコマンドで現在のセッションを変更せず次回起動へ予約できる。
+
+```sh
+sudo bash /home/hotaru/dotfiles/scripts/stage-s4.sh --apply
+```
+
+作業を保存して通常の再起動を行った後、`swapon --show` の 40 GiB の swap と
+DMS の休止機能が利用可能なことを確認する。実際の S4 / 復帰は、端末から
+`systemctl hibernate` を実行して検証する。段階的な休止は
+`systemctl suspend-then-hibernate`、または実際の蓋閉じで確認する。
+AC 接続時とバッテリー駆動時のそれぞれで、10分以内の復帰と10分後の S4 移行を試す。
+復帰後のログは `journalctl -b -u systemd-suspend-then-hibernate.service` で確認する。
+10分後の移行には RTC の自動復帰が必要なので、実機で検証する。
+現状のビルド・ハードウェア確認と、実際の休止・復帰の完了は区別する。
+
+## GUI の変更を残す仕組み
+
+Nix で管理するのは入力・キー操作・基本外観・プログラムのパス。
+次の通常ファイルは初回だけ生成し、その後は DMS の GUI で編集する。
+
+```
+~/.config/DankMaterialShell/settings.json
+~/.local/state/DankMaterialShell/session.json
+~/.config/hypr/dms/outputs.lua
+~/.config/hypr/dms/layout.lua
+~/.config/hypr/dms/colors.lua
+~/.config/hypr/dms/cursor.lua
+~/.config/hypr/dms/windowrules.lua
+```
+
+リビルド・ログインで表示設定や選択した壁紙を上書きしない。
+ロック・ログアウト・アプリ起動の共通コマンドだけは毎回反映し、古い Nix store パスを残さない。
+JSON が壊れている場合は黙って初期化せずエラーにする。バックアップから修復するか、
+DMS を止めて該当ファイルを別名保存し `desktop-dms-config` を実行する。
+
+唯一、`~/.config/DankMaterialShell/clsettings.json` は Nix 管理の読み取り専用ファイル。
+DMS 内蔵の永続クリップボード記録を無効にするためで、GUI から有効化しないこと。
+
+Lua の編集場所は次のとおり。
+
+```
+home/desktop/hypr/hyprland.lua  # 読み込み順
+home/desktop/hypr/input.lua     # jp 固定の入力設定
+home/desktop/hypr/appearance.lua
+home/desktop/hypr/binds.lua     # description 付きキー定義
+home/desktop/dms.nix           # GUI 初期値・DMS 起動・commands.lua の生成
+home/desktop/packages.nix      # 補助プログラム
+nixos/desktop.nix              # GDM / UWSM / GNOME / portal / Zoom
+```
+
+旧 `.conf` は `legacy/hyprland-0.52.conf` に退避し、現在の設定からは読み込まない。
+DMS の標準 binds も読み込まない。Win+V、SandS、配列切替との重複を避けるためである。
+
+## キーボード
+
+XKB は GNOME / Hyprland / Fcitx5 とも **jp 固定**。
+独自 Dvorak の通常入力と Shift 入力だけを xremap の `exact_match: true` で変換する。
+Ctrl / Alt / Win 付きは JIS/QWERTY の物理位置のまま。DMS や GNOME の GUI から
+XKB を us(dvp) に変えると二重変換になるため、切替には変換+F2 / Win+F2 を使う。
+
+初期値は独自 Dvorak。選択状態を `~/.local/state/dotfiles/keyboard-profile` に保存する。
+Shift+物理数字列は数字 1..0、Shift+物理 -（QWERTY 位置）は %、JIS の ] は $ / ~、Yen はバックラッシュ / 縦棒。
+CapsLock / 半角全角は従来どおり xremap の `CODE_93` で日本語モードを切り替える。Space 長押しは Shift。
+無変換+I/J/K/L は上下左右、+; は Enter、+O は Delete、+P は Backspace、
++H は Tab、+U は日本語入力切替、+数字列は数字。
+QWERTY モードでも SandS、日本語切替、無変換・変換レイヤーを使える。
+
+変換はウィンドウ操作用。以下はすべて物理 QWERTY の位置で、Win キーを押さずに使える。
+
+| 操作 | 動作 |
+|---|---|
+| 変換+W/A/S/D | 上 / 左 / 下 / 右のウィンドウを選択 |
+| 変換+Shift+W/A/S/D | ウィンドウ移動、最大化・全画面中は分割配置 |
+| 変換+Ctrl+W/A/S/D | ウィンドウのサイズ変更 |
+| 変換+1..6 | Chrome / kitty / VS Code / ChatGPT / Discord / Slack を起動・選択 |
+| 変換+7..0 | 固定６アプリ以外のバーのアプリを選択 |
+| 変換+Ctrl+数字 / Shift+数字 | ワークスペース切替 / ウィンドウを送る |
+| 変換+F / Shift+F | 最大化 / 全画面 |
+| 変換+Space / Tab | アプリ起動一覧 / 起動中ウィンドウ一覧 |
+| 変換+V / E / Enter | クリップボード / ファイル / ターミナル |
+| 変換+M / Ctrl+M | １枚を最小化 / 最小化ウィンドウ一覧 |
+| 変換+Shift+Q | ウィンドウを閉じる |
+| 変換+L / I / P / C | ロック / 設定 / 画面設定 / クイック設定 |
+| 変換+F1 / F2 / F3 | ショートカット一覧 / 配列切替 / タッチパッド切替 |
+
+Shift は Space 長押しでも使える（例：変換+Space を押したまま D で右へ移動）。
+変換+Space だけなら、Space または変換を離した時にアプリ起動一覧が開く。
+離す順番による空白の誤入力を防ぎ、移動に使った Space では一覧を開かない。
+その他の変換+キーは同じ物理位置の Win+キーへ送り、Shift / Ctrl / Alt も引き継ぐ。
+WASD と C は上表の割り当てを優先する。% は Shift+物理 -（独自 Dvorak）で入力する。
+
+定義は `home/desktop/generate_xremap.py`。選択変更を排他制御し、xremap の起動失敗時は
+以前の選択に戻す。xremap は両デスクトップのログイン時に一つだけ起動し、GDM では起動しない。
+同一ユーザーでの複数 GUI セッション同時使用は想定しない。
+
+```sh
+keyboard-profile status
+keyboard-profile qwerty
+keyboard-profile dvorak
+systemctl --user status xremap
+```
+
+## 日本語入力
+
+Fcitx5 の日本語エンジンは Karukan のみを使い、Mozc はインストールしない。
+通常の入力はOpenVINOを有効にしてGPUを優先する（`GGML_OPENVINO_DEVICE=GPU`）。
+NPUを使う場合は `GGML_OPENVINO_DEVICE=NPU` を指定する。NPUが利用できない場合は、
+モデルのロード前にGPUへ切り替える。CPUへの再推論は追加しない。
+GPUは `GGML_OPENVINO_STATEFUL_EXECUTION=1`、NPUはbackendの固定形状経路を使う。
+NPUではこのstateful設定は参照されず、GPUへ切り替わった場合に有効になる。
+
+Karukan upstreamは `fbe9927548b75435bd43410aaaad742e39f579c8` に固定する。
+`KanaKanjiConverter::from_source` → `LlamaCppModel::from_file` → `from_file_with_n_ctx`
+はupstreamで `.with_n_gpu_layers(0)` を指定するため、その固定だけを外して
+`LlamaModelParams::default()` を使う。固定済みllama-cpp-2 / llama-cpp-sys-2 0.1.157の
+既定は `n_gpu_layers=-1`、出力層を含む全層offload要求である。
+環境変数とbackend有効化だけでは、upstreamの層数指定は変わらない。
+`KanaKanjiConverter` はupstreamのまま、独自accelerator選択やCPU fallbackは追加しない。
+
+`strategy = "main"` のgreedy top-1を使い、残りの候補は学習・辞書・かな/カナで埋める。
+`live_conversion = false` と `candidate_window = "conversion"` でもupstreamは入力中に
+推論していたため、`refresh_input_state` の共通処理で止めてSpaceで推論する。
+live conversionや入力中の候補表示を明示した場合の推論は維持する。
+main strategyではlight modelをロードせず、推論失敗は `Karukan conversion failed` として記録する。
+
+日本語入力では `c` を `k` と同じキーとして扱う。`ca/ci/cu/ce/co` は
+「か/き/く/け/こ」、`cya` は「きゃ」、`cca` と `cka` は「っか」。
+英字直接入力とShiftによる一時英字入力は変更しない。
+Spaceで変換候補を表示した後は、次の文字キーを押すと選択中の候補を確定し、
+その文字から新しい入力を始める。Enterは不要。候補移動・取消・カーソル編集・
+Ctrl/Alt操作は従来どおりで、live変換の表示中に毎文字を自動確定する動作ではない。
+候補表示・live変換からEscで読みへ戻した後は、Enterでその読みを確定する。
+遅れて届いた推論結果でも候補には戻さない。Spaceで変換し直すか、文字を編集すると変換を再開する。
+辞書・学習履歴の予測候補は、入力した読みからの追加を読みの半分（最小2文字・最大4文字）までに制限する。
+読みを最後まで入力した通常の変換や、ユーザー辞書に登録した略語は残す。
+AI候補にも同じ文字数上限を適用し、大幅に長い出力は候補から外す。全候補を除外した場合は元の読みを表示する。
+AI候補の判定は表記の文字数で行うため、漢字に圧縮されて上限内に収まる付け足しをすべて除けるわけではない。
+`BENCH_CANDIDATE_LIMITS=1` は検証用の辞書・学習履歴を一時領域に作り、長い予測の除外と通常変換・略語の保持を実モデルで確認する。
+Fcitxの自動起動ファイルもHome Managerで管理し、ユーザー設定の反映で新しいKarukanを読み込めるようにする。
+live変換はキー処理中に同期推論するため、GPUへ変更しても待ちは残る。
+GPUはNPUより短い待ちを確認しており、live変換で使う場合もGPUを優先する。
+2026-10-02の同一実機・モデルで `nihongo` を各3回live変換した試験では、
+待ちが発生した12キーの中央値はNPU約1.77秒、GPU約0.30秒。
+文字入力にかかった累積待ちはNPU約6.6〜7.0秒、GPU約1.2〜1.3秒で、双方3回とも「日本語」。
+GPUでも約300msの同期待ちが残るため、引っかかりを完全に解消する変更ではない。
+
+NixOS 26.05 stable上で、OpenVINO 2026.4 / oneTBB / OpenCL / Level Zeroは固定済みunstableを使う。
+NPUのカーネルドライバは `hardware.cpu.intel.npu.enable = true` で維持する。
+Intel公式のユーザードライバとNPUコンパイラ1.38.0をhash固定で追加し、Fcitxのlibrary pathへ
+含める。`ZE_ENABLE_ALT_DRIVERS` でこのドライバを選ぶ。既存1.28ドライバとコンパイラの
+組み合わせでは変換誤りを再現したため、そのまま使用しない。
+同梱llama.cppの旧 `NPU_COMPILER_DYNAMIC_QUANTIZATION` はOpenVINO 2026.4が拒否するので除く。
+NPUの `CacheMode::OPTIMIZE_SIZE` も必要なメタデータがないため除く。
+コンパイルキャッシュには `GGML_OPENVINO_COMPILED_MODEL_CACHE_DIR` を使う。
+
+2026-10-02、Core Ultra 9 185H / Intel Arc / Meteor Lake NPU、small Q4_K_Mで実機検証した。
+最終版は5入力を各3回、NPU・GPUとも正しく変換できた。Space待ちはNPU約1.47〜2.96秒
+（中央値2.20秒）、GPU stateful約0.29〜1.67秒（中央値0.31秒）。
+入力中にはモデル推論が走らないことも確認した。
+NPUは `/dev/accel/accel0` と新ドライバのロード、GPUはDRM compute時間増加を確認した。
+これは独立プロセスからFcitx addonのFFIを呼んだ測定で、画面表示までの遅延ではない。
+NPU使用でもモデル準備などのCPU処理は残り、CPU負荷ゼロや非同期変換を保証しない。
+電力比較は中断したため、省電力順位は確定していない。
+
+GPUへの切替は「NPUがデバイス一覧にない場合」に限る。NPU推論途中の失敗をGPUで
+自動再実行する処理はない。NPUWの演算単位GPU切替は実機で誤変換を起こしたため採用しない。
+推論失敗が続く場合はGPUを指定して再起動する。
+
+### 独立した実機試験
+
+`scripts/karukan-benchmark.py` は稼働中のFcitxを変更せず、ローカルGGUFと同じ場所の
+`tokenizer.json` を使う。一時設定で学習を無効にし、`BENCH_FRESH_ENGINE=1` で
+変換結果キャッシュを避ける。`BENCH_REQUIRE_CORRECT=1` は5入力の期待値・AI候補・
+入力中の推論停止を検証する。GPU初回コンパイルは温まったキャッシュと区別する。
+`BENCH_LIVE=1` はlive変換でキーごとの待ちを測る。この場合、入力中の推論停止は検証しない。
+`BENCH_C_ALIAS=1` は明示変換でc/k・促音・直接英字の表示を検証し、
+5入力のkをcに置き換えてAI変換も確認する。
+`BENCH_TYPE_TO_COMMIT=1` は明示変換で候補を移動した後、次の文字入力で
+選択候補が確定し、新しい入力が始まることを検証する。
+
+```sh
+repo="$PWD"
+ov_package=$(nix build --impure --no-link --print-out-paths --expr \
+  "builtins.head (builtins.getFlake \"path:$repo\").nixosConfigurations.nixos.config.i18n.inputMethod.fcitx5.addons")
+# 単独実行にもFcitxと同じ実行環境を渡す。
+export LD_LIBRARY_PATH=$(nix eval --impure --raw --expr \
+  "builtins.concatStringsSep \":\" (map (p: \"\${p}/lib\") (builtins.head (builtins.getFlake \"path:$repo\").nixosConfigurations.nixos.config.i18n.inputMethod.fcitx5.addons).extraLdLibraries)"):/run/opengl-driver/lib
+export ZE_ENABLE_ALT_DRIVERS=$(nix eval --impure --raw --expr \
+  "(builtins.getFlake \"path:$repo\").nixosConfigurations.nixos.config.environment.variables.ZE_ENABLE_ALT_DRIVERS")
+BENCH_PACKAGE="$ov_package" BENCH_MODEL="/absolute/path/to/model.gguf" \
+  BENCH_LOG=/tmp/karukan-npu.log BENCH_FRESH_ENGINE=1 BENCH_REQUIRE_CORRECT=1 \
+  GGML_OPENVINO_DEVICE=NPU GGML_OPENVINO_STATEFUL_EXECUTION=1 \
+  GGML_OPENVINO_COMPILED_MODEL_CACHE_DIR=/tmp/karukan-npu-compiled \
+  python3 scripts/karukan-benchmark.py > /tmp/karukan-npu.jsonl
+```
+
+GPU比較は `GGML_OPENVINO_DEVICE=GPU` と別のコンパイルキャッシュを指定する。
+CPU専用比較を行う場合だけ、addonに `.override { openvinoSupport = false; }` を指定する。
+OpenVINO有効時は層数0でも演算offloadがあるため、CPU専用比較として扱わない。
+
+モデルは Jinen v2 small / xsmall の Q4_K_M。Hugging Face の repository 名だけでなく
+40桁 revision まで固定する。Karukan に追加した `repo@revision` 解釈により、初回取得は
+ネットワークを使うが mutable な `main` は追わない。取得後は Hugging Face cache を使う。
+`max_latency_ms=0` は残すが、既定の main strategy では adaptive 判定自体を使わない。
+
+Fcitx5 が Karukan を選択できても、addon の共有ライブラリが読み込めなければ
+入力イベントは Karukan エンジンへ届かない。llama.cpp / ggml は
+`libkarukan_fcitx5.so` へ静的リンクし、Cargo の一時的な
+`libllama.so.N` / `libggml*.so.N` を Fcitx の実行時依存にしない。
+OpenVINO / oneTBB / OpenCL は通常の共有依存として Nix store から解決する。
+静的な ggml-openvino の CMake link interface は Cargo へ伝播しないため、
+実際に Fcitx が dlopen する `karukan.so` へ
+`openvino::runtime` / `openvino::threading` / `OpenCL::OpenCL` を明示リンクする。
+`ldd -r karukan.so` で `not found` だけでなく `undefined symbol` も検出し、
+また llama / ggml の動的依存が残る場合もビルド自体を失敗させる。
+
+実機では次を確認する。
+
+```sh
+clinfo -l
+ls -l /dev/dri/renderD*
+ls -l /dev/accel/accel0
+journalctl --user -b | grep -Ei 'karukan|openvino|gpu|npu'
+```
+
+## クリップボードとロック
+
+[cliphist](https://github.com/sentriz/cliphist) と
+[wl-clipboard](https://github.com/bugaevc/wl-clipboard) を使用する。
+履歴は必ず `$XDG_RUNTIME_DIR/dotfiles-clipboard/db` に置き、ユーザー所有・0700・tmpfs
+を確認する。条件に合わなければ停止し、通常ディスクへの代替保存は行わない。
+Rofi の検索キャッシュも同じ一時領域。テキストのみ最大100件、1件64KiB。
+選択内容はコピーするだけで、自動貼り付け・シェル実行・同期は行わない。
+
+wl-clipboard 2.3.0 が伝える sensitive ヒントを除外するが、全アプリが付与するわけではない。
+秘密をコピーする前は Win+Shift+V で停止する。停止・再開時には現在の通常/primary
+クリップボードも消去し、停止中の秘密を再開直後に取り込まない。
+
+DMS のメニュー、Win+L、アイドルロック、サスペンド前のロックは `desktop-lock` に集約する。
+履歴を止めて消去し、hyprlock が正常終了した場合だけ logind に解除を通知する。
+ロック前に記録していた場合だけ再開する。ロック失敗時は停止を維持し警告する。
+DMS のロック用カスタムコマンドを別のロッカーに変更するとこの保証は失われる。
+
+**暗号化された秘密保管庫ではない。** 同じ UID の悪意あるプロセス、root、侵害された
+compositor、RAM 読み出しを防ぐものではない。tmpfs も swap / ハイバネーションに
+書き出され得る。core dump 無効化と `MemorySwapMax=0` だけで完全な非永続化や
+安全消去を保証しない。強い保護にはディスク・swap・休止領域の暗号化方針も必要。
+
+DMS 内蔵履歴は disabled=true にするが、DMS 自体は空のキャッシュ DB を作成し得る。
+過去に DMS / GNOME 拡張 / 別ツールが保存した履歴は自動消去しない。
+既存の履歴を確認し、別の記録機能を同時に有効にしないこと。
+GNOME セッションでは今回の Win+V 履歴は起動しない。
+
+```sh
+desktop-clipboard status
+desktop-clipboard pause
+desktop-clipboard resume
+desktop-clipboard clear
+stat -c '%a %U' "$XDG_RUNTIME_DIR" "$XDG_RUNTIME_DIR/dotfiles-clipboard"
+stat -f -c '%T' "$XDG_RUNTIME_DIR"
+```
+
+## ChatGPT デスクトップ
+
+公式 Linux アプリは Wayland セッションでも既定では XWayland を使う。内蔵ディスプレイは
+fractional scale を使うため、XWayland ではぼやけ・倍率ずれが出やすい。また Chromium/Electron
+の XWayland 経路では Fcitx の preedit が不安定になる。
+
+そのため dotfiles の `chatgpt` wrapper は
+`--enable-features=UseOzonePlatform --ozone-platform=wayland --enable-wayland-ime`
+を常時付け、native Wayland で起動する。倍率を `--force-device-scale-factor` で固定しないので、
+DMS でモニター倍率を変えてもアプリ側が追従できる。
+
+配布済みバイナリの interpreter / runpath は `autoPatchelfHook` で Nix のライブラリに合わせ、
+Steam ランタイムを介さずホストのデスクトップ環境で直接起動する。
+`/tmp` を隔離すると、同じ Chrome プロファイルの `SingletonSocket` が見えず、既存 Chrome
+への引き渡しに失敗するため、起動 wrapper に一時領域の隔離を追加しない。
+`libsecret` は runpath に含め、子プロセスにライブラリ設定を広げる `LD_LIBRARY_PATH` は使わない。
+
+確認:
+
+```sh
+hyprctl clients | grep -A8 -i 'chatgpt'
+fcitx5-remote -n
+```
+
+## Zoom と画面共有
+
+Home Manager の単体 `pkgs.zoom-us` ではなく、NixOS の `programs.zoom-us.enable` を使い、
+有効なデスクトップに対応する依存関係を付ける。portal 設定は小文字の `hyprland`。
+ScreenCast / Screenshot は Hyprland、FileChooser は GTK、GNOME では GNOME 用を使う。
+
+これは Zoom のすべての Wayland 機能を保証する修正ではない。
+会議前にモニター共有・ウィンドウ共有・共有停止・再共有を確認する。
+デスクトップ版で問題がある場合に比較できるよう、ランチャーに Zoom Web も登録する。
+ブラウザでも失敗するなら portal / PipeWire 側、Zoom だけならアプリ側を優先して切り分ける。
+
+```sh
+systemctl --user status xdg-desktop-portal xdg-desktop-portal-hyprland pipewire wireplumber
+journalctl --user -b -u xdg-desktop-portal -u xdg-desktop-portal-hyprland
+```
+
+## 壁紙・独自 Action
+
+指定の [nineish Catppuccin Mocha alt](https://github.com/NixOS/nixos-artwork/blob/master/wallpapers/nix-wallpaper-nineish-catppuccin-mocha-alt.svg)
+と同じ絵柄の公式 PNG を、nixpkgs の固定済み artwork パッケージから使う。
+DMS の初期壁紙は `~/.local/share/backgrounds/nix-nineish-mocha-alt.png` を参照する。
+以後 GUI で変更可能。GNOME / hyprlock の既定壁紙にも同じ画像を使う。
+
+DMS は通常の `.desktop` アプリと独自 Action を検索する。
+`home/desktop/default.nix` または `dms.nix` の `xdg.desktopEntries` に追加する。
+
+```nix
+xdg.desktopEntries.my-action = {
+  name = "Action: My command";
+  exec = "${myCommand}/bin/my-command";
+  terminal = false;
+  categories = [ "Utility" ];
+  settings.NotShowIn = "GNOME;";
+};
+```
+
+## 適用と復旧
+
+作業を保存し、現在の設定・生成をバックアップしてから実行する。
+本番ブランチは `main`、出力は `.#nixos`。Windows ESP は `/efi`、XBOOTLDR は `/boot`。
+`nixos-windows` は同じ構成への互換名。UUID と移行手順は [DUAL-BOOT.md](DUAL-BOOT.md) を参照する。
+コミット済み lock を使用し、通常の更新で入力を更新しない。
+
+```sh
+git fetch origin
+git switch main
+git pull --ff-only
+python3 -m unittest discover -s tests -v
+nix flake check
+sh scripts/check-boot-filesystems.sh nixos
+sudo nixos-rebuild build --flake .#nixos
+sudo nixos-rebuild test --flake .#nixos
+```
+
+Home Manager は新しく管理する既存ファイルを `.before-hyprland` に退避する。
+同名バックアップが既にある場合は内容を確認して別名保管する。Fcitx5 の独自設定も確認する。
+`test` は次回起動の既定を変更しないが、現在のサービスやホーム設定は変更する。
+テスト中の表示セッションが切れる可能性があるため、会議・作業の途中で実施しない。
+
+一度ログアウトし、GDM から Hyprland (UWSM) を選ぶ。
+OS / compositor / Qt 更新を含むため、既存セッションの reload だけで済ませない。
+
+```sh
+hyprctl version
+hyprctl configerrors
+systemctl --user status dms xremap dotfiles-clipboard dotfiles-hypridle
+keyboard-profile status
+```
+
+配列・Karukan（GPU優先、NPU選択可）・SandS・USB hotplug、Win+V とロック消去、ディスプレイの複製・拡張・抜き差し、
+Zoom の共有、GNOME への再ログインを実機で確認する。成功後に永続化して再起動する。
+
+```sh
+sudo nixos-rebuild switch --flake .#nixos
+sudo reboot
+```
+
+問題時は GDM で GNOME を選ぶ。入力が壊れたら TTY で `systemctl --user stop xremap`
+を実行すると通常の JIS/QWERTY に戻る。DMS だけなら `systemctl --user restart dms`。
+システムを戻す場合は次を使うか、起動メニューから直前の NixOS generation を選ぶ。
+
+```sh
+sudo nixos-rebuild switch --rollback
+```
+
+GUI が書いた DMS 設定は generation のロールバックでは元に戻らない。
+必要に応じて DMS を停止し、バックアップした settings.json / session.json / dms/*.lua を戻す。
+
+## 検証範囲
+
+CI でコミット済み lock の一致、Python 回帰テスト、NixOS 全体の評価、Lua の61個の
+キー定義の展開・重複・説明・呼出先、pin した Hyprland の `--verify-config` を実行する。
+Lua チェックの実行コマンド文字列だけはダミーであり、アプリ起動や画面共有の実機テストではない。
+補助スクリプトと DMS パッケージのビルド、実際の xremap による生成プロファイル検証も行う。
+CI では本番の NixOS システム全体もビルドし、起動領域の設定と互換名の一致、
+休止ポリシーを確認する。実機の GPU / ロック / Zoom の動作は別途確認が必要。
+
+## Dvorak が効かない場合
+
+`keyboard-profile status` が `dvorak` でも、xremap が停止すると入力は QWERTY に戻る。
+`systemctl --user status xremap.service` と
+`journalctl --user -u xremap.service -b` を確認する。
+`Failed to prepare an output device` / `Permission denied` は `/dev/uinput` のアクセス権を確認する。
+NixOS の `hardware.uinput.enable` は `/dev/uinput` を `root:uinput`、0660 に設定するため、
+ユーザーには `input`（入力の読み取り）と `uinput`（仮想入力の作成）の両グループが必要。
+
+修正を `sudo nixos-rebuild switch --flake .#nixos` で適用後、ログアウトしてログインし直す
+（既存セッションの補助グループは更新されない）。その後 `id` と
+`ls -l /dev/uinput`、`systemctl --user is-active xremap.service` を確認する。
+必要なら `systemctl --user restart xremap.service` を実行する。
+XKB は Hyprland / GNOME とも `jp` のままにし、Dvorak の変換は xremap に任せる。
+
+```
+
+GUI から起動した VS Code が `vsrocqtop` を検出できない場合は、
+VS Code の設定 `vsrocq.path` に `command -v vsrocqtop` の絶対パスを設定する。
+VS Code だけをアップデートして拡張機能とサーバーのバージョンをずらさない。
+実機での証明操作は NixOS 反映後に確認が必要。
+
 ## 操作
 
 Win は Super。英字・数字のショートカットは JIS キーボードの物理位置。
