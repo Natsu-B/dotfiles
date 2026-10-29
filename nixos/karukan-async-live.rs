@@ -263,6 +263,29 @@ mod tests {
     }
 
     #[test]
+    fn terminal_paste_passes_through_in_every_input_state() {
+        use crate::core::keycode::KeyModifiers;
+        let modifiers = KeyModifiers::new().with_control(true).with_shift(true);
+        for state in 0..3 {
+            for keysym in [Keysym::KEY_V, Keysym::KEY_V_UPPER] {
+                let mut engine = engine();
+                if state > 0 { type_text(&mut engine, "nihongo"); }
+                if state > 1 { press(&mut engine, Keysym::SPACE); }
+                let before = engine.preedit().map(|p| p.text().to_owned());
+                let result = engine.process_key(&KeyEvent::new(keysym, modifiers, true));
+                assert!(!result.consumed, "terminal must receive Ctrl+Shift+V in state {state}");
+                assert!(result.actions.is_empty());
+                assert!(!engine.config.verbose);
+                assert_eq!(engine.preedit().map(|p| p.text().to_owned()), before);
+                let diagnostic = KeyModifiers { alt_key: true, ..modifiers };
+                assert!(engine.process_key(&KeyEvent::new(keysym, diagnostic, true)).consumed);
+                assert!(engine.config.verbose);
+                assert_eq!(engine.preedit().map(|p| p.text().to_owned()), before);
+            }
+        }
+    }
+
+    #[test]
     fn escape_enter_commits_reading_after_live_or_candidate_conversion() {
         for candidates in [false, true] {
             let mut engine = engine();

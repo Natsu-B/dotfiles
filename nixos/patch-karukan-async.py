@@ -15,6 +15,20 @@ def main(root, module):
     core = 'karukan-im/core/src/core/engine/'
     (root / core / 'async_live.rs').write_text(module.read_text())
     replace(root, core + 'mod.rs', 'mod cache;', 'mod async_live;\nmod cache;')
+    # Ctrl+Shift+V belongs to terminal paste. Keep the diagnostic toggle
+    # available only with an additional Alt modifier.
+    replace(root, core + 'mod.rs',
+            '        // Ctrl+Shift+V: toggle the verbose aux line (works in all states)\n'
+            '        if key.modifiers.control_key\n'
+            '            && key.modifiers.shift_key\n'
+            '            && (key.keysym == Keysym::KEY_V || key.keysym == Keysym::KEY_V_UPPER)',
+            '        // Ctrl+Alt+Shift+V: toggle verbose details without stealing paste\n'
+            '        if key.modifiers.control_key\n'
+            '            && key.modifiers.shift_key\n'
+            '            && key.modifiers.alt_key\n'
+            '            && (key.keysym == Keysym::KEY_V || key.keysym == Keysym::KEY_V_UPPER)')
+    replace(root, core + 'mode.rs', '/// Ctrl+Shift+V:', '/// Ctrl+Alt+Shift+V:')
+    replace(root, core + 'types.rs', '(Ctrl+Shift+V toggles it).', '(Ctrl+Alt+Shift+V toggles it).')
     replace(root, core + 'mod.rs', '    suppress_suggest: bool,',
             '    suppress_suggest: bool,\n    async_live: Option<async_live::AsyncLive>,\n'
             '    async_live_active: bool,\n    async_live_requested: bool,\n'
