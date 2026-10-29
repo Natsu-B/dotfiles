@@ -151,6 +151,20 @@ def create_engine():
 
 
 engine = create_engine()
+if os.environ.get('BENCH_PASTE') == '1':
+    for state in ['empty', 'composing', 'conversion']:
+        reset(engine)
+        if state != 'empty':
+            for character in 'nihongo':
+                key(engine, ord(character), 0, 0)
+        if state == 'conversion':
+            key(engine, ord(' '), 0, 0)
+        before = (preedit(engine), aux(engine))
+        for keysym in [ord('v'), ord('V')]:
+            assert key(engine, keysym, 5, 0) == 0, ('paste swallowed by IME', state, keysym)
+            assert (preedit(engine), aux(engine)) == before, ('paste changed IME state', state)
+        emit({'kind': 'paste_passthrough', 'state': state})
+    reset(engine)
 if os.environ.get('BENCH_CANDIDATE_LIMITS') == '1':
     candidate_count = bind('get_candidate_count', C.c_uint, [C.c_void_p])
     candidate_cursor = bind('get_candidate_cursor', C.c_uint, [C.c_void_p])
