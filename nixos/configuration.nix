@@ -229,9 +229,11 @@ in {
     vim
     wget
     vscode
-    # Pin Rocq and VsRocq to the same nixpkgs package set.
-    (coqPackages.coq.withPackages (ps: [ ps.stdlib ]))
-    coqPackages.vsrocq-language-server
+    # Wrap both Rocq and VsRocq with the same standard-library search path.
+    (coqPackages.coq.withPackages (ps: [
+      ps.stdlib
+      ps.vsrocq-language-server
+    ]))
     dconf
     gnome-extension-manager
     gnome-tweaks
@@ -306,8 +308,6 @@ in {
 
   # Set environment variables for input methods
   environment.variables = {
-    # Expose the standard library to VsRocq's language server in GUI sessions.
-    ROCQPATH = "${pkgs.coqPackages.stdlib}/lib/coq/${pkgs.coqPackages.coq.coq-version}/user-contrib";
     GTK_IM_MODULE = "fcitx";
     QT_IM_MODULE = "fcitx";
     XMODIFIERS = "@im=fcitx";
