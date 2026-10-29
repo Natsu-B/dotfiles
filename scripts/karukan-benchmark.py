@@ -157,13 +157,18 @@ if os.environ.get('BENCH_PASTE') == '1':
         if state != 'empty':
             for character in 'nihongo':
                 key(engine, ord(character), 0, 0)
+            wait_live(engine)
         if state == 'conversion':
             key(engine, ord(' '), 0, 0)
-        before = (preedit(engine), aux(engine))
-        for keysym in [ord('v'), ord('V')]:
-            assert key(engine, keysym, 5, 0) == 0, ('paste swallowed by IME', state, keysym)
-            assert (preedit(engine), aux(engine)) == before, ('paste changed IME state', state)
-        emit({'kind': 'paste_passthrough', 'state': state})
+            wait_live(engine)
+        pending = preedit(engine)
+        assert key(engine, ord('v'), 5, 0) == 0, ('paste swallowed by IME', state)
+        committed = commit(engine) if state != 'empty' else b''
+        assert bool(committed) == (state != 'empty'), ('pending input not committed', state)
+        assert not preedit(engine), ('preedit left open before paste', state)
+        assert key(engine, ord('V'), 5, 0) == 0, ('paste swallowed by IME', state)
+        emit({'kind': 'paste_passthrough', 'state': state, 'pending': (pending or b'').decode(),
+              'committed': (committed or b'').decode()})
     reset(engine)
 if os.environ.get('BENCH_CANDIDATE_LIMITS') == '1':
     candidate_count = bind('get_candidate_count', C.c_uint, [C.c_void_p])

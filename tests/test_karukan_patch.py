@@ -44,6 +44,10 @@ class KarukanPatchTests(unittest.TestCase):
                           (root / 'karukan-im/core/src/core/engine/mod.rs').read_text())
             self.assertIn('// Ctrl+Alt+Shift+V: toggle verbose details without stealing paste',
                           (root / 'karukan-im/core/src/core/engine/mod.rs').read_text())
+            self.assertIn('// Ctrl+Shift+V: commit pending input, then let the app paste',
+                          (root / 'karukan-im/core/src/core/engine/mod.rs').read_text())
+            self.assertNotIn('press_ctrl_shift(Keysym::KEY_V)',
+                             (root / 'karukan-im/core/src/core/engine/tests/source_filter.rs').read_text())
 
     def test_patch_preserves_converter_and_restores_default_offload(self):
         source = Path(os.environ['KARUKAN_SOURCE_ROOT'])

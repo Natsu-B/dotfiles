@@ -27,8 +27,39 @@ def main(root, module):
             '            && key.modifiers.shift_key\n'
             '            && key.modifiers.alt_key\n'
             '            && (key.keysym == Keysym::KEY_V || key.keysym == Keysym::KEY_V_UPPER)')
+    # Conversion consumes every other chord, so pass paste through explicitly
+    # before the per-state handlers. Pending input is committed first, as
+    # Enter would, so the pasted text lands after it instead of beside a
+    # still-open preedit.
+    replace(root, core + 'mod.rs',
+            '            return self.toggle_verbose();\n        }\n',
+            '            return self.toggle_verbose();\n        }\n\n'
+            '        // Ctrl+Shift+V: commit pending input, then let the app paste\n'
+            '        if key.modifiers.control_key\n'
+            '            && key.modifiers.shift_key\n'
+            '            && !key.modifiers.alt_key\n'
+            '            && (key.keysym == Keysym::KEY_V || key.keysym == Keysym::KEY_V_UPPER)\n'
+            '        {\n'
+            '            if matches!(self.state, InputState::Empty) {\n'
+            '                return EngineResult::not_consumed();\n'
+            '            }\n'
+            '            let mut result = self.process_key(&KeyEvent::press(Keysym::RETURN));\n'
+            '            result.consumed = false;\n'
+            '            return result;\n'
+            '        }\n')
     replace(root, core + 'mode.rs', '/// Ctrl+Shift+V:', '/// Ctrl+Alt+Shift+V:')
     replace(root, core + 'types.rs', '(Ctrl+Shift+V toggles it).', '(Ctrl+Alt+Shift+V toggles it).')
+    # Keep upstream verbose-toggle tests on the moved shortcut.
+    tests = core + 'tests/'
+    replace(root, tests + 'mod.rs', 'fn press_ctrl_shift(keysym: Keysym) -> KeyEvent {',
+            'fn press_verbose_toggle(keysym: Keysym) -> KeyEvent {\n'
+            '    let modifiers = KeyModifiers::new().with_control(true).with_shift(true);\n'
+            '    KeyEvent::new(keysym, KeyModifiers { alt_key: true, ..modifiers }, true)\n'
+            '}\n\n'
+            'fn press_ctrl_shift(keysym: Keysym) -> KeyEvent {')
+    replace(root, tests + 'candidate_window.rs', 'press_ctrl_shift(Keysym::KEY_V)', 'press_verbose_toggle(Keysym::KEY_V)')
+    replace(root, tests + 'source_filter.rs', 'press_ctrl_shift(Keysym::KEY_V)', 'press_verbose_toggle(Keysym::KEY_V)')
+    replace(root, tests + 'persona.rs', "press_ctrl_shift(Keysym('V' as u32))", "press_verbose_toggle(Keysym('V' as u32))", count=2)
     replace(root, core + 'mod.rs', '    suppress_suggest: bool,',
             '    suppress_suggest: bool,\n    async_live: Option<async_live::AsyncLive>,\n'
             '    async_live_active: bool,\n    async_live_requested: bool,\n'

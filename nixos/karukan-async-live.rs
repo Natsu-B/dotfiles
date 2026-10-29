@@ -263,24 +263,34 @@ mod tests {
     }
 
     #[test]
-    fn terminal_paste_passes_through_in_every_input_state() {
+    fn terminal_paste_commits_pending_input_then_passes_through() {
         use crate::core::keycode::KeyModifiers;
         let modifiers = KeyModifiers::new().with_control(true).with_shift(true);
+        let commit = |result: &EngineResult| result.actions.iter().find_map(|action| match action {
+            EngineAction::Commit(text) => Some(text.clone()), _ => None,
+        });
         for state in 0..3 {
             for keysym in [Keysym::KEY_V, Keysym::KEY_V_UPPER] {
+                let setup = |engine: &mut InputMethodEngine| {
+                    if state > 0 { type_text(engine, "nihongo"); }
+                    if state > 1 { press(engine, Keysym::SPACE); }
+                };
+                // Paste must commit exactly what Enter would have committed.
+                let mut reference = engine();
+                setup(&mut reference);
+                let expected = if state > 0 { commit(&press(&mut reference, Keysym::RETURN)) } else { None };
                 let mut engine = engine();
-                if state > 0 { type_text(&mut engine, "nihongo"); }
-                if state > 1 { press(&mut engine, Keysym::SPACE); }
-                let before = engine.preedit().map(|p| p.text().to_owned());
+                setup(&mut engine);
                 let result = engine.process_key(&KeyEvent::new(keysym, modifiers, true));
                 assert!(!result.consumed, "terminal must receive Ctrl+Shift+V in state {state}");
-                assert!(result.actions.is_empty());
+                assert_eq!(commit(&result), expected, "pending input in state {state}");
+                assert!(state == 0 || expected.is_some());
+                assert!(engine.preedit().map_or(true, |p| p.text().is_empty()), "preedit must close before paste");
                 assert!(!engine.config.verbose);
-                assert_eq!(engine.preedit().map(|p| p.text().to_owned()), before);
                 let diagnostic = KeyModifiers { alt_key: true, ..modifiers };
                 assert!(engine.process_key(&KeyEvent::new(keysym, diagnostic, true)).consumed);
                 assert!(engine.config.verbose);
-                assert_eq!(engine.preedit().map(|p| p.text().to_owned()), before);
+                assert!(engine.preedit().map_or(true, |p| p.text().is_empty()));
             }
         }
     }

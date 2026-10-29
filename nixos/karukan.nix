@@ -103,6 +103,9 @@ rustPlatform.buildRustPackage {
     cargo test --offline --release -p karukan-im --lib core::engine::async_live::tests
     cargo test --offline --release -p karukan-im --lib core::engine::candidate_limits::tests
     cargo test --offline --release -p karukan-im --lib core::engine::tests::predictive
+    # Verbose details moved to Ctrl+Alt+Shift+V; keep upstream coverage on it.
+    cargo test --offline --release -p karukan-im --lib verbose_toggle
+    cargo test --offline --release -p karukan-im --lib candidate_window::test_shortcuts_open_no_window
     runHook postCheck
   '';
 
