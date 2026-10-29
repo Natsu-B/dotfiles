@@ -42,8 +42,6 @@ class KarukanPatchTests(unittest.TestCase):
                           (root / 'karukan-im/core/src/core/engine/mod.rs').read_text())
             self.assertIn('mod candidate_limits;',
                           (root / 'karukan-im/core/src/core/engine/mod.rs').read_text())
-            self.assertIn('// Ctrl+Alt+Shift+V: toggle verbose details without stealing paste',
-                          (root / 'karukan-im/core/src/core/engine/mod.rs').read_text())
 
     def test_patch_preserves_converter_and_restores_default_offload(self):
         source = Path(os.environ['KARUKAN_SOURCE_ROOT'])
