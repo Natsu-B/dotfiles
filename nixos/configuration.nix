@@ -73,6 +73,22 @@ in {
           config.allowUnfree = true;
         };
       in {
+        # Pillow 13 rejects imageio's explicit I;16 mode in fromarray.
+        # Keep the 16-bit representation using the raw-byte API instead.
+        pythonPackagesExtensions = (prev.pythonPackagesExtensions or [ ]) ++ [
+          (pythonFinal: pythonPrev: {
+            imageio = pythonPrev.imageio.overridePythonAttrs (old: {
+              postPatch = (old.postPatch or "") + ''
+                substituteInPlace imageio/plugins/pillow.py \
+                  --replace-fail 'Image.fromarray(frame, mode=mode)' \
+                    '(Image.frombytes(mode, (frame.shape[1], frame.shape[0]), frame.tobytes()) if mode == "I;16" else Image.fromarray(frame, mode=mode))'
+                substituteInPlace imageio/plugins/pillow_legacy.py \
+                  --replace-fail 'Image.fromarray(arr, mode)' \
+                    '(Image.frombytes(mode, (arr.shape[1], arr.shape[0]), arr.tobytes()) if mode == "I;16" else Image.fromarray(arr, mode))'
+              '';
+            });
+          })
+        ];
         unstable = unstablePkgs;
         master = masterPkgs;
         # Hyprland is not recognized by Electron's automatic keyring selection.
