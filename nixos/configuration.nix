@@ -64,14 +64,10 @@ in {
   nixpkgs.overlays = [
     (final: prev:
       let
-        unstablePkgs = import inputs.nixpkgs-unstable {
-          system = prev.stdenv.hostPlatform.system;
-          config.allowUnfree = true;
-        };
-        masterPkgs = import inputs.nixpkgs-master {
-          system = prev.stdenv.hostPlatform.system;
-          config.allowUnfree = true;
-        };
+        # Reuse flake.nix's patched package sets. Importing the raw inputs
+        # here would silently reintroduce the vulnerable Brotli 1.2.0.
+        unstablePkgs = unstable;
+        masterPkgs = master;
       in {
         # Pillow 13 rejects imageio's explicit I;16 mode in fromarray.
         # Keep the 16-bit representation using the raw-byte API instead.
