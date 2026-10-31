@@ -18,7 +18,7 @@
   home =
     let
       gef = pkgs.callPackage ./app/gef.nix { };
-      gemini-cli = pkgs.gemini-cli; # nixpkgs 26.05: 0.42.0 (fixes CVE-2026-13745)
+      gemini-cli = pkgs.gemini-cli;
       codex-desktop = pkgs.callPackage ./app/codex-desktop.nix { };
       claude-desktop = pkgs.callPackage ./app/claude-desktop.nix { };
       vivado = pkgs.callPackage ./app/vivado.nix { };
