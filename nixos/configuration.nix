@@ -258,13 +258,15 @@ in {
     libfprint
     qemu
     tcsh
-    tailscale
     man-pages
     man-pages-posix
     clinfo
   ];
 
-  services.tailscale.enable = true;
+  services.tailscale = {
+    enable = true;
+    package = unstable.tailscale;
+  };
 
   programs.git = {
     enable = true;
