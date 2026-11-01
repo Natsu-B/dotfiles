@@ -1,36 +1,43 @@
-# 一時的なセキュリティ対策と復旧管理
+# 暫定修正と復旧管理台帳
 
-このファイルは、上流の修正を取り込めるまでの一時的な対策を記録する。脆弱性が上流で解消されても、**ロックされた入力の更新、ビルド結果、実行時依存関係を確認するまでは**暫定対策を削除しない。
+この台帳は **Natsu-B/dotfiles** の公開済み設定をもとにした暫定対策・既存修正の管理記録です。PRで提案しただけの変更は「適用済み」と扱いません。暫定変更を解除する場合は、lockで固定された入力、上流修正、実際のランタイム閉包、テスト結果を再確認し、**復旧用PR**を作成してください。自動マージしません。
 
-| ID | 状態 | 導入日 | 対象 | 暫定変更 | 元の設定 | 解除条件 |
-| --- | --- | --- | --- | --- | --- | --- |
-| CVE-2026-111497 / GHSA-9v8h-qqgm-4m35 | 暫定対策・要実機検証 | 2026-11-01 | `flake.nix`, `nixos/configuration.nix` | 固定済み stable の Brotli 1.2.1 を unstable/master に overlay で供給し、再 import を統一 | `flake.nix` の `unstable`/`master` は各 `legacyPackages`、`configuration.nix` は対応する input を直接 import | 対象とする pinned unstable/master に Brotli 修正版が入り、必要な rebuild を完了できる |
-| CI-BROTLI-2026-11 (CVE-2026-111497 に付随) | 暫定・未検証 | 2026-11-01 | `.github/workflows/desktop-checks.yml` | Desktop configuration ジョブの `timeout-minutes` を 120 から 360 に変更。セキュリティoverlayに伴う追加ビルドを途中で打ち切らず検証するため | `timeout-minutes: 120` | overlayを解除して通常のビルド負荷に戻ったことをCIで確認した後、120分へ復旧。途中で再び上限に達する場合は延長を繰り返さず依存範囲・構成を見直す |
+## 脆弱性対策・適用状態
 
-## CVE-2026-111497: Brotli
+| ID / 関連PR | 状態 | 影響するファイル | 適用方法 | 解除・復旧条件 |
+| --- | --- | --- | --- | --- |
+| CVE-2026-111497 / GHSA-9v8h-qqgm-4m35 ([PR #15](https://github.com/Natsu-B/dotfiles/pull/15)) | **Draft・未実機検証** | `nixos/configuration.nix` | `system.replaceDependencies.replacements` により、unstable/masterのBrotli 1.2.0の`lib`および`out`への実行時参照を、固定済みstableの1.2.1に差し替える。上流の修正に置換できるまでの一時的なABI互換前提の対処 | pinned unstable/masterに修正済みBrotliが入り、そのパッケージを使うシステム/ホームプロファイルのビルドとランタイム閉包の検証が完了したら置換を削除 |
+| CIの再ビルド上限 ([PR #15](https://github.com/Natsu-B/dotfiles/pull/15)) | **提案・恒久的な保護策** | `.github/workflows/desktop-checks.yml` | 120分→90分、desktop-entriesの事前dry-runで100以上の未キャッシュderivationがあれば早期失敗 | CI構成変更時に再評価。単純なタイムアウト延長で重い再ビルドを容認しない |
+| CVE-2026-110449 / CVE-2026-110450 / CVE-2026-13745 / TS-2026-014〜017 ([PR #14](https://github.com/Natsu-B/dotfiles/pull/14)) | **mainにマージ済み・恒久対策** | `.github/workflows/desktop-checks.yml`, `home/home.nix`, `home/app/gemini.nix`, `nixos/configuration.nix` | Nix CI action、Gemini CLI、Tailscaleの修正済み版を選択 | **古い脆弱版へ巻き戻さない**。上流変更時も同等以上の安全性を確認 |
 
-- [GitHub Security Advisory](https://github.com/advisories/GHSA-9v8h-qqgm-4m35)
-- [Google Brotli v1.2.1](https://github.com/google/brotli/releases/tag/v1.2.1)
-- 固定済み nixpkgs stable `6f06d204d8f2d8761d9da78778745974a3216381`: `brotli.version = 1.2.1`
-- 固定済み nixpkgs unstable `e62746b0b472753ef019baceab6f1e2e52014980`: `brotli.version = 1.2.0`
-- master `eca943107b8ccdafb3ca41db9f8bdafcdc45f4a4` にも暫定 overlay を適用。master 側の実際の依存を検証する。
-- 上流の影響条件は、細工された Brotli 圧縮ストリームを脆弱なデコーダが展開すること。Anki 等への到達可能性は実機で未検証。
+## Brotli差し替えの技術的注意
 
-### 解除時の手順
+- 修正前のパッケージ版：locked unstable/masterのBrotli **1.2.0**。修正済みの代替：locked stableの **1.2.1**。
+- [Google Brotli v1.2.1](https://github.com/google/brotli/releases/tag/v1.2.1) / [GHSA-9v8h-qqgm-4m35](https://github.com/advisories/GHSA-9v8h-qqgm-4m35)。
+- NixOS 26.05の公式`system.replaceDependencies`は、出力のストア参照を修正して依存パッケージの**再コンパイルを避ける暫定手段**です。ライブラリの同じ長さの出力名、ABI、ファイル配置が互換であることが前提。libbrotli 1.2.0→1.2.1の実機での動作検証は未了。
+- **対象外**：静的リンクやアプリケーション内にバンドルされたBrotli、NixOSのsystem closureに含まれない外部Home Manager / nix profile / Windowsなど。動的な実行時参照以外には効きません。
+- CIでNixOSのruntime closureに`brotli-1.2.0`がないこと、および`brotli-1.2.1`があることを検査します。Home Managerの独立したプロファイルや実機の利用パスは別途検査します。
+- 旧設定：`system.replaceDependencies.replacements`は未設定、`flake.nix`は各入力の`legacyPackages`を使用。変更の解除時は本項目だけ削除し、他のセキュリティ修正は保持します。
 
-1. `nix flake update nixpkgs-unstable nixpkgs-master` のようなコマンドを無条件に実行しない。更新候補の lock 差分を確認し、必要な入力だけ更新する。
-2. `nix eval --raw --expr 'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs-unstable.legacyPackages.x86_64-linux.brotli.version'` 等で、**overlay のない上流入力**の Brotli が修正済みであることを確認する。master も同様に確認する。
-3. `flake.nix` の `brotliSecurityOverlay`、`patchedUnstable`、master の overlay import を削除し、元の `legacyPackages` を復元する。 `nixos/configuration.nix` 内の `unstablePkgs`/`masterPkgs` については、重複 import を復活させる必要がない限り現行の共有方式を維持する。**無関係な改善は巻き戻さない。**
-4. `nix flake check --no-build`、`nix eval --raw .#nixosConfigurations.nixos.config.system.build.toplevel.drvPath`、対象プロファイルのビルド、`nix-store -qR` などを使って、Brotli 1.2.0 が残っていないことを検査する。静的リンク・バンドルされた Brotli は別途監査する。
-5. 解除は**別のPR**として作成し、暫定対策の行を「解除済み」、解除日時、根拠となる入力 rev、復旧PR番号に更新する。CI と実機適用が確認されるまではマージしない。
+## 過去のPR内で撤回した暫定案
 
-### 導入時の検証
+| 項目 | 状態 | 理由・取り消した内容 |
+| --- | --- | --- |
+| [PR #15](https://github.com/Natsu-B/dotfiles/pull/15) の広域Brotli overlay | **マージ前に撤回** | unstable/masterのパッケージ集合をoverlayした結果、desktop-entriesのビルド予定は20件（PR #14）→**631件**に急増。ランタイム参照差し替え方式へ変更 |
+| [PR #15](https://github.com/Natsu-B/dotfiles/pull/15) のCIタイムアウト延長 | **マージ前に撤回** | 120分→360分の暫定延長を廃止。問題のビルド範囲を減らす方針へ変更 |
 
-```sh
-nix flake check --no-build
-nix eval --raw .#nixosConfigurations.nixos.config.system.build.toplevel.drvPath
-nix build .#nixosConfigurations.nixos.config.system.build.toplevel
-nix-store -qR "$(readlink -f result)" | grep -E '/brotli-1\.2\.[01]' || true
-```
+## 既存の暫定変更候補（セキュリティ脆弱性とは区別）
 
-これらは**実行を要求する検証手順**であり、本PR作成時に成功したという意味ではない。Home Manager のプロファイルも個別に依存閉包を確認する。
+| 対象 | 現在の措置 | 解除条件 |
+| --- | --- | --- |
+| `nixos/desktop.nix` | xdg-desktop-portal-hyprlandのDMA-BUF関連バックポートpatch（upstream #427） | pinned portalに上流修正が含まれること、動作確認後にパッチを取り除く |
+| `nixos/configuration.nix` | Pillow 13とimageioの`I;16`モード互換性を保つPythonパッケージ拡張 | pinned imageio/関連パッケージの修正と動画・画像処理の動作確認後に削除 |
+
+これらは元の目的を失っていなければ解除しません。「候補」は解除できることを意味しません。
+
+## 検証と復旧PRのルール
+
+1. lockの固定入力で修正済み版に到達したか調べる。単に`flake.lock`のrevが変わっただけでは修正済みとみなさない。
+2. `nix flake check --no-build`、`nix build --dry-run --no-link .#nixosConfigurations.nixos.config.system.build.toplevel`、対象プロファイルのビルドを実行。dry-runと実行時間を比較し、大量再ビルドがないことを先に確認する。
+3. ビルド後は`nix path-info --recursive .#nixosConfigurations.nixos.config.system.build.toplevel`のBrotliパスを確認。使用アプリ、独立したHome Managerのプロファイル、バンドル済みライブラリも別途調べる。
+4. 上流修正で不要になった暫定変更のみを削除して**復旧用PRを作成**。復旧PR番号、解除日、テスト・動作確認の証跡を記録。PRは自動マージしない。
