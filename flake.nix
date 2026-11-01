@@ -24,29 +24,12 @@
     let
       system = "x86_64-linux";
       hostName = "nixos";
-      # Temporary mitigation: CVE-2026-111497 / GHSA-9v8h-qqgm-4m35.
-      # The locked unstable nixpkgs has Brotli 1.2.0, while locked stable
-      # nixpkgs provides the fixed Brotli 1.2.1.
-      # Remove this overlay once the locked unstable input contains a fixed
-      # Brotli and its downstream packages have been rebuilt against it.
-      brotliSecurityOverlay = final: prev: {
-        brotli = nixpkgs.legacyPackages.${system}.brotli;
-      };
-      patchedUnstable = import nixpkgs-unstable {
-        inherit system;
-        config.allowUnfree = true;
-        overlays = [ brotliSecurityOverlay ];
-      };
       nixosSystem = nixpkgs.lib.nixosSystem {
         inherit system;
         specialArgs = {
           # Pass host identity and package sets to the configuration.
-          unstable = patchedUnstable;
-          master = import nixpkgs-master {
-            inherit system;
-            config.allowUnfree = true;
-            overlays = [ brotliSecurityOverlay ];
-          };
+          unstable = nixpkgs-unstable.legacyPackages.${system};
+          master = nixpkgs-master.legacyPackages.${system};
           inherit hostName inputs self;
         };
         modules = [
@@ -81,7 +64,7 @@
         };
         desktop-tools = import ./tests/tools.nix {
           pkgs = nixpkgs.legacyPackages.${system};
-          unstable = patchedUnstable;
+          unstable = nixpkgs-unstable.legacyPackages.${system};
         };
         desktop-entries = import ./tests/desktop-entries.nix {
           pkgs = nixpkgs.legacyPackages.${system};
