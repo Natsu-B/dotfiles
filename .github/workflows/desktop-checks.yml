@@ -11,9 +11,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    # Temporary: Brotli security overlay rebuilds dependencies outside binary caches.
-    # Track and restore the original 120-minute limit in docs/security-temporary-mitigations.md.
-    timeout-minutes: 360
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -31,7 +29,7 @@ jobs:
             /opt/hostedtoolcache/CodeQL
           sudo apt-get clean
           df -h /
-      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
+      - uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
@@ -69,6 +67,21 @@ jobs:
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.keyboard-access
       - name: Hibernate policy
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.hibernate-policy
+      - name: Guard against unexpectedly large rebuilds
+        shell: bash
+        run: |
+          set -euo pipefail
+          plan="$(nix build --dry-run --no-link .#checks.x86_64-linux.desktop-entries 2>&1)"
+          printf '%s\n' "$plan"
+          count="$(printf '%s\n' "$plan" | sed -nE 's/^these ([0-9]+) derivations will be built:.*/\1/p' | head -n 1)"
+          if [[ -z "$count" ]]; then
+            echo "Cannot determine build count from Nix dry-run; refusing unbounded rebuild" >&2
+            exit 1
+          fi
+          if (( count > 100 )); then
+            echo "Refusing to compile $count derivations; investigate cache/replacement scope" >&2
+            exit 1
+          fi
       - name: Build and validate Home Manager desktop entries
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-entries
       - name: Hyprland Lua validation (real pinned compositor)
@@ -78,5 +91,18 @@ jobs:
       - name: Build complete NixOS system
         run: |
           nix build --no-link --print-build-logs .#nixosConfigurations.nixos.config.system.build.toplevel
+      - name: Reject vulnerable Brotli in NixOS runtime closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix path-info --recursive .#nixosConfigurations.nixos.config.system.build.toplevel > "$RUNNER_TEMP/system-closure.txt"
+          if grep -E '/[[:alnum:]]+-brotli-1\\.2\\.0($|-)' "$RUNNER_TEMP/system-closure.txt"; then
+            echo "Vulnerable Brotli 1.2.0 remains in the NixOS runtime closure" >&2
+            exit 1
+          fi
+          if ! grep -E '/[[:alnum:]]+-brotli-1\\.2\\.1($|-)' "$RUNNER_TEMP/system-closure.txt"; then
+            echo "Expected fixed Brotli 1.2.1 not found in the NixOS runtime closure" >&2
+            exit 1
+          fi
       - name: Report system closure size
         run: nix path-info -Sh .#nixosConfigurations.nixos.config.system.build.toplevel
