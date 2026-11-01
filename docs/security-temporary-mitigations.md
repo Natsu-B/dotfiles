@@ -5,6 +5,7 @@
 | ID | 状態 | 導入日 | 対象 | 暫定変更 | 元の設定 | 解除条件 |
 | --- | --- | --- | --- | --- | --- | --- |
 | CVE-2026-111497 / GHSA-9v8h-qqgm-4m35 | 暫定対策・要実機検証 | 2026-11-01 | `flake.nix`, `nixos/configuration.nix` | 固定済み stable の Brotli 1.2.1 を unstable/master に overlay で供給し、再 import を統一 | `flake.nix` の `unstable`/`master` は各 `legacyPackages`、`configuration.nix` は対応する input を直接 import | 対象とする pinned unstable/master に Brotli 修正版が入り、必要な rebuild を完了できる |
+| CI-BROTLI-2026-11 (CVE-2026-111497 に付随) | 暫定・未検証 | 2026-11-01 | `.github/workflows/desktop-checks.yml` | Desktop configuration ジョブの `timeout-minutes` を 120 から 360 に変更。セキュリティoverlayに伴う追加ビルドを途中で打ち切らず検証するため | `timeout-minutes: 120` | overlayを解除して通常のビルド負荷に戻ったことをCIで確認した後、120分へ復旧。途中で再び上限に達する場合は延長を繰り返さず依存範囲・構成を見直す |
 
 ## CVE-2026-111497: Brotli
 
