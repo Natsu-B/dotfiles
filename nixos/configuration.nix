@@ -105,30 +105,6 @@ in {
       })
   ];
 
-  # Temporary security mitigation (CVE-2026-111497): rewrite Brotli runtime
-  # references rather than rebuilding the entire unstable/master package sets.
-  # The upstream 1.2.0 and fixed stable 1.2.1 outputs have equal-length names.
-  # See docs/security-temporary-mitigations.md for scope and rollback criteria.
-  # This does not fix statically linked or bundled Brotli copies.
-  system.replaceDependencies.replacements = [
-    {
-      oldDependency = unstable.brotli.lib;
-      newDependency = pkgs.brotli.lib;
-    }
-    {
-      oldDependency = master.brotli.lib;
-      newDependency = pkgs.brotli.lib;
-    }
-    {
-      oldDependency = unstable.brotli;
-      newDependency = pkgs.brotli;
-    }
-    {
-      oldDependency = master.brotli;
-      newDependency = pkgs.brotli;
-    }
-  ];
-
   # Bootloader (UEFI / systemd-boot).
   # Windows on this ESP is automatically detected by systemd-boot.
   # For Windows on a different ESP, see DUAL-BOOT.md before adding a
