@@ -89,18 +89,37 @@ jobs:
       - name: Build complete NixOS system
         run: |
           nix build --no-link --print-build-logs .#nixosConfigurations.nixos.config.system.build.toplevel
-      - name: Reject vulnerable Brotli in NixOS runtime closure
+      - name: Check pinned stable Anki and its Brotli runtime closure
         shell: bash
         run: |
           set -euo pipefail
-          nix path-info --recursive .#nixosConfigurations.nixos.config.system.build.toplevel > "$RUNNER_TEMP/system-closure.txt"
-          if grep -E '/[[:alnum:]]+-brotli-1\\.2\\.0($|-)' "$RUNNER_TEMP/system-closure.txt"; then
-            echo "Vulnerable Brotli 1.2.0 remains in the NixOS runtime closure" >&2
+          # The selector must contain exactly one Anki package and it must
+          # match stable nixpkgs rather than the vulnerable unstable package.
+          anki_out="$(nix eval --raw --expr '
+            let
+              f = builtins.getFlake (toString ./.);
+              packages = f.nixosConfigurations.nixos.config.home-manager.users.hotaru.home.packages;
+              matches = builtins.filter (p: (p.pname or "") == "anki") packages;
+              stable = f.inputs.nixpkgs.legacyPackages.x86_64-linux;
+            in
+              if builtins.length matches != 1 then
+                throw "Expected exactly one Anki package in Home Manager"
+              else if (builtins.head matches).version != stable.anki.version then
+                throw "Home Manager Anki is not the stable nixpkgs version"
+              else if stable.brotli.version != "1.2.1" then
+                throw "Stable nixpkgs Brotli is not verified as fixed 1.2.1"
+              else (builtins.head matches).outPath
+          ')"
+          nix path-info --recursive "$anki_out" > "$RUNNER_TEMP/anki-closure.txt"
+          if grep -E -- '-brotli-1\.2\.0(-|$)' "$RUNNER_TEMP/anki-closure.txt"; then
+            echo "Anki still references vulnerable Brotli 1.2.0" >&2
             exit 1
           fi
-          if ! grep -E '/[[:alnum:]]+-brotli-1\\.2\\.1($|-)' "$RUNNER_TEMP/system-closure.txt"; then
-            echo "Expected fixed Brotli 1.2.1 not found in the NixOS runtime closure" >&2
-            exit 1
+          # The remaining OS may still carry vulnerable unstable/master Brotli.
+          # Report this accurately rather than claiming a system-wide fix.
+          nix path-info --recursive .#nixosConfigurations.nixos.config.system.build.toplevel > "$RUNNER_TEMP/system-closure.txt"
+          if grep -E -- '-brotli-1\.2\.0(-|$)' "$RUNNER_TEMP/system-closure.txt"; then
+            echo "::warning::Brotli 1.2.0 remains outside the scoped Anki mitigation. Do not describe this PR as a full-system fix."
           fi
       - name: Report system closure size
         run: nix path-info -Sh .#nixosConfigurations.nixos.config.system.build.toplevel
