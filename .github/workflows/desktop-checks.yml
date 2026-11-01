@@ -11,7 +11,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -67,6 +67,19 @@ jobs:
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.keyboard-access
       - name: Hibernate policy
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.hibernate-policy
+      - name: Guard against unexpectedly large rebuilds
+        shell: bash
+        run: |
+          set -euo pipefail
+          plan="$(nix build --dry-run --no-link .#checks.x86_64-linux.desktop-entries 2>&1)"
+          printf '%s\n' "$plan"
+          # Nix omits the "will be built" heading if all outputs are cached.
+          count="$(printf '%s\n' "$plan" | sed -nE 's/^these ([0-9]+) derivations will be built:.*/\1/p' | head -n 1)"
+          count="${count:-0}"
+          if (( count > 100 )); then
+            echo "Refusing to compile $count derivations; investigate cache/replacement scope" >&2
+            exit 1
+          fi
       - name: Build and validate Home Manager desktop entries
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-entries
       - name: Hyprland Lua validation (real pinned compositor)
@@ -76,5 +89,37 @@ jobs:
       - name: Build complete NixOS system
         run: |
           nix build --no-link --print-build-logs .#nixosConfigurations.nixos.config.system.build.toplevel
+      - name: Check pinned stable Anki and its Brotli runtime closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The selector must contain exactly one Anki package and it must
+          # match stable nixpkgs rather than the vulnerable unstable package.
+          anki_out="$(nix eval --raw --expr '
+            let
+              f = builtins.getFlake (toString ./.);
+              packages = f.nixosConfigurations.nixos.config.home-manager.users.hotaru.home.packages;
+              matches = builtins.filter (p: (p.pname or "") == "anki") packages;
+              stable = f.inputs.nixpkgs.legacyPackages.x86_64-linux;
+            in
+              if builtins.length matches != 1 then
+                throw "Expected exactly one Anki package in Home Manager"
+              else if (builtins.head matches).version != stable.anki.version then
+                throw "Home Manager Anki is not the stable nixpkgs version"
+              else if stable.brotli.version != "1.2.1" then
+                throw "Stable nixpkgs Brotli is not verified as fixed 1.2.1"
+              else (builtins.head matches).outPath
+          ')"
+          nix path-info --recursive "$anki_out" > "$RUNNER_TEMP/anki-closure.txt"
+          if grep -E -- '-brotli-1\.2\.0(-|$)' "$RUNNER_TEMP/anki-closure.txt"; then
+            echo "Anki still references vulnerable Brotli 1.2.0" >&2
+            exit 1
+          fi
+          # The remaining OS may still carry vulnerable unstable/master Brotli.
+          # Report this accurately rather than claiming a system-wide fix.
+          nix path-info --recursive .#nixosConfigurations.nixos.config.system.build.toplevel > "$RUNNER_TEMP/system-closure.txt"
+          if grep -E -- '-brotli-1\.2\.0(-|$)' "$RUNNER_TEMP/system-closure.txt"; then
+            echo "::warning::Brotli 1.2.0 remains outside the scoped Anki mitigation. Do not describe this PR as a full-system fix."
+          fi
       - name: Report system closure size
         run: nix path-info -Sh .#nixosConfigurations.nixos.config.system.build.toplevel
