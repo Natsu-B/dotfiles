@@ -73,11 +73,9 @@ jobs:
           set -euo pipefail
           plan="$(nix build --dry-run --no-link .#checks.x86_64-linux.desktop-entries 2>&1)"
           printf '%s\n' "$plan"
+          # Nix omits the "will be built" heading if all outputs are cached.
           count="$(printf '%s\n' "$plan" | sed -nE 's/^these ([0-9]+) derivations will be built:.*/\1/p' | head -n 1)"
-          if [[ -z "$count" ]]; then
-            echo "Cannot determine build count from Nix dry-run; refusing unbounded rebuild" >&2
-            exit 1
-          fi
+          count="${count:-0}"
           if (( count > 100 )); then
             echo "Refusing to compile $count derivations; investigate cache/replacement scope" >&2
             exit 1
