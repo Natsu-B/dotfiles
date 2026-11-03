@@ -61,7 +61,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          report="$(nix eval --json --expr '
+          report="$(nix eval --impure --json --expr '
             let
               flake = builtins.getFlake (toString ./.);
               stable = flake.inputs.nixpkgs.legacyPackages."x86_64-linux";
