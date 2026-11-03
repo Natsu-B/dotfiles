@@ -137,7 +137,7 @@ jobs:
           set -euo pipefail
           plan="$(nix build --dry-run --no-link .#nixosConfigurations.nixos.config.system.build.toplevel 2>&1)"
           printf '%s\n' "$plan"
-          count="$(printf '%s\n' "$plan" | sed -nE 's/^these ([0-9]+) derivations will be built:.*/\\1/p' | head -n 1)"
+          count="$(printf '%s\n' "$plan" | sed -nE 's/^these ([0-9]+) derivations will be built:.*/\1/p' | head -n 1)"
           if [[ -z "$count" ]] && grep -q 'this derivation will be built:' <<<"$plan"; then
             count=1
           fi
