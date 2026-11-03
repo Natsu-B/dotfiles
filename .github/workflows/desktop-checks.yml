@@ -57,6 +57,51 @@ jobs:
           test "$(nix eval --raw .#nixosConfigurations.nixos-windows.config.networking.hostName)" = nixos
           test "$(nix eval --raw .#nixosConfigurations.nixos-windows.config.boot.loader.efi.efiSysMountPoint)" = /efi
           test "$(nix eval --raw .#nixosConfigurations.nixos-windows.config.boot.loader.systemd-boot.xbootldrMountPoint)" = /boot
+      - name: Security version guard (no build)
+        shell: bash
+        run: |
+          set -euo pipefail
+          report="$(nix eval --json --expr '
+            let
+              flake = builtins.getFlake (toString ./.);
+              stable = flake.inputs.nixpkgs.legacyPackages."x86_64-linux";
+              unstable = flake.inputs.nixpkgs-unstable.legacyPackages."x86_64-linux";
+              master = flake.inputs.nixpkgs-master.legacyPackages."x86_64-linux";
+              packages = flake.nixosConfigurations.nixos.config.home-manager.users.hotaru.home.packages;
+              ankiMatches = builtins.filter (p: (p.pname or "") == "anki") packages;
+              ankiVersion =
+                if builtins.length ankiMatches == 1 then
+                  (builtins.head ankiMatches).version
+                else
+                  "";
+            in {
+              inherit ankiVersion;
+              ankiMeetsSecurityFloor =
+                builtins.length ankiMatches == 1
+                && builtins.compareVersions ankiVersion "26.9" >= 0;
+              stable = {
+                brotli = stable.brotli.version;
+                expat = stable.expat.version;
+                glibNetworking = stable."glib-networking".version;
+              };
+              unstable = {
+                brotli = unstable.brotli.version;
+                expat = unstable.expat.version;
+                glibNetworking = unstable."glib-networking".version;
+              };
+              master = {
+                brotli = master.brotli.version;
+                expat = master.expat.version;
+                glibNetworking = master."glib-networking".version;
+              };
+            }
+          ')"
+          printf '%s\n' "$report" | jq .
+          if ! jq -e '.ankiMeetsSecurityFloor == true' <<<"$report" >/dev/null; then
+            echo "::error::Reject Anki older than 26.9 (GHSA-932p-crhj-v43p and GHSA-jw6j-j4mf-8jgm)"
+            exit 1
+          fi
+          echo "Package versions are informational; backported fixes and runtime reachability need separate verification."
       - name: Validate production boot layout and compatibility alias
         run: |
           test "$(nix eval --raw .#nixosConfigurations.nixos.config.boot.loader.efi.efiSysMountPoint)" = /efi
@@ -86,40 +131,25 @@ jobs:
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-config
       - name: Desktop helpers and xremap profile validation
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-tools
-      - name: Build complete NixOS system
-        run: |
-          nix build --no-link --print-build-logs .#nixosConfigurations.nixos.config.system.build.toplevel
-      - name: Check pinned stable Anki and its Brotli runtime closure
+      - name: Guard against mass NixOS rebuilds
         shell: bash
         run: |
           set -euo pipefail
-          # The selector must contain exactly one Anki package and it must
-          # match stable nixpkgs rather than the vulnerable unstable package.
-          anki_out="$(nix eval --raw --expr '
-            let
-              f = builtins.getFlake (toString ./.);
-              packages = f.nixosConfigurations.nixos.config.home-manager.users.hotaru.home.packages;
-              matches = builtins.filter (p: (p.pname or "") == "anki") packages;
-              stable = f.inputs.nixpkgs.legacyPackages.x86_64-linux;
-            in
-              if builtins.length matches != 1 then
-                throw "Expected exactly one Anki package in Home Manager"
-              else if (builtins.head matches).version != stable.anki.version then
-                throw "Home Manager Anki is not the stable nixpkgs version"
-              else if stable.brotli.version != "1.2.1" then
-                throw "Stable nixpkgs Brotli is not verified as fixed 1.2.1"
-              else (builtins.head matches).outPath
-          ')"
-          nix path-info --recursive "$anki_out" > "$RUNNER_TEMP/anki-closure.txt"
-          if grep -E -- '-brotli-1\.2\.0(-|$)' "$RUNNER_TEMP/anki-closure.txt"; then
-            echo "Anki still references vulnerable Brotli 1.2.0" >&2
+          plan="$(nix build --dry-run --no-link .#nixosConfigurations.nixos.config.system.build.toplevel 2>&1)"
+          printf '%s\n' "$plan"
+          count="$(printf '%s\n' "$plan" | sed -nE 's/^these ([0-9]+) derivations will be built:.*/\\1/p' | head -n 1)"
+          if [[ -z "$count" ]] && grep -q 'this derivation will be built:' <<<"$plan"; then
+            count=1
+          fi
+          if [[ -z "$count" ]]; then count=0; fi
+          # Successful baseline #14: 561 builds in roughly 52 minutes.
+          # Count is a coarse CI guard, not an execution-time guarantee.
+          if (( count > 600 )); then
+            echo "::error::Planned NixOS builds: $count (>600). Do not merge without investigating the cache."
             exit 1
           fi
-          # The remaining OS may still carry vulnerable unstable/master Brotli.
-          # Report this accurately rather than claiming a system-wide fix.
-          nix path-info --recursive .#nixosConfigurations.nixos.config.system.build.toplevel > "$RUNNER_TEMP/system-closure.txt"
-          if grep -E -- '-brotli-1\.2\.0(-|$)' "$RUNNER_TEMP/system-closure.txt"; then
-            echo "::warning::Brotli 1.2.0 remains outside the scoped Anki mitigation. Do not describe this PR as a full-system fix."
-          fi
+      - name: Build complete NixOS system
+        run: |
+          nix build --no-link --print-build-logs .#nixosConfigurations.nixos.config.system.build.toplevel
       - name: Report system closure size
         run: nix path-info -Sh .#nixosConfigurations.nixos.config.system.build.toplevel

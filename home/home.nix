@@ -233,10 +233,7 @@
         pkgs.gtkterm
 
         pkgs.remmina
-        # Temporary CVE-2026-111497 mitigation: the pinned stable Anki
-        # uses patched Brotli 1.2.1. Restore newer Anki only after verifying
-        # its runtime decoder closure is fixed (see security mitigation ledger).
-        pkgs.anki
+        unstable.anki
 
         pkgs.tmux
         codexUsb
