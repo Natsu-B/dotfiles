@@ -80,8 +80,6 @@ stdenvNoCC.mkDerivation {
     substituteInPlace "$out/share/applications/chatgpt.desktop" \
       --replace-fail 'Exec=chatgpt' "Exec=$out/bin/chatgpt"
   '';
-  # Exposed for evaluation-only CI assurance that our override is selected.
-  passthru.securityExpatVersion = expat.version;
   meta = {
     description = "Official ChatGPT desktop app with Codex";
     homepage = "https://learn.chatgpt.com/docs/linux/linux-app";
