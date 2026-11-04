@@ -74,8 +74,15 @@ jobs:
                   (builtins.head ankiMatches).version
                 else
                   "";
+              desktopApps = builtins.filter (p:
+                builtins.elem (p.pname or "") [ "codex-desktop" "claude-desktop" ]
+              ) packages;
+              securedDesktopApps = builtins.length desktopApps == 2
+                && builtins.all (p:
+                  (p.passthru.securityExpatVersion or "") == "2.10.0"
+                ) desktopApps;
             in {
-              inherit ankiVersion;
+              inherit ankiVersion securedDesktopApps;
               ankiMeetsSecurityFloor =
                 builtins.length ankiMatches == 1
                 && builtins.compareVersions ankiVersion "26.9" >= 0;
@@ -101,7 +108,11 @@ jobs:
             echo "::error::Reject Anki older than 26.9 (GHSA-932p-crhj-v43p and GHSA-jw6j-j4mf-8jgm)"
             exit 1
           fi
-          echo "Package versions are informational; backported fixes and runtime reachability need separate verification."
+          if ! jq -e '.securedDesktopApps == true' <<<"$report" >/dev/null; then
+            echo "::error::Both desktop apps must use the patched Expat 2.10.0 runtime input."
+            exit 1
+          fi
+          echo "Package versions are informational; check runtime closures and bundled libraries separately."
       - name: Validate production boot layout and compatibility alias
         run: |
           test "$(nix eval --raw .#nixosConfigurations.nixos.config.boot.loader.efi.efiSysMountPoint)" = /efi
