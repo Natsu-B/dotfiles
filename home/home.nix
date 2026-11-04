@@ -19,8 +19,18 @@
     let
       gef = pkgs.callPackage ./app/gef.nix { };
       gemini-cli = pkgs.gemini-cli;
-      codex-desktop = pkgs.callPackage ./app/codex-desktop.nix { };
-      claude-desktop = pkgs.callPackage ./app/claude-desktop.nix { };
+      # Narrow CVE-2026-113351/115506/117610/118370 mitigation.
+      # Do not overlay Expat across nixpkgs: that would rebuild unrelated software.
+      # The upstream 2.10.0 source/hash are from NixOS/nixpkgs PR #582242.
+      secureExpat = pkgs.expat.overrideAttrs (_: {
+        version = "2.10.0";
+        src = pkgs.fetchurl {
+          url = "https://github.com/libexpat/libexpat/releases/download/R_2_10_0/expat-2.10.0.tar.xz";
+          hash = "sha256-xiS6KZj8Zd8RY6SWQf8/mrcxOLEWQdkshr7g+wGxvH8=";
+        };
+      });
+      codex-desktop = pkgs.callPackage ./app/codex-desktop.nix { expat = secureExpat; };
+      claude-desktop = pkgs.callPackage ./app/claude-desktop.nix { expat = secureExpat; };
       vivado = pkgs.callPackage ./app/vivado.nix { };
       cfuProvingGround = pkgs.callPackage ./app/cfu-proving-ground.nix { inherit vivado; };
       temurin-jdk = pkgs.javaPackages.compiler.temurin-bin.jdk-25;

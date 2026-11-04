@@ -11,7 +11,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -57,6 +57,69 @@ jobs:
           test "$(nix eval --raw .#nixosConfigurations.nixos-windows.config.networking.hostName)" = nixos
           test "$(nix eval --raw .#nixosConfigurations.nixos-windows.config.boot.loader.efi.efiSysMountPoint)" = /efi
           test "$(nix eval --raw .#nixosConfigurations.nixos-windows.config.boot.loader.systemd-boot.xbootldrMountPoint)" = /boot
+      - name: Security version guard (no build)
+        shell: bash
+        run: |
+          set -euo pipefail
+          report="$(nix eval --impure --json --expr '
+            let
+              flake = builtins.getFlake (toString ./.);
+              stable = flake.inputs.nixpkgs.legacyPackages."x86_64-linux";
+              unstable = flake.inputs.nixpkgs-unstable.legacyPackages."x86_64-linux";
+              master = flake.inputs.nixpkgs-master.legacyPackages."x86_64-linux";
+              packages = flake.nixosConfigurations.nixos.config.home-manager.users.hotaru.home.packages;
+              ankiMatches = builtins.filter (p: (p.pname or "") == "anki") packages;
+              ankiVersion =
+                if builtins.length ankiMatches == 1 then
+                  (builtins.head ankiMatches).version
+                else
+                  "";
+              desktopApps = builtins.filter (p:
+                builtins.elem (p.pname or "") [ "codex-desktop" "claude-desktop" ]
+              ) packages;
+              # Inspect the actual direct derivation inputs, not a descriptive passthru flag.
+              securedDesktopApps = builtins.length desktopApps == 2
+                && builtins.all (p:
+                  let
+                    directExpat = builtins.filter (dep:
+                      (dep.pname or "") == "expat"
+                    ) (p.buildInputs or []);
+                  in
+                    builtins.length directExpat == 1
+                    && (builtins.head directExpat).version == "2.10.0"
+                ) desktopApps;
+            in {
+              inherit ankiVersion securedDesktopApps;
+              ankiMeetsSecurityFloor =
+                builtins.length ankiMatches == 1
+                && builtins.compareVersions ankiVersion "26.9" >= 0;
+              stable = {
+                brotli = stable.brotli.version;
+                expat = stable.expat.version;
+                glibNetworking = stable."glib-networking".version;
+              };
+              unstable = {
+                brotli = unstable.brotli.version;
+                expat = unstable.expat.version;
+                glibNetworking = unstable."glib-networking".version;
+              };
+              master = {
+                brotli = master.brotli.version;
+                expat = master.expat.version;
+                glibNetworking = master."glib-networking".version;
+              };
+            }
+          ')"
+          printf '%s\n' "$report" | jq .
+          if ! jq -e '.ankiMeetsSecurityFloor == true' <<<"$report" >/dev/null; then
+            echo "::error::Reject Anki older than 26.9 (GHSA-932p-crhj-v43p and GHSA-jw6j-j4mf-8jgm)"
+            exit 1
+          fi
+          if ! jq -e '.securedDesktopApps == true' <<<"$report" >/dev/null; then
+            echo "::error::Both desktop apps must use the patched Expat 2.10.0 runtime input."
+            exit 1
+          fi
+          echo "Package versions are informational; check runtime closures and bundled libraries separately."
       - name: Validate production boot layout and compatibility alias
         run: |
           test "$(nix eval --raw .#nixosConfigurations.nixos.config.boot.loader.efi.efiSysMountPoint)" = /efi
@@ -67,12 +130,42 @@ jobs:
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.keyboard-access
       - name: Hibernate policy
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.hibernate-policy
+      - name: Guard against unexpectedly large rebuilds
+        shell: bash
+        run: |
+          set -euo pipefail
+          plan="$(nix build --dry-run --no-link .#checks.x86_64-linux.desktop-entries 2>&1)"
+          printf '%s\n' "$plan"
+          # Nix omits the "will be built" heading if all outputs are cached.
+          count="$(printf '%s\n' "$plan" | sed -nE 's/^these ([0-9]+) derivations will be built:.*/\1/p' | head -n 1)"
+          count="${count:-0}"
+          if (( count > 100 )); then
+            echo "Refusing to compile $count derivations; investigate cache/replacement scope" >&2
+            exit 1
+          fi
       - name: Build and validate Home Manager desktop entries
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-entries
       - name: Hyprland Lua validation (real pinned compositor)
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-config
       - name: Desktop helpers and xremap profile validation
         run: nix build --no-link --print-build-logs .#checks.x86_64-linux.desktop-tools
+      - name: Guard against mass NixOS rebuilds
+        shell: bash
+        run: |
+          set -euo pipefail
+          plan="$(nix build --dry-run --no-link .#nixosConfigurations.nixos.config.system.build.toplevel 2>&1)"
+          printf '%s\n' "$plan"
+          count="$(printf '%s\n' "$plan" | sed -nE 's/^these ([0-9]+) derivations will be built:.*/\1/p' | head -n 1)"
+          if [[ -z "$count" ]] && grep -q 'this derivation will be built:' <<<"$plan"; then
+            count=1
+          fi
+          if [[ -z "$count" ]]; then count=0; fi
+          # Successful baseline #14: 561 builds in roughly 52 minutes.
+          # Count is a coarse CI guard, not an execution-time guarantee.
+          if (( count > 600 )); then
+            echo "::error::Planned NixOS builds: $count (>600). Do not merge without investigating the cache."
+            exit 1
+          fi
       - name: Build complete NixOS system
         run: |
           nix build --no-link --print-build-logs .#nixosConfigurations.nixos.config.system.build.toplevel

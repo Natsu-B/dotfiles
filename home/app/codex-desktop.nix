@@ -1,4 +1,4 @@
-{ pkgs, lib, stdenvNoCC, fetchurl, dpkg, makeWrapper, autoPatchelfHook }:
+{ pkgs, lib, stdenvNoCC, fetchurl, dpkg, makeWrapper, autoPatchelfHook, expat }:
 let
   version = "26.928.31416";
 in
@@ -12,14 +12,13 @@ stdenvNoCC.mkDerivation {
     hash = "sha256-xGNyfx7V3O14M4yOKmXYib0VMnb/Nz/XdpjMua8y0YE=";
   };
   nativeBuildInputs = [ dpkg makeWrapper autoPatchelfHook ];
-  buildInputs = with pkgs; [
+  buildInputs = (with pkgs; [
     stdenv.cc.cc
     alsa-lib
     at-spi2-atk
     cairo
     cups
     dbus
-    expat
     gdk-pixbuf
     glib
     gtk3
@@ -47,7 +46,7 @@ stdenvNoCC.mkDerivation {
     tpm2-tss
     vulkan-loader
     zlib
-  ];
+  ]) ++ [ expat ];
   # These libraries are loaded dynamically, so keep them in the ELF runpath.
   # Do not export LD_LIBRARY_PATH into browsers launched by the app.
   runtimeDependencies = with pkgs; [ libsecret libnotify libGL pipewire tpm2-tss vulkan-loader ];
