@@ -77,9 +77,16 @@ jobs:
               desktopApps = builtins.filter (p:
                 builtins.elem (p.pname or "") [ "codex-desktop" "claude-desktop" ]
               ) packages;
+              # Inspect the actual direct derivation inputs, not a descriptive passthru flag.
               securedDesktopApps = builtins.length desktopApps == 2
                 && builtins.all (p:
-                  (p.passthru.securityExpatVersion or "") == "2.10.0"
+                  let
+                    directExpat = builtins.filter (dep:
+                      (dep.pname or "") == "expat"
+                    ) (p.buildInputs or []);
+                  in
+                    builtins.length directExpat == 1
+                    && (builtins.head directExpat).version == "2.10.0"
                 ) desktopApps;
             in {
               inherit ankiVersion securedDesktopApps;
