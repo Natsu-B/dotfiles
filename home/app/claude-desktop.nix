@@ -216,6 +216,7 @@ stdenv.mkDerivation (finalAttrs: {
   '';
 
   passthru = {
+    securityExpatVersion = expat.version;
     updateScript = ../../scripts/update.sh;
     inherit sources;
   };
