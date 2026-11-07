@@ -19,6 +19,7 @@
     let
       gef = pkgs.callPackage ./app/gef.nix { };
       gemini-cli = pkgs.gemini-cli;
+      textlint = pkgs.callPackage ./app/textlint.nix { };
       codex-desktop = pkgs.callPackage ./app/codex-desktop.nix { };
       claude-desktop = pkgs.callPackage ./app/claude-desktop.nix { };
       vivado = pkgs.callPackage ./app/vivado.nix { };
@@ -193,6 +194,9 @@
         pkgs.master.claude-code
         # Gemini cli
         gemini-cli
+
+        # 日本語文書の lint
+        textlint
 
         # PDF viewer
         pkgs.kdePackages.okular
