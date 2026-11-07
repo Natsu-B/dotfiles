@@ -18,7 +18,6 @@
   home =
     let
       gef = pkgs.callPackage ./app/gef.nix { };
-      gemini-cli = pkgs.gemini-cli;
       textlint = pkgs.callPackage ./app/textlint.nix { };
       codex-desktop = pkgs.callPackage ./app/codex-desktop.nix { };
       claude-desktop = pkgs.callPackage ./app/claude-desktop.nix { };
@@ -192,8 +191,6 @@
         # Claude Code >= 2.1.284 is required for Opus 5.5 and Sonnet 5.5.
         # The locked nixpkgs-master provides 2.1.289; stable is still 2.1.223.
         pkgs.master.claude-code
-        # Gemini cli
-        gemini-cli
 
         # 日本語文書の lint
         textlint
