@@ -220,7 +220,36 @@ stdenv.mkDerivation (finalAttrs: {
     # Put the selected patched library first in ELF search order, preserving
     # other library locations and the application's bundled $ORIGIN entries.
     patched=0
-    while IFS= read -r -d '' elf; do
+    while IFS= read -r -d 
+      if patchelf --print-needed "$elf" 2>/dev/null | grep -Fxq 'libexpat.so.1'; then
+        oldRpath="$(patchelf --print-rpath "$elf")"
+        patchelf --set-rpath "${lib.getLib expat}/lib:$oldRpath" "$elf"
+        patched=$((patched + 1))
+      fi
+    done < <(find "$out" -type f -print0)
+    if (( patched == 0 )); then
+      echo "No directly linked Expat ELF was found; inspect vendor binaries" >&2
+      exit 1
+    fi
+  '';
+
+  passthru = {
+    updateScript = ../../scripts/update.sh;
+    inherit sources;
+  };
+
+  meta = {
+    description = "Official Claude Desktop Linux beta";
+    homepage = "https://claude.ai";
+    changelog = "https://code.claude.com/docs/en/desktop-linux";
+    license = lib.licenses.unfree;
+    mainProgram = "claude-desktop";
+    platforms = builtins.attrNames sources;
+    sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
+    maintainers = [ ];
+  };
+})
+\0' elf; do
       if patchelf --print-needed "$elf" 2>/dev/null | grep -Fxq 'libexpat.so.1'; then
         oldRpath="$(patchelf --print-rpath "$elf")"
         patchelf --set-rpath "${lib.getLib expat}/lib:$oldRpath" "$elf"

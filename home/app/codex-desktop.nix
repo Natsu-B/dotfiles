@@ -85,7 +85,27 @@ stdenvNoCC.mkDerivation {
     # Put the selected patched library first in ELF search order, preserving
     # other library locations and the application's bundled $ORIGIN entries.
     patched=0
-    while IFS= read -r -d '' elf; do
+    while IFS= read -r -d 
+      if patchelf --print-needed "$elf" 2>/dev/null | grep -Fxq 'libexpat.so.1'; then
+        oldRpath="$(patchelf --print-rpath "$elf")"
+        patchelf --set-rpath "${lib.getLib expat}/lib:$oldRpath" "$elf"
+        patched=$((patched + 1))
+      fi
+    done < <(find "$out" -type f -print0)
+    if (( patched == 0 )); then
+      echo "No directly linked Expat ELF was found; inspect vendor binaries" >&2
+      exit 1
+    fi
+  '';
+  meta = {
+    description = "Official ChatGPT desktop app with Codex";
+    homepage = "https://learn.chatgpt.com/docs/linux/linux-app";
+    license = lib.licenses.unfree;
+    platforms = [ "x86_64-linux" ];
+    mainProgram = "codex-desktop";
+  };
+}
+\0' elf; do
       if patchelf --print-needed "$elf" 2>/dev/null | grep -Fxq 'libexpat.so.1'; then
         oldRpath="$(patchelf --print-rpath "$elf")"
         patchelf --set-rpath "${lib.getLib expat}/lib:$oldRpath" "$elf"
