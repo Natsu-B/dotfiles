@@ -239,16 +239,55 @@ jobs:
                 builtins.head apps
             ')"
             test -x "$out/bin/$name"
+            expected="$(nix eval --impure --raw --expr '
+              let
+                flake = builtins.getFlake (toString ./.);
+                packages = flake.nixosConfigurations.nixos.config.home-manager.users.hotaru.home.packages;
+                apps = builtins.filter (p: (p.pname or "") == builtins.getEnv "TARGET_DESKTOP") packages;
+                expats = if builtins.length apps == 1
+                  then builtins.filter (p: (p.pname or "") == "expat") ((builtins.head apps).buildInputs or [])
+                  else [];
+              in
+                assert builtins.length expats == 1;
+                assert (builtins.head expats).version == "2.10.0";
+                toString (builtins.head expats)
+            ')"
             echo "::group::$name runtime closure"
             nix-store --query --requisites "$out" | grep -E '(expat|libexpat)' || true
             echo "::endgroup::"
             echo "::group::$name direct ELF Expat dependencies and runpaths"
+            linked=0
             while IFS= read -r -d '' file; do
-              if readelf -d "$file" 2>/dev/null | grep -q 'Shared library: \[libexpat\.so'; then
+              dynamic="$(readelf -d "$file" 2>/dev/null || true)"
+              if grep -q 'Shared library: \[libexpat\.so\.1\]' <<<"$dynamic"; then
+                linked=$((linked + 1))
                 printf 'ELF: %s\n' "$file"
-                readelf -d "$file" 2>/dev/null | grep -E 'NEEDED|RPATH|RUNPATH' || true
+                printf '%s\n' "$dynamic" | grep -E 'NEEDED|RPATH|RUNPATH' || true
+                runpath="$(printf '%s\n' "$dynamic" | sed -nE 's/^.*Library (runpath|rpath): \[([^]]*)\].*$/\2/p' | head -n 1)"
+                if [[ -z "$runpath" ]]; then
+                  echo "::error::Missing ELF runpath for $file" >&2
+                  exit 1
+                fi
+                resolved=""
+                IFS=':' read -ra entries <<<"$runpath"
+                for entry in "${entries[@]}"; do
+                  origin="$(dirname "$file")"
+                  entry="${entry//\$ORIGIN/$origin}"
+                  if [[ -e "$entry/libexpat.so.1" ]]; then
+                    resolved="$entry"
+                    break
+                  fi
+                done
+                if [[ "$resolved" != "$expected/lib" ]]; then
+                  echo "::error::$file resolves libexpat.so.1 from $resolved, expected $expected/lib" >&2
+                  exit 1
+                fi
               fi
             done < <(find "$out" -type f -print0)
+            if (( linked == 0 )); then
+              echo "::error::No directly linked libexpat.so.1 found in $name" >&2
+              exit 1
+            fi
             echo "::endgroup::"
           done
-          echo "Bundled libraries and dlopen calls still require separate review."
+          echo "Checked direct ELF runpath selection; bundled static/dlopen libraries still require separate review."
