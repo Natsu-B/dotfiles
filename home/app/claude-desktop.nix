@@ -8,6 +8,7 @@
   dpkg,
   asar,
   autoPatchelfHook,
+  patchelf,
   makeWrapper,
   wrapGAppsHook3,
   alsa-lib,
@@ -147,6 +148,7 @@ stdenv.mkDerivation (finalAttrs: {
     dpkg
     asar
     autoPatchelfHook
+    patchelf
     makeWrapper
     perl
     wrapGAppsHook3
@@ -213,6 +215,22 @@ stdenv.mkDerivation (finalAttrs: {
     makeWrapper "$out/lib/claude-desktop/claude-desktop" "$out/bin/claude-desktop" \
       "''${gappsWrapperArgs[@]}" \
       --add-flags "--password-store=gnome-libsecret"
+
+    # autoPatchelf can discover an older Expat transitively before this input.
+    # Put the selected patched library first in ELF search order, preserving
+    # other library locations and the application's bundled $ORIGIN entries.
+    patched=0
+    while IFS= read -r -d '' elf; do
+      if patchelf --print-needed "$elf" 2>/dev/null | grep -Fxq 'libexpat.so.1'; then
+        oldRpath="$(patchelf --print-rpath "$elf")"
+        patchelf --set-rpath "${lib.getLib expat}/lib:$oldRpath" "$elf"
+        patched=$((patched + 1))
+      fi
+    done < <(find "$out" -type f -print0)
+    if (( patched == 0 )); then
+      echo "No directly linked Expat ELF was found; inspect vendor binaries" >&2
+      exit 1
+    fi
   '';
 
   passthru = {
