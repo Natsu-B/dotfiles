@@ -38,6 +38,15 @@ Draft PR の変更は **mainに適用済みとは扱わない**。更新と復�
 | `system.replaceDependencies`でBrotliをシステム全体で置換 | `nixos/configuration.nix`から削除 | IFDを伴い`nix flake check --no-build`が`references.nix.drv`で失敗。mainには未適用 |
 | `unstable.anki` 26.09.3を`pkgs.anki` 25.09.4に変更 | **`home/home.nix`を元に戻す** | 25.09.4に上記の高リスクGHSAが残る。mainには未適用 |
 
+## PR #15 CIジョブ分割（2026-11-08）
+
+- **元の設定:** `.github/workflows/desktop-checks.yml` の単一ジョブで評価・Desktop checks・NixOS全体のビルドを実施し、90分で一律終了。
+- **観測した原因:** [Desktop configuration run 41745844683](https://github.com/Natsu-B/dotfiles/actions/runs/41745844683) では評価・バージョン検査・Desktop entriesが成功したが、NixOS全体の553 derivationsをビルド中に90分制限で停止。中断時は`riscv32-none-elf-gcc`などをソースビルドしていた。大量依存置換の上限600件は超えていない。
+- **今回の変更:** 軽量チェックは90分を維持。`full-system-build`を**独立した必須ジョブ**として上限120分で実行し、600件を超える再ビルド予定があれば早期失敗させる。`desktop-app-builds`も必須ジョブに分離し、2つのDesktopアプリ本体をビルドしてELFの直接依存とNix store閉包を出力する。
+- **適用対象と制約:** GitHub ActionsのCIに限る。NixOS構成の機能やExpat依存の範囲は変えない。ジョブ成功が実機起動や`dlopen`・バンドルされたExpat全体の安全性を保証するわけではない。
+- **解除条件:** 上流キャッシュの改善などにより全システムビルドがチェックと同一90分ジョブ内で安定して完走することを確認できた場合、分離ジョブと120分上限を見直す。無条件に更なる時間延長を行わない。
+- **未完了の検証:** 分割後CIの成功確認、実機起動とアプリ側のバンドル・動的ロード検証。これらは合格するまでマージ完了条件として扱わない。
+
 ## 既存のその他の暫定対策候補
 
 | 対象 | 元の目的 | 解除条件 |
