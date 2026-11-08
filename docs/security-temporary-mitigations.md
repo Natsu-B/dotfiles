@@ -8,7 +8,7 @@ Draft PR の変更は **mainに適用済みとは扱わない**。更新と復�
 | --- | --- | --- |
 | Anki: GHSA-932p-crhj-v43p / GHSA-jw6j-j4mf-8jgm | **26.09.3を維持** | 上流の修正済み下限は26.9。PR #15の25.09.4へのダウングレードを撤回し、導入Ankiが26.9未満にならないようCIで検査 |
 | Brotli: CVE-2026-111497 / GHSA-9v8h-qqgm-4m35 | **未解決、実行時到達性は要検証** | locked stableは1.2.1、unstable/masterは1.2.0。全域overlayは再ビルドが多すぎるため不採用。上流の修正済みパッケージとバイナリキャッシュを確認後に必要な入力のみ更新 |
-| Expat: CVE-2026-113351 / 115506 / 117610 / 118370 | **Codex DesktopとClaude Desktopの直接依存のみ暫定対策・CI検証待ち** | 3系統とも2.9.0。2アプリの直接依存に上流2.10.0を適用（nixpkgs PR #582242のソースhash）。他の依存先、バンドル版、間接参照は未対策の可能性あり |
+| Expat: CVE-2026-113351 / 115506 / 117610 / 118370 | **Codex DesktopとClaude Desktopの直接リンクの修正をCI再検証中** | 3系統とも2.9.0。2アプリの直接依存に上流2.10.0を適用（nixpkgs PR #582242のソースhash）。他の依存先、バンドル版、間接参照は未対策の可能性あり |
 | glib-networking: CVE-2026-103963 / GHSA-xwh2-f88c-v27r | **未解決、TLSクライアントの到達性は要検証** | 3系統とも2.80.1。上流2.90.1または該当修正のバックポートと互換性を確認後に限定更新 |
 | [PR #14](https://github.com/Natsu-B/dotfiles/pull/14) | **mainにマージ済み** | Nix CI Action、Gemini CLI、Tailscaleの既存セキュリティ修正は保持。旧版へ無条件に戻さない |
 | [PR #15](https://github.com/Natsu-B/dotfiles/pull/15) | **Draft・限定的な暫定修正** | Ankiの下限・大量ビルド防止に加え、2アプリの直接依存Expatだけ2.10.0に更新。Brotli・glib-networking、他のExpat利用者は未修正 |
@@ -26,7 +26,7 @@ Draft PR の変更は **mainに適用済みとは扱わない**。更新と復�
 - 対象：`home/home.nix`, `home/app/codex-desktop.nix`, `home/app/claude-desktop.nix`。
 - 変更前：両アプリとも`pkgs.expat` (2.9.0)に直接依存。変更後：両アプリに`secureExpat` (2.10.0)を明示的に渡す。`pkgs`全体はoverrideしない。
 - 根拠：[上流Expat 2.10.0](https://github.com/libexpat/libexpat/releases/tag/R_2_10_0)と[nixpkgs PR #582242](https://github.com/NixOS/nixpkgs/pull/582242)で採用されたソースハッシュ。**システム全体への適用ではない**。
-- 検証：CIで2アプリの選択Expatバージョンを評価し、ビルド時の自動パッチ処理を検査する。実機の`ldd`/ストア閉包およびアプリへの入力経路は要検証。既存ライブラリ経由で旧Expatが残る可能性を排除していない。
+- 検証：CIで2アプリの選択Expatバージョンを評価し、ビルド後ELFの修正版優先をCIで検査する。実機の`ldd`/ストア閉包およびアプリへの入力経路は要検証。既存ライブラリ経由で旧Expatが残る可能性を排除していない。
 - 復旧条件：固定nixpkgsの`pkgs.expat`が4件の修正を含む2.10.0以上（または修正を全てバックポート）に更新され、バイナリキャッシュ・2アプリのビルド・起動・ELF依存を確認できたとき。この時は`secureExpat`と明示的引数だけを削除し、元の`pkgs.callPackage ... { }`に戻す復旧PRを作成。**安全性の保証がない状態で暫定対策を取り除かない**。
 
 ## PR #15で撤回した暫定実装
@@ -37,6 +37,15 @@ Draft PR の変更は **mainに適用済みとは扱わない**。更新と復�
 | CI制限を360分まで延長 | 延長を取り消し、PRでは90分を上限に設定 | 大量再ビルドを隠さないため。mainには未適用 |
 | `system.replaceDependencies`でBrotliをシステム全体で置換 | `nixos/configuration.nix`から削除 | IFDを伴い`nix flake check --no-build`が`references.nix.drv`で失敗。mainには未適用 |
 | `unstable.anki` 26.09.3を`pkgs.anki` 25.09.4に変更 | **`home/home.nix`を元に戻す** | 25.09.4に上記の高リスクGHSAが残る。mainには未適用 |
+
+## Expatの実リンク先修正（2026-11-08、追加検証待ち）
+
+- **検出した不具合:** [Desktop configuration run 42437775605](https://github.com/Natsu-B/dotfiles/actions/runs/42437775605) は全CIが成功したが、`desktop-app-builds` のログにおいて、Codex DesktopとClaude Desktopの双方で `autoPatchelfHook` が `libexpat.so.1` を **Expat 2.9.0** から選択していた。2.10.0を `buildInputs` に追加しただけでは意図した対策にならない。
+- **変更前:** 両アプリのELFが `libexpat.so.1 -> ...-expat-2.9.0/lib` と解決され、CIはその内容を表示するだけだった。
+- **修正:** `home/app/codex-desktop.nix` と `home/app/claude-desktop.nix` の `postFixup` で、`libexpat.so.1` を直接必要とするELFのRUNPATH先頭に修正版 `lib.getLib expat` を設定する。他のRUNPATHは維持し、`patchelf` を明示的に導入する。
+- **回帰防止:** `.github/workflows/desktop-checks.yml` で両アプリの全ELFを調べ、直接 `libexpat.so.1` を必要とする実行ファイルのランタイム探索順序が **Expat 2.10.0** を最初に選ぶことを必須条件にした。以前のように未修正でも成功する検査には戻さない。
+- **検証条件:** 修正後の3ジョブが成功し、Expat実リンク検査でも2.10.0が先頭となることをログで再確認する。バンドル版・静的リンク・`dlopen` の利用はこの検査の範囲外であり、修正済みと断定しない。
+- **復旧:** 固定nixpkgsと実行時の全対象が修正済みとなり、アプリビルド・動作を検証したうえで、暫定的なRUNPATH修正と `secureExpat` をともに削除する復旧PRを作成する。
 
 ## PR #15 CIジョブ分割（2026-11-08）
 
