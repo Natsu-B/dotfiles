@@ -18,6 +18,7 @@
   home =
     let
       gef = pkgs.callPackage ./app/gef.nix { };
+      textlint = pkgs.callPackage ./app/textlint.nix { };
       # Narrow CVE-2026-113351/115506/117610/118370 mitigation.
       # Do not overlay Expat across nixpkgs: that would rebuild unrelated software.
       # The upstream 2.10.0 source/hash are from NixOS/nixpkgs PR #582242.
@@ -200,6 +201,10 @@
         # Claude Code >= 2.1.284 is required for Opus 5.5 and Sonnet 5.5.
         # The locked nixpkgs-master provides 2.1.289; stable is still 2.1.223.
         pkgs.master.claude-code
+
+        # 日本語文書の lint
+        textlint
+
         # PDF viewer
         pkgs.kdePackages.okular
 

@@ -1,0 +1,9 @@
+{
+  "name": "textlint-presets",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "textlint-rule-preset-ai-writing": "1.1.0",
+    "textlint-rule-preset-japanese": "10.0.4"
+  }
+}
