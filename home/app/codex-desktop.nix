@@ -1,4 +1,4 @@
-{ pkgs, lib, stdenvNoCC, fetchurl, dpkg, makeWrapper, autoPatchelfHook, expat }:
+{ pkgs, lib, stdenvNoCC, fetchurl, dpkg, makeWrapper, autoPatchelfHook, patchelf, expat }:
 let
   version = "26.928.31416";
 in
@@ -11,7 +11,7 @@ stdenvNoCC.mkDerivation {
     url = "https://persistent.oaistatic.com/codex-app-prod/linux/deb/pool/main/c/chatgpt/chatgpt_${version}_amd64.deb";
     hash = "sha256-xGNyfx7V3O14M4yOKmXYib0VMnb/Nz/XdpjMua8y0YE=";
   };
-  nativeBuildInputs = [ dpkg makeWrapper autoPatchelfHook ];
+  nativeBuildInputs = [ dpkg makeWrapper autoPatchelfHook patchelf ];
   buildInputs = (with pkgs; [
     stdenv.cc.cc
     alsa-lib
@@ -79,6 +79,23 @@ stdenvNoCC.mkDerivation {
     ln -s chatgpt "$out/bin/codex-desktop"
     substituteInPlace "$out/share/applications/chatgpt.desktop" \
       --replace-fail 'Exec=chatgpt' "Exec=$out/bin/chatgpt"
+  '';
+  postFixup = ''
+    # autoPatchelf can discover an older Expat transitively before this input.
+    # Put the selected patched library first in ELF search order, preserving
+    # other library locations and the application's bundled $ORIGIN entries.
+    patched=0
+    while IFS= read -r -d '' elf; do
+      if patchelf --print-needed "$elf" 2>/dev/null | grep -Fxq 'libexpat.so.1'; then
+        oldRpath="$(patchelf --print-rpath "$elf")"
+        patchelf --set-rpath "${lib.getLib expat}/lib:$oldRpath" "$elf"
+        patched=$((patched + 1))
+      fi
+    done < <(find "$out" -type f -print0)
+    if (( patched == 0 )); then
+      echo "No directly linked Expat ELF was found; inspect vendor binaries" >&2
+      exit 1
+    fi
   '';
   meta = {
     description = "Official ChatGPT desktop app with Codex";
