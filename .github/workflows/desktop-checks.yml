@@ -250,7 +250,7 @@ jobs:
               in
                 assert builtins.length expats == 1;
                 assert (builtins.head expats).version == "2.10.0";
-                toString (builtins.head expats)
+                toString ((builtins.head expats).out)
             ')"
             echo "::group::$name runtime closure"
             nix-store --query --requisites "$out" | grep -E '(expat|libexpat)' || true

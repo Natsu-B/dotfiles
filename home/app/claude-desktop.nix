@@ -215,15 +215,27 @@ stdenv.mkDerivation (finalAttrs: {
     makeWrapper "$out/lib/claude-desktop/claude-desktop" "$out/bin/claude-desktop" \
       "''${gappsWrapperArgs[@]}" \
       --add-flags "--password-store=gnome-libsecret"
+  '';
 
+  # Run this phase only after autoPatchelf and stdenv's RPATH fixups.
+  postPhases = [ "patchExpatRpathPhase" ];
+  patchExpatRpathPhase = ''
+    # Executed after every fixup hook, including autoPatchelf.
     # autoPatchelf can discover an older Expat transitively before this input.
     # Put the selected patched library first in ELF search order, preserving
     # other library locations and the application's bundled $ORIGIN entries.
+    echo "Verifying and patching Expat ELF runpaths after autoPatchelf"
     patched=0
     while IFS= read -r -d "" elf; do
       if patchelf --print-needed "$elf" 2>/dev/null | grep -Fxq 'libexpat.so.1'; then
         oldRpath="$(patchelf --print-rpath "$elf")"
         patchelf --set-rpath "${lib.getLib expat}/lib:$oldRpath" "$elf"
+        actual="$(patchelf --print-rpath "$elf")"
+        case "$actual" in
+          "${lib.getLib expat}/lib:"*) ;;
+          *) echo "Unexpected patched Expat RUNPATH: $elf: $actual" >&2; exit 1 ;;
+        esac
+        echo "Updated Expat RUNPATH: $elf"
         patched=$((patched + 1))
       fi
     done < <(find "$out" -type f -print0)

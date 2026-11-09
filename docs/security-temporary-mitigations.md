@@ -38,12 +38,12 @@ Draft PR の変更は **mainに適用済みとは扱わない**。更新と復�
 | `system.replaceDependencies`でBrotliをシステム全体で置換 | `nixos/configuration.nix`から削除 | IFDを伴い`nix flake check --no-build`が`references.nix.drv`で失敗。mainには未適用 |
 | `unstable.anki` 26.09.3を`pkgs.anki` 25.09.4に変更 | **`home/home.nix`を元に戻す** | 25.09.4に上記の高リスクGHSAが残る。mainには未適用 |
 
-## Expatの実リンク先修正（2026-11-08、追加検証待ち）
+## Expatの実リンク先修正（2026-11-09、追加検証待ち）
 
 - **検出した不具合:** [Desktop configuration run 42437775605](https://github.com/Natsu-B/dotfiles/actions/runs/42437775605) は全CIが成功したが、`desktop-app-builds` のログにおいて、Codex DesktopとClaude Desktopの双方で `autoPatchelfHook` が `libexpat.so.1` を **Expat 2.9.0** から選択していた。2.10.0を `buildInputs` に追加しただけでは意図した対策にならない。
 - **変更前:** 両アプリのELFが `libexpat.so.1 -> ...-expat-2.9.0/lib` と解決され、CIはその内容を表示するだけだった。
-- **修正:** `home/app/codex-desktop.nix` と `home/app/claude-desktop.nix` の `postFixup` で、`libexpat.so.1` を直接必要とするELFのRUNPATH先頭に修正版 `lib.getLib expat` を設定する。他のRUNPATHは維持し、`patchelf` を明示的に導入する。
-- **回帰防止:** `.github/workflows/desktop-checks.yml` で両アプリの全ELFを調べ、直接 `libexpat.so.1` を必要とする実行ファイルのランタイム探索順序が **Expat 2.10.0** を最初に選ぶことを必須条件にした。以前のように未修正でも成功する検査には戻さない。
+- **修正:** `home/app/codex-desktop.nix` と `home/app/claude-desktop.nix` では `postFixup` の処理が後続の `postFixupHooks`（autoPatchelf）で上書きされていたため、全fixup完了後の `postPhases` にRPATH修正を移動し、`libexpat.so.1` を直接必要とするELFのRUNPATH先頭に修正版 `lib.getLib expat` を設定する。他のRUNPATHは維持し、`patchelf` を明示的に導入する。
+- **回帰防止:** `.github/workflows/desktop-checks.yml` で両アプリの全ELFを調べ、直接 `libexpat.so.1` を必要とする実行ファイルのランタイム探索順序が **Expat 2.10.0** を最初に選ぶことを必須条件にした。期待パスは複数出力パッケージの `-dev` ではなく共有ライブラリの `out` を検査する。以前のように未修正でも成功する検査には戻さない。
 - **検証条件:** 修正後の3ジョブが成功し、Expat実リンク検査でも2.10.0が先頭となることをログで再確認する。バンドル版・静的リンク・`dlopen` の利用はこの検査の範囲外であり、修正済みと断定しない。
 - **復旧:** 固定nixpkgsと実行時の全対象が修正済みとなり、アプリビルド・動作を検証したうえで、暫定的なRUNPATH修正と `secureExpat` をともに削除する復旧PRを作成する。
 
