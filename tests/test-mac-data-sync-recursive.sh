@@ -21,9 +21,13 @@ printf 'nested-source\n' > "$source_dir/src/deep/level5/nested.txt"
 printf 'hidden-source\n' > "$source_dir/.hidden/config"
 printf '0123456789abcdef\n' > "$source_dir/.git/refs/heads/main"
 printf 'root-source\n' > "$source_dir/README.md"
+# Portable mode rejects these links. Raw POSIX mode must preserve targets
+# without dereferencing paths that do not exist on the other machine.
+ln -s '/Users/example/Library/Application Support/tool' "$source_dir/mac-absolute-link"
+ln -s '../outside-project' "$source_dir/relative-outside-link"
 
 mutagen sync create --name="$session" --sync-mode=two-way-safe \
-  --no-global-configuration --no-ignore-vcs \
+  --no-global-configuration --no-ignore-vcs --symlink-mode=posix-raw \
   "$source_dir" "$destination_dir"
 timeout 120s mutagen sync flush "$session"
 
@@ -45,6 +49,9 @@ cmp "$source_dir/README.md" "$destination_dir/README.md"
 cmp "$source_dir/src/deep/level5/nested.txt" "$destination_dir/src/deep/level5/nested.txt"
 cmp "$source_dir/.hidden/config" "$destination_dir/.hidden/config"
 cmp "$source_dir/.git/refs/heads/main" "$destination_dir/.git/refs/heads/main"
+[[ -L "$destination_dir/mac-absolute-link" ]]
+[[ "$(readlink "$destination_dir/mac-absolute-link")" == '/Users/example/Library/Application Support/tool' ]]
+[[ "$(readlink "$destination_dir/relative-outside-link")" == '../outside-project' ]]
 
 # Deep descendants created after initial checkout must sync automatically, too.
 mkdir -p "$source_dir/src/deep/level5/added/later"
@@ -58,5 +65,11 @@ printf 'linux-change\n' > "$destination_dir/src/deep/level5/nested.txt"
 timeout 120s mutagen sync flush "$session"
 cmp "$destination_dir/src/deep/level5/nested.txt" \
   "$source_dir/src/deep/level5/nested.txt"
+
+# A Linux-side absolute symlink must propagate back without dereferencing it.
+ln -s '/nix/store/example-build-output' "$destination_dir/linux-absolute-link"
+timeout 120s mutagen sync flush "$session"
+[[ -L "$source_dir/linux-absolute-link" ]]
+[[ "$(readlink "$source_dir/linux-absolute-link")" == '/nix/store/example-build-output' ]]
 
 echo 'Mutagen recursive directory integration PASS'
