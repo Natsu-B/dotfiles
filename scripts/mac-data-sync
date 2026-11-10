@@ -24,6 +24,7 @@ Environment:
 Selecting a directory copies ALL descendants, including hidden files and .git.
 The initial copy waits for completion. Later edits sync automatically.
 Linux files are never automatically cleaned up from ~/work.
+Absolute symlinks are copied verbatim (their targets may not exist on Linux).
 The release command requires explicit confirmation and a full checksum match.
 Within a running two-way session, ordinary deletions DO synchronize to Mac.
 USAGE
@@ -170,7 +171,7 @@ describe_session() {
       (({side:"Mac", endpoint:.alpha}, {side:"Linux", endpoint:.beta}) |
         .side as $side | ((.endpoint.scanProblems // []) + (.endpoint.transitionProblems // []))[] |
         "  " + $side + ": " + .path + "\n    " +
-        (if (.error | contains("target is absolute")) then "This absolute symlink cannot be synchronized."
+        (if (.error | contains("target is absolute")) then "This session rejects an absolute symlink. End sync (keep copies), then start it again to use posix-raw."
          elif (.error | contains("permission denied")) then "Cannot access this path: permission denied."
          else .error end)),
       "Next: Conflicts and errors > Inspect for details."
@@ -262,6 +263,8 @@ start_sync() {
   # The selected directory root is recursively synchronized. Picker depth
   # limits only the list displayed by fzf, never the copied directory depth.
   # Override global ignores and propagate VCS as part of the directory tree.
+  # Both endpoints are POSIX (macOS and NixOS/WSL); preserve absolute link
+  # targets without following them. Portable mode halts on such links.
   if [[ "$mac_kind" == missing ]]; then
     printf 'Uploading Linux %s to Mac ~/data/%s (all descendants) ...\n' "$target" "$relative" >&2
   elif [[ "$linux_kind" == missing ]]; then
@@ -270,7 +273,7 @@ start_sync() {
     printf 'Synchronizing existing Mac and Linux copies (two-way, all descendants) ...\n' >&2
   fi
   mutagen sync create --name="$session" --sync-mode=two-way-safe \
-    --no-global-configuration --no-ignore-vcs \
+    --no-global-configuration --no-ignore-vcs --symlink-mode=posix-raw \
     "$remote:~/data/$relative" "$target"
   mkdir -p -- "$state_dir"
   printf '%s\n' "$relative" > "$state_dir/$session"
