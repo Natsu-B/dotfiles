@@ -16,7 +16,7 @@ mkdir -p "$root/linux/work/new-project/deep" "$root/mac/data"
 echo 'Linux-owned contents' > "$root/linux/work/new-project/deep/README"
 # Mac project path does not exist on purpose.
 mutagen sync create --name=ci-linux-new-directory --sync-mode=two-way-safe \
-  --no-global-configuration --no-ignore-vcs \
+  --no-global-configuration --no-ignore-vcs --symlink-mode=posix-raw \
   "$root/mac/data/new-project" "$root/linux/work/new-project"
 timeout 120s mutagen sync flush ci-linux-new-directory
 cmp "$root/linux/work/new-project/deep/README" "$root/mac/data/new-project/deep/README"
@@ -25,7 +25,7 @@ mkdir -p "$root/linux/work/docs" "$root/mac/data/docs"
 echo 'Linux document' > "$root/linux/work/docs/new.txt"
 # Mac file path does not exist on purpose.
 mutagen sync create --name=ci-linux-new-file --sync-mode=two-way-safe \
-  --no-global-configuration --no-ignore-vcs \
+  --no-global-configuration --no-ignore-vcs --symlink-mode=posix-raw \
   "$root/mac/data/docs/new.txt" "$root/linux/work/docs/new.txt"
 timeout 120s mutagen sync flush ci-linux-new-file
 cmp "$root/linux/work/docs/new.txt" "$root/mac/data/docs/new.txt"
