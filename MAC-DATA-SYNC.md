@@ -108,6 +108,20 @@ mac-data-sync release project-a        # Safely delete ONLY the Linux work copy
 
 Sync sessions resume automatically whenever the NixOS daemon and Mac SSH/Tailscale are reachable. Editing existing Linux files while disconnected remains possible. **Completion of synchronization never deletes Linux files on its own.**
 
+## Absolute symlinks and existing sessions
+
+New sessions explicitly use Mutagen `--symlink-mode=posix-raw`, supported for the POSIX endpoints used here (macOS to NixOS or WSL2). This preserves absolute and otherwise non-portable symlink **targets as links**, not the files they point to. A link such as `/Users/name/tool` may be dangling or point somewhere unrelated on Linux; inspect it before following or editing through it. Symlinks do not make data outside the selected sync root part of the synchronized archive.
+
+Existing Mutagen sessions retain the symlink mode they were created with. Updating the script alone does **not** repair a session already reporting `invalid symbolic link: target is absolute`. First review the session status, save any unsynchronized edits on **both** machines, and keep separate backups before re-creating it:
+
+```sh
+mac-data-sync status project-a
+mac-data-sync terminate project-a  # Ends only this session; preserves both copies
+mac-data-sync start project-a      # Recreates it with posix-raw
+```
+
+Replace `project-a` with the registered relative path. Do not remove the Linux working copy or the Mac archive to migrate. When both copies have diverged, `two-way-safe` may report conflicts that need manual resolution. Re-creating sessions is deliberately not automatic.
+
 ## Safely release a Linux working copy
 
 Only choose **Release Linux copy** after closing editors and builds that use the work copy. The command:
