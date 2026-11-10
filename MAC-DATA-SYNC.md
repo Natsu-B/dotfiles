@@ -126,7 +126,7 @@ mac-data-sync status "$relative"
 # Copy the Linux tree, including symlinks, outside the synchronized ~/work tree.
 backup=$(mktemp -d "$HOME/mac-data-sync-linux-backup.XXXXXXXX")
 cp -a -- "$HOME/work/$relative" "$backup/data"
-printf 'Linux backup: %s/data\\n' "$backup"
+printf 'Linux backup: %s/data\n' "$backup"
 ```
 
 Verify that the backup succeeded and contains the expected files; ensure enough free space. The backup is not part of the synchronization. **Do not proceed if it fails**.
@@ -137,8 +137,8 @@ mac-data-sync terminate "$relative"
 
 # The Linux path is first (alpha, source); Mac is second (beta, replaceable).
 seed="mac-data-reseed-$(printf '%s' "$relative" | sha256sum | cut -c1-20)"
-mutagen sync create --name="$seed" --sync-mode=one-way-replica \\
-  --no-global-configuration --no-ignore-vcs --symlink-mode=posix-raw \\
+mutagen sync create --name="$seed" --sync-mode=one-way-replica \
+  --no-global-configuration --no-ignore-vcs --symlink-mode=posix-raw \
   "$HOME/work/$relative" "mac:~/data/$relative"
 mutagen sync flush "$seed"
 mutagen sync list --long "$seed"
