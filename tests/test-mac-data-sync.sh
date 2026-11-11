@@ -115,6 +115,7 @@ printf 'y\n' | FZF_STEPS=SYNC-PROJECT,STOP \
 grep -qF '[mac:~/data/project-a]' "$TEST_LOG"
 grep -q 'Ready: Mac ~/data/project-a' "$root/folder-output"
 grep -qF '[--no-ignore-vcs]' "$TEST_LOG"
+grep -qF '[--symlink-mode=posix-raw]' "$TEST_LOG"
 
 # Publishing an existing Linux directory works when Mac path is absent.
 echo 0 > "$FZF_COUNT"

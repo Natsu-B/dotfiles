@@ -108,6 +108,52 @@ mac-data-sync release project-a        # Safely delete ONLY the Linux work copy
 
 Sync sessions resume automatically whenever the NixOS daemon and Mac SSH/Tailscale are reachable. Editing existing Linux files while disconnected remains possible. **Completion of synchronization never deletes Linux files on its own.**
 
+## Absolute symlinks and existing sessions
+
+New sessions explicitly use Mutagen `--symlink-mode=posix-raw`, supported for the POSIX endpoints used here (macOS to NixOS or WSL2). This preserves absolute and otherwise non-portable symlink **targets as links**, not the files they point to. A link such as `/Users/name/tool` may be dangling or point somewhere unrelated on Linux; inspect it before following or editing through it. Symlinks do not make data outside the selected sync root part of the synchronized archive.
+
+Existing Mutagen sessions retain the symlink mode they were created with. Updating the script alone does **not** repair a session already reporting `invalid symbolic link: target is absolute`.
+
+### Re-create a session with Linux as the authoritative copy
+
+If **preserving Linux content is the priority**, do **not** immediately terminate and re-create a two-way session with divergent Mac and Linux contents. In `two-way-safe`, neither endpoint has priority. Instead, perform a temporary **Linux → Mac** `one-way-replica` seeding pass, verify it, and only then return to two-way sync. The Mac copy, including Mac-only changes/deletions, can be overwritten or removed by this operation. Back up Mac separately if its contents matter.
+
+Run on NixOS/WSL, replacing `project-a` with the exact registered relative path. **Stop any processes writing to either tree until migration is complete**:
+
+```sh
+relative=project-a
+mac-data-sync status "$relative"
+# Copy the Linux tree, including symlinks, outside the synchronized ~/work tree.
+backup=$(mktemp -d "$HOME/mac-data-sync-linux-backup.XXXXXXXX")
+cp -a -- "$HOME/work/$relative" "$backup/data"
+printf 'Linux backup: %s/data\n' "$backup"
+```
+
+Verify that the backup succeeded and contains the expected files; ensure enough free space. The backup is not part of the synchronization. **Do not proceed if it fails**.
+
+```sh
+# This ends the old sync session; it does not delete either directory.
+mac-data-sync terminate "$relative"
+
+# The Linux path is first (alpha, source); Mac is second (beta, replaceable).
+seed="mac-data-reseed-$(printf '%s' "$relative" | sha256sum | cut -c1-20)"
+mutagen sync create --name="$seed" --sync-mode=one-way-replica \
+  --no-global-configuration --no-ignore-vcs --symlink-mode=posix-raw \
+  "$HOME/work/$relative" "mac:~/data/$relative"
+mutagen sync flush "$seed"
+mutagen sync list --long "$seed"
+```
+
+**Stop here** unless the seed session is connected, fully scanned, watching, and has no errors/problems. Review the Mac mirror; do not delete the Linux backup. If seeding fails, inspect/fix the seed session rather than running the next commands. Once fully verified:
+
+```sh
+mutagen sync terminate "$seed"
+mac-data-sync start "$relative"
+mac-data-sync status "$relative"
+```
+
+The final session is again **bidirectional**. This procedure protects the Linux tree during seeding, but after re-enabling `two-way-safe`, subsequent Mac changes and deletions **can propagate to Linux**. If Linux must remain immutable to all Mac-side changes, do not start a two-way session; instead, retain a Linux-source `one-way-replica` session, accepting that Mac edits won't sync back. Linux backups remain necessary against local deletion, other processes, or mistakes.
+
 ## Safely release a Linux working copy
 
 Only choose **Release Linux copy** after closing editors and builds that use the work copy. The command:
