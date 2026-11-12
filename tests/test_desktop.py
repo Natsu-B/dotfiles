@@ -135,6 +135,29 @@ class KeyboardTests(unittest.TestCase):
             self.assertEqual(japanese['GRAVE'], 'CODE_93')
             self.assertEqual(profile['keymap'][0]['remap']['F15-U'], 'CODE_93')
 
+    def test_explicit_ime_chords_preserve_other_shortcuts(self):
+        for name in ('qwerty', 'dvorak'):
+            p = keys.profile(name)
+            self.assertEqual(p['keymap'][0]['remap']['F15-M'], 'MUHENKAN')
+            desktop = p['keymap'][-1]['remap']
+            self.assertEqual(desktop['F14-COMMA'], 'HENKAN')
+            for modifier in ('Shift', 'Ctrl', 'Alt'):
+                self.assertEqual(desktop[f'{modifier}-F14-COMMA'], f'Super-{modifier}-COMMA')
+            self.assertEqual(desktop['F14-M'], 'Super-M')
+
+    def test_ubuntu_profiles_are_generated_and_not_hyprland_specific(self):
+        ubuntu = ROOT / 'ubuntu/xremap'
+        with tempfile.TemporaryDirectory() as directory:
+            subprocess.run([sys.executable, str(ubuntu / 'generate_xremap.py'), directory], check=True)
+            for name in ('qwerty', 'dvorak'):
+                generated = json.loads((Path(directory) / f'{name}.yml').read_text())
+                checked_in = json.loads((ubuntu / f'{name}.yml').read_text())
+                self.assertEqual(generated, checked_in)
+                self.assertEqual(generated['keymap'][0]['remap']['F15-M'], 'MUHENKAN')
+                self.assertEqual(generated['keymap'][1]['remap'], {'F14-COMMA': 'HENKAN'})
+                self.assertFalse(any('Super-' in str(layer['remap']) for layer in generated['keymap']))
+                self.assertEqual(len(generated['keymap']), 2 if name == 'qwerty' else 3)
+
     def test_generator_output_is_valid_json_yaml(self):
         with tempfile.TemporaryDirectory() as directory:
             subprocess.run([sys.executable, str(DESKTOP / 'generate_xremap.py'), directory], check=True)
