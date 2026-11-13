@@ -62,6 +62,9 @@ def desktop_shortcuts():
                 # Win+A is quick settings; Henkan+A is left, so use Henkan+C.
                 target = directions.get(key, 'A' if key == 'C' else key)
                 remap['-'.join((*modifiers, 'F14', key))] = '-'.join(('Super', *modifiers, target))
+    # Physical Henkan+Comma enables Kana instead of forwarding Super+Comma.
+    # Keep Shift/Ctrl/Alt variants as normal desktop shortcuts.
+    remap['F14-COMMA'] = 'HENKAN'
     return {'name': 'Henkan desktop shortcuts', 'exact_match': True, 'remap': remap}
 
 
@@ -72,6 +75,7 @@ def profile(name):
         'F15-J': 'Left', 'F15-L': 'Right', 'F15-I': 'Up', 'F15-K': 'Down',
         'F15-SEMICOLON': 'Enter', 'F15-O': 'Delete', 'F15-P': 'Backspace',
         'F15-H': 'Tab', 'F15-U': JAPANESE_TOGGLE,
+        'F15-M': 'MUHENKAN',  # IME off / Eisu (configured in Fcitx5)
         **{f'F15-{n}': n for n in '1234567890'},
     }
     result = {
