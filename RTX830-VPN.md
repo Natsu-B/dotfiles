@@ -44,7 +44,7 @@ nm-connection-editor
 
 ```sh
 rtx830-vpn check       # プロファイルと VPN 接続前の経路を確認
-sudo rtx830-vpn up     # サーバー宛の物理経路を固定してから接続
+sudo rtx830-vpn up     # サーバー宛の物理経路を固定してから接続（必要ならパスワードを尋ねる）
 rtx830-vpn status      # 状態確認
 sudo rtx830-vpn down   # 切断して経路を解除
 ```
@@ -53,6 +53,9 @@ sudo rtx830-vpn down   # 切断して経路を解除
 優先度 110 のポリシールールで固定する。既存のルールと競合する場合は接続を中止する。
 `up` に失敗した場合、および NetworkManager から `vpn-down` が通知された場合は
 設定した一時経路を解除する。ルータ側の設定・接続先情報は変更しない。
+
+VPN パスワードが NetworkManager のシステム接続に保存されていない場合は、
+`up` が端末上で対話的に入力を求める。秘密情報をコマンド引数や Git に書かないこと。
 
 Tailscale の exit node 等が有効で、接続先への経路が別のトンネルを通る場合も
 安全のため接続を中止する。経路衝突がある場合は Tailscale を確認する。
