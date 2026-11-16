@@ -124,6 +124,10 @@ esac
         module = MODULE.read_text(encoding="utf-8")
         self.assertIn('d /etc/ipsec.d 0700 root root -', module)
 
+    def test_strongswan_has_empty_nonsecret_default_config(self):
+        module = MODULE.read_text(encoding="utf-8")
+        self.assertIn('environment.etc."strongswan.conf".text = "";', module)
+
 
 if __name__ == "__main__":
     unittest.main()
