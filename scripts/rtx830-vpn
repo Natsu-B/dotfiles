@@ -120,7 +120,9 @@ case ${1:-} in
     need_root
     endpoint=$(get_endpoint)
     pin_endpoint "$endpoint"
-    if ! nmcli --wait 60 connection up id "$profile"; then
+    # A user-keyring or ask-every-time password is unavailable to sudo's
+    # nmcli unless it registers a terminal secret agent with --ask.
+    if ! nmcli --ask --wait 60 connection up id "$profile"; then
       unpin_endpoint
       fail "VPN 接続に失敗しました。経路を元に戻しました"
     fi
