@@ -57,6 +57,11 @@ sudo rtx830-vpn down   # 切断して経路を解除
 VPN パスワードが NetworkManager のシステム接続に保存されていない場合は、
 `up` が端末上で対話的に入力を求める。秘密情報をコマンド引数や Git に書かないこと。
 
+NetworkManager-l2tp は接続時に `/etc/ipsec.d/ipsec.nm-l2tp.secrets` を一時生成する。
+NixOS モジュールは `/etc/ipsec.d` を root 専用の書き込み可能なディレクトリとして
+用意する。`Could not write /etc/ipsec.d/ipsec.nm-l2tp.secrets` と表示された場合は、
+ディレクトリの存在・権限・シンボリックリンクの有無を確認すること。
+
 Tailscale の exit node 等が有効で、接続先への経路が別のトンネルを通る場合も
 安全のため接続を中止する。経路衝突がある場合は Tailscale を確認する。
 
