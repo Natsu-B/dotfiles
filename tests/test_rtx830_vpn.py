@@ -31,7 +31,7 @@ case "$*" in
   '-g connection.type connection show rtx830-vpn') echo vpn ;;
   '-g vpn.service-type connection show rtx830-vpn') echo org.freedesktop.NetworkManager.l2tp ;;
   '-g vpn.data connection show rtx830-vpn') echo 'ipsec-enabled = yes, gateway = private.example.invalid, ipsec-forceencaps = yes' ;;
-  '--wait 60 connection up id rtx830-vpn') [[ ${VPN_TEST_CONNECT_FAIL:-0} == 0 ]] ;;
+  '--ask --wait 60 connection up id rtx830-vpn') [[ ${VPN_TEST_CONNECT_FAIL:-0} == 0 ]] ;;
   'connection down id rtx830-vpn') : ;;
   *) exit 12 ;;
 esac
@@ -89,7 +89,7 @@ esac
         log = self.lines()
         pin = log.index("ip -4 route replace 198.51.100.20/32 via 192.0.2.1 dev enp0s1 table 193")
         add = log.index("ip -4 rule add to 198.51.100.20/32 lookup 193 priority 110")
-        connect = log.index("nmcli --wait 60 connection up id rtx830-vpn")
+        connect = log.index("nmcli --ask --wait 60 connection up id rtx830-vpn")
         self.assertLess(pin, add)
         self.assertLess(add, connect)
         self.assertEqual((self.state / "endpoint").read_text(), "198.51.100.20\n")
