@@ -120,6 +120,10 @@ esac
         self.assertIn("--enable-ikev1", content)
         self.assertIn("1.52.6", content)
 
+    def test_ipsec_runtime_secrets_directory_is_root_only(self):
+        module = MODULE.read_text(encoding="utf-8")
+        self.assertIn('d /etc/ipsec.d 0700 root root -', module)
+
 
 if __name__ == "__main__":
     unittest.main()
