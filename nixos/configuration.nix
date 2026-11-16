@@ -32,6 +32,7 @@ in {
   imports = [
     ./codex-usb.nix
     ./desktop.nix
+    ./rtx830-vpn.nix
     ./hibernate.nix
     ./vivado.nix
   ];

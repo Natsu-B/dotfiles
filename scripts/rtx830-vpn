@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+# Route-safe NetworkManager launcher for the private RTX830 L2TP/IPsec profile.
+# No server address or credential is stored in this script.
+set -euo pipefail
+umask 077
+
+profile=rtx830-vpn
+table=193
+priority=110
+state_dir=${RTX830_STATE_DIR:-/run/rtx830-vpn}
+state_file=$state_dir/endpoint
+
+fail() {
+  printf 'rtx830-vpn: %s\n' "$*" >&2
+  exit 1
+}
+
+need_root() {
+  [[ $EUID -eq 0 ]] || fail "この操作は sudo で実行してください"
+}
+
+# NetworkManager stores the gateway in vpn.data, alongside other VPN settings.
+# Avoid printing vpn.data: it may contain private connection parameters.
+get_endpoint() {
+  local type service data host resolved
+  type=$(nmcli -g connection.type connection show "$profile" 2>/dev/null) || fail "接続 '$profile' がありません"
+  [[ $type == vpn ]] || fail "'$profile' は VPN 接続ではありません"
+  service=$(nmcli -g vpn.service-type connection show "$profile") || fail "VPN の種類を取得できません"
+  [[ $service == org.freedesktop.NetworkManager.l2tp ]] || fail "'$profile' は L2TP 接続ではありません"
+  data=$(nmcli -g vpn.data connection show "$profile") || fail "VPN サーバー情報を取得できません"
+  if [[ $data =~ (^|,)[[:space:]]*gateway[[:space:]]*=[[:space:]]*([^,[:space:]]+) ]]; then
+    host=${BASH_REMATCH[2]}
+  else
+    fail "VPN プロファイルに gateway がありません"
+  fi
+  [[ $host =~ ^[a-zA-Z0-9.-]+$ ]] || fail "gateway の形式が不正です"
+  resolved=$(getent ahostsv4 "$host" | awk 'NR == 1 { print $1 }') || true
+  [[ $resolved =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || fail "gateway の IPv4 アドレスを解決できません"
+  printf '%s\n' "$resolved"
+}
+
+# Only use the physical underlay; using an overlay or PPP route causes a loop.
+get_underlay() {
+  local endpoint=$1 route dev next_hop
+  route=$(ip -4 route get "$endpoint" 2>/dev/null) || fail "物理回線の経路を取得できません"
+  [[ $route =~ (^|[[:space:]])dev[[:space:]]+([^[:space:]]+) ]] || fail "物理インターフェースが見つかりません"
+  dev=${BASH_REMATCH[2]}
+  case "$dev" in
+    lo|ppp*|tun*|tap*|wg*|tailscale*|zt*|ipsec*|xfrm*|vti*)
+      fail "VPN/オーバーレイ経由の経路です。Tailscale exit node 等を解除してから接続してください"
+      ;;
+  esac
+  next_hop=
+  if [[ $route =~ (^|[[:space:]])via[[:space:]]+([0-9.]+) ]]; then
+    next_hop=${BASH_REMATCH[2]}
+  fi
+  printf '%s %s\n' "$dev" "$next_hop"
+}
+
+pin_endpoint() {
+  local endpoint=$1 dev next_hop previous underlay
+  if [[ -f $state_file ]]; then
+    previous=$(<"$state_file")
+    [[ $previous == "$endpoint" ]] || fail "前回と VPN サーバーが異なります。先に down を実行してください"
+  else
+    # Never overwrite another application's policy routing table/rule.
+    [[ -z $(ip -4 route show table "$table" 2>/dev/null) ]] || fail "ルーティングテーブル $table は使用中です"
+    if ip -4 rule show | grep -Eq "(^|[[:space:]])lookup[[:space:]]+$table([[:space:]]|$)"; then
+      fail "ルーティングテーブル $table の規則は使用中です"
+    fi
+    if ip -4 rule show | awk -v p="$priority" '$1 == p ":" { found=1 } END { exit !found }'; then
+      fail "経路規則の優先度 $priority は使用中です"
+    fi
+  fi
+
+  underlay=$(get_underlay "$endpoint") || fail "物理経路の確認に失敗しました"
+  read -r dev next_hop <<< "$underlay"
+  local -a route_args=("$endpoint/32")
+  if [[ -n $next_hop ]]; then
+    route_args+=(via "$next_hop")
+  fi
+  route_args+=(dev "$dev" table "$table")
+  ip -4 route replace "${route_args[@]}" || fail "物理回線への経路を設定できません"
+
+  if ! ip -4 rule show | grep -Eq "^[[:space:]]*$priority:[[:space:]].*to[[:space:]]+$endpoint(/32)?[[:space:]].*lookup[[:space:]]+$table([[:space:]]|$)"; then
+    if ! ip -4 rule add to "$endpoint/32" lookup "$table" priority "$priority"; then
+      # Remove only the route we just added, not the entire routing table.
+      [[ -f $state_file ]] || ip -4 route del "$endpoint/32" table "$table" || true
+      fail "物理回線を優先する規則を設定できません"
+    fi
+  fi
+
+  install -d -m 0700 "$state_dir"
+  printf '%s\n' "$endpoint" > "$state_file"
+}
+
+unpin_endpoint() {
+  local endpoint
+  [[ -f $state_file ]] || return 0
+  endpoint=$(<"$state_file")
+  [[ $endpoint =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || fail "保存された経路状態が不正です"
+  ip -4 rule del to "$endpoint/32" lookup "$table" priority "$priority" 2>/dev/null || true
+  ip -4 route del "$endpoint/32" table "$table" 2>/dev/null || true
+  rm -f -- "$state_file"
+}
+
+usage() {
+  printf '使い方: rtx830-vpn {check|up|down|status}\n' >&2
+  exit 2
+}
+
+main() {
+case ${1:-} in
+  check)
+    endpoint=$(get_endpoint)
+    get_underlay "$endpoint" >/dev/null
+    printf 'rtx830-vpn: プロファイルと物理経路を確認しました（接続はしていません）\n'
+    ;;
+  up)
+    need_root
+    endpoint=$(get_endpoint)
+    pin_endpoint "$endpoint"
+    if ! nmcli --wait 60 connection up id "$profile"; then
+      unpin_endpoint
+      fail "VPN 接続に失敗しました。経路を元に戻しました"
+    fi
+    ;;
+  down)
+    need_root
+    nmcli connection down id "$profile" || true
+    unpin_endpoint
+    ;;
+  status)
+    nmcli -f GENERAL.STATE connection show "$profile"
+    if [[ -f $state_file ]]; then
+      printf 'rtx830-vpn: VPN サーバー宛の物理経路を固定中\n'
+    fi
+    ;;
+  route-down)
+    # Called by the NixOS NetworkManager dispatcher on unexpected disconnects.
+    need_root
+    unpin_endpoint
+    ;;
+  *) usage ;;
+esac
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+  main "$@"
+fi
