@@ -44,6 +44,16 @@ if [[ ! -f "$vivado_dir/settings64.sh" || ! -x "$vivado_dir/bin/vivado" ]]; then
   exit 1
 fi
 
+# The GUI is bundled Qt5 + Java AWT, which only work through XWayland.
+# Host Qt6/Wayland settings break Qt (blank window); non-reparenting WMs
+# (Hyprland, sway) leave Java windows white. Set VIVADO_KEEP_QT_ENV=1 to skip.
+if [[ -z "${VIVADO_KEEP_QT_ENV:-}" ]]; then
+  unset QT_PLUGIN_PATH QT_QPA_PLATFORMTHEME QT_QPA_PLATFORMTHEME_QT6 \
+    QML2_IMPORT_PATH QML_IMPORT_PATH QT_IM_MODULE
+  export QT_QPA_PLATFORM=xcb
+fi
+export _JAVA_AWT_WM_NONREPARENTING=1
+
 # Source AMD's environment inside the same FHS process used to launch Vivado.
 # Forward arguments unchanged (e.g. -mode batch -source build.tcl).
 exec "$fhs" -c 'source "$1"; shift; exec "$1" "${@:2}"' \
