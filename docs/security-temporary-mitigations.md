@@ -10,6 +10,15 @@ Draft PR の変更は **mainに適用済みとは扱わない**。更新と復�
 - **残存リスクと検証:** NixOSシステム全体のキャッシュ・ビルド、実行時閉包、およびdesktopアプリのELF依存はCI・実機で確認が必要。`nixpkgs` の更新は本PRがマージされるまで未適用。Brotli・glib-networking・NetworkManager-l2tpの既知問題はこの更新だけでは解決しない。
 - **既存PR #15の復旧条件:** マージ後のdefault branchでExpat 2.10.0への実リンク、ビルド・互換性を確認できた場合だけ、`secureExpat` とRUNPATH回避策を削除する**別の復旧PR**を作る。未検証の段階でRPATHを取り除かない。
 
+## Expat暫定回避策の復旧検証（2026-11-18、PR #21に依存するDraft PR）
+
+- **元の設定:** マージ済みPR #15で、`home/home.nix`に上流Expat 2.10.0の個別`overrideAttrs`（`secureExpat`）を設け、`pkgs.callPackage`に明示的に渡した。さらに`home/app/codex-desktop.nix`と`home/app/claude-desktop.nix`の`postPhases`に`patchExpatRpathPhase`を追加し、直接`libexpat.so.1`を参照するELFのRUNPATH先頭へ修正版を挿入した。理由は、当時の固定stableがExpat 2.9.0で、`autoPatchelf`が旧版を選ぶことをCIログで検出したため。
+- **解除候補の根拠:** [PR #21](https://github.com/Natsu-B/dotfiles/pull/21)では固定stableの`pkgs.expat`が2.10.0となり、[3ジョブ成功のCI](https://github.com/Natsu-B/dotfiles/actions/runs/44214049562)のログで、2アプリの`autoPatchelf`が暫定RUNPATH修正の実行前から2.10.0を選択している。
+- **復旧する設定:** `secureExpat`の個別overrideと2つの明示的引数を削除して元の`pkgs.callPackage ... { }`に戻す。2アプリから暫定`patchExpatRpathPhase`と、その専用`patchelf`入力を削除する。通常の`autoPatchelfHook`、通常の`expat`入力、ほかのランタイムパス、Ankiなどの安全対策は残す。
+- **検証:** この復旧PRのCIで、Nix評価、バージョンガード、2アプリの実ビルドとELFの検索順、NixOSシステムビルドを再検証する。既存CIの「両アプリで`libexpat.so.1`がExpat 2.10.0の`out/lib`を優先する」検査は緩めない。実機起動・静的リンク・バンドル版・`dlopen`は別途検証が必要。
+- **適用条件:** PR #21が先にmainへマージされ、復旧版の全CIと実機の互換性が確認できた場合だけmainへ取り込む。どちらも自動マージしない。現時点ではmainに適用しない。
+- **残存リスク:** PR #21のシステムビルドログには、別入力由来のVS CodeがExpat 2.9.0を直接参照する記録がある。この復旧PRはVS Codeの修正ではなく、ほかの系統の旧Expatを解決したとは扱わない。
+
 ## 対策状況（2026-11-04）
 
 | 対象 | 状態 | 現在の判断・必要な次の作業 |
