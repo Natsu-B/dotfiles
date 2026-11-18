@@ -37,6 +37,18 @@ in
 {
   networking.networkmanager.plugins = [ networkmanagerL2tp ];
 
+  # NetworkManager-l2tp writes the transient IPsec PSK to this directory at
+  # connection time. Keep it writable by root, not a read-only Nix store path;
+  # neither the PSK nor the generated secrets file belongs in this repo.
+  systemd.tmpfiles.rules = [ "d /etc/ipsec.d 0700 root root -" ];
+
+  # strongSwan 6.1 looks for /etc/strongswan.conf when started by the L2TP
+  # plugin. Without it charon can abort with the misleading error
+  # "integrity test of libstrongswan failed" (nixpkgs#375352).
+  # This empty file contains no credentials. Remove this compatibility fix
+  # once nixpkgs/strongSwan supplies a working default configuration.
+  environment.etc."strongswan.conf".text = "";
+
   # The NetworkManager L2TP plugin manages its own strongSwan and xl2tpd
   # processes. Do not enable global strongswan/xl2tpd services in parallel.
   environment.systemPackages = with pkgs; [

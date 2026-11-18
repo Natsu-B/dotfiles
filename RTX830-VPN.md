@@ -44,7 +44,7 @@ nm-connection-editor
 
 ```sh
 rtx830-vpn check       # プロファイルと VPN 接続前の経路を確認
-sudo rtx830-vpn up     # サーバー宛の物理経路を固定してから接続
+sudo rtx830-vpn up     # サーバー宛の物理経路を固定してから接続（必要ならパスワードを尋ねる）
 rtx830-vpn status      # 状態確認
 sudo rtx830-vpn down   # 切断して経路を解除
 ```
@@ -53,6 +53,19 @@ sudo rtx830-vpn down   # 切断して経路を解除
 優先度 110 のポリシールールで固定する。既存のルールと競合する場合は接続を中止する。
 `up` に失敗した場合、および NetworkManager から `vpn-down` が通知された場合は
 設定した一時経路を解除する。ルータ側の設定・接続先情報は変更しない。
+
+VPN パスワードが NetworkManager のシステム接続に保存されていない場合は、
+`up` が端末上で対話的に入力を求める。秘密情報をコマンド引数や Git に書かないこと。
+
+NetworkManager-l2tp は接続時に `/etc/ipsec.d/ipsec.nm-l2tp.secrets` を一時生成する。
+NixOS モジュールは `/etc/ipsec.d` を root 専用の書き込み可能なディレクトリとして
+用意する。`Could not write /etc/ipsec.d/ipsec.nm-l2tp.secrets` と表示された場合は、
+ディレクトリの存在・権限・シンボリックリンクの有無を確認すること。
+
+strongSwan の `charon` が `integrity test of libstrongswan failed` で終了する場合、
+NixOS では `/etc/strongswan.conf` の欠落が同じエラーを生じさせた事例がある。
+本モジュールでは認証情報を含まない空の設定ファイルを宣言的に配置する。
+この回避策は nixpkgs 側で適切な既定設定が用意されたら撤去する。
 
 Tailscale の exit node 等が有効で、接続先への経路が別のトンネルを通る場合も
 安全のため接続を中止する。経路衝突がある場合は Tailscale を確認する。
@@ -81,6 +94,8 @@ ip -4 route show table 193
 - 導入理由: RTX830 の IKEv1/L2TP と PPP peer 由来の経路ループへの対策。
 - 暫定対策: `strongswan` の IKEv1 有効化と、NixOS 26.05 の脆弱な
   NetworkManager-l2tp 1.52.0 を上流修正済み 1.52.6 で置換。
+- 暫定対策: `/etc/ipsec.d` を実行時に書き込み可能にし、欠落していた
+  `/etc/strongswan.conf` を空の設定ファイルとして用意する。
 - 解除条件: RTX830 側が IKEv2 などの新しい VPN に移行したら IKEv1/L2TP 一式を撤去。
   また nixpkgs が修正版 NetworkManager-l2tp を提供したら、個別のバージョン固定を削除する。
 - ルータ情報とシークレットは `/etc/NetworkManager/system-connections/` の
@@ -91,3 +106,4 @@ ip -4 route show table 193
 - [NixOS networkmanager-l2tp パッケージ](https://github.com/NixOS/nixpkgs/blob/nixos-26.05/pkgs/by-name/ne/networkmanager-l2tp/package.nix)
 - [NetworkManager-l2tp 1.52.6 リリース](https://github.com/nm-l2tp/NetworkManager-l2tp/releases/tag/1.52.6)
 - [NetworkManager dispatcher のイベント仕様](https://networkmanager.dev/docs/api/latest/NetworkManager-dispatcher.html)
+- [NixOS の strongSwan 設定欠落による起動失敗](https://github.com/NixOS/nixpkgs/issues/375352)
