@@ -2,7 +2,7 @@
 
 Draft PR の変更は **mainに適用済みとは扱わない**。更新と復旧は毎回、固定リビジョンのパッケージ定義・バックポート・キャッシュ・実行時依存を確認してから別PRで行う。自動マージはしない。
 
-## stable nixpkgs のExpat更新（2026-11-18、[Draft PR #20](https://github.com/Natsu-B/dotfiles/pull/20)）
+## stable nixpkgs のExpat更新（2026-11-18、[Draft PR #21](https://github.com/Natsu-B/dotfiles/pull/21)）
 
 - **対象:** `flake.lock` のroot入力 `nixpkgs` が参照する `nixpkgs_2` ノードだけ。`nixpkgs-unstable`・`nixpkgs-master`・Home Manager・microvm・Rust overlayは据え置く。
 - **変更前:** 実際のroot入力は `nixpkgs_2` (`6f06d204d8f2d8761d9da78778745974a3216381`)、`pkgs.expat` は **2.9.0**。別ノード `nixpkgs` (`b1b875…`) はrootのstable入力ではない。rootのNix daemonは既に修正済みの **2.34.9** で、CVE-2026-110450を理由とする `nix.package` の差し替えは不要。
