@@ -2,6 +2,14 @@
 
 Draft PR の変更は **mainに適用済みとは扱わない**。更新と復旧は毎回、固定リビジョンのパッケージ定義・バックポート・キャッシュ・実行時依存を確認してから別PRで行う。自動マージはしない。
 
+## stable nixpkgs のExpat更新（2026-11-18、[Draft PR #20](https://github.com/Natsu-B/dotfiles/pull/20)）
+
+- **対象:** `flake.lock` のroot入力 `nixpkgs` が参照する `nixpkgs_2` ノードだけ。`nixpkgs-unstable`・`nixpkgs-master`・Home Manager・microvm・Rust overlayは据え置く。
+- **変更前:** 実際のroot入力は `nixpkgs_2` (`6f06d204d8f2d8761d9da78778745974a3216381`)、`pkgs.expat` は **2.9.0**。別ノード `nixpkgs` (`b1b875…`) はrootのstable入力ではない。rootのNix daemonは既に修正済みの **2.34.9** で、CVE-2026-110450を理由とする `nix.package` の差し替えは不要。
+- **変更後:** `nix flake update nixpkgs` でroot入力のみ `f68407657ad294471eb4b2e65d193df26edf729f` に更新し、`pkgs.expat` **2.10.0** を採用する。根拠はExpatのCVE-2026-113351/115506/117610/118370および上流の[2.10.0リリース](https://github.com/libexpat/libexpat/releases/tag/R_2_10_0)。CIで実際のstableパッケージ版とアプリのランタイム依存を検査する。
+- **残存リスクと検証:** NixOSシステム全体のキャッシュ・ビルド、実行時閉包、およびdesktopアプリのELF依存はCI・実機で確認が必要。`nixpkgs` の更新は本PRがマージされるまで未適用。Brotli・glib-networking・NetworkManager-l2tpの既知問題はこの更新だけでは解決しない。
+- **既存PR #15の復旧条件:** マージ後のdefault branchでExpat 2.10.0への実リンク、ビルド・互換性を確認できた場合だけ、`secureExpat` とRUNPATH回避策を削除する**別の復旧PR**を作る。未検証の段階でRPATHを取り除かない。
+
 ## 対策状況（2026-11-04）
 
 | 対象 | 状態 | 現在の判断・必要な次の作業 |
