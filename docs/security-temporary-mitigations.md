@@ -2,7 +2,7 @@
 
 Draft PR の変更は **mainに適用済みとは扱わない**。更新と復旧は毎回、固定リビジョンのパッケージ定義・バックポート・キャッシュ・実行時依存を確認してから別PRで行う。自動マージはしない。
 
-## Nix daemon の局所的な修正パッケージ選択（2026-11-18、修正PR番号は作成後追記）
+## Nix daemon の局所的な修正パッケージ選択（2026-11-18、[Draft PR #20](https://github.com/Natsu-B/dotfiles/pull/20)）
 
 - **対象:** `nixos/configuration.nix` の `nix.package`、`.github/workflows/desktop-checks.yml` のセキュリティ検査。
 - **変更前:** `nix.package` 未指定。固定 `nixpkgs` (`b1b875982b17dabde9b4a37f3e229e74913e6db3`) の NixOS モジュール既定値 `pkgs.nix` は `nixVersions.stable` **2.34.8**。`nix.settings.allowed-users` の既定値は `[ "*" ]`、`trusted-users` は `[ "root" ]`。
