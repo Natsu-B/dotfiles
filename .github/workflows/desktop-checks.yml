@@ -35,6 +35,12 @@ jobs:
             experimental-features = nix-command flakes
             keep-outputs = false
             keep-derivations = false
+      - name: Generate stable-only lock for audit (temporary)
+        run: |
+          nix flake update nixpkgs
+          echo '::group::Generated stable-only flake.lock'
+          cat flake.lock
+          echo '::endgroup::'
       - name: Resolve and check the committed lock
         run: |
           nix flake lock
