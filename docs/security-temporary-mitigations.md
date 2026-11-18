@@ -2,6 +2,18 @@
 
 Draft PR の変更は **mainに適用済みとは扱わない**。更新と復旧は毎回、固定リビジョンのパッケージ定義・バックポート・キャッシュ・実行時依存を確認してから別PRで行う。自動マージはしない。
 
+## Nix daemon の局所的な修正パッケージ選択（2026-11-18、修正PR番号は作成後追記）
+
+- **対象:** `nixos/configuration.nix` の `nix.package`、`.github/workflows/desktop-checks.yml` のセキュリティ検査。
+- **変更前:** `nix.package` 未指定。固定 `nixpkgs` (`b1b875982b17dabde9b4a37f3e229e74913e6db3`) の NixOS モジュール既定値 `pkgs.nix` は `nixVersions.stable` **2.34.8**。`nix.settings.allowed-users` の既定値は `[ "*" ]`、`trusted-users` は `[ "root" ]`。
+- **導入理由:** Nix 2.34.8 は [CVE-2026-110450 / GHSA-jwvx-xq5j-gc56](https://github.com/NixOS/nix/security/advisories/GHSA-jwvx-xq5j-gc56) の影響を受ける。許可された非信頼ローカルユーザーがストアの内容を破損・置換でき、root の Nix daemon によるコード実行へつながる可能性がある。
+- **変更後:** 既存の固定 `nixpkgs-unstable` (`e62746b0b472753ef019baceab6f1e2e52014980`) の `unstable.nix` **2.34.9** をホストの `nix.package` に限定採用。ほかの NixOS パッケージや flake 入力は更新しない。CI は評価結果の実際の `config.nix.package.version` が修正範囲内か検査する。
+- **検証:** 上記の各固定 nixpkgs リビジョンの `pkgs/tools/package-management/nix/default.nix`、`pkgs/top-level/all-packages.nix` と、NixOS の `nixos/modules/config/nix.nix` を照合。実機ビルド・daemon 起動・キャッシュ可用性はこの PR の CI と適用端末で確認する。**PR がマージされるまで対策適用済みとは扱わない**。
+- **残存リスク:** root 以外の `allowed-users` がいる環境は、PR の適用・daemon 再起動まで旧実装の影響を受ける。ほかの Nix パッケージや起動中の daemon も各端末で別途照合する。
+- **解除条件:** 固定 stable 入力の `pkgs.nix` が同等の修正を含む **2.34.9 以上の修正済みブランチ**に進み、CI評価・実機 daemon のバージョンと動作・Nixストアへのアクセスを検証できた時。リビジョンや版名だけで解除しない。
+- **元に戻す差分:** `nixos/configuration.nix` の `package = unstable.nix;` を削除し、既定の `pkgs.nix` に戻す。CI の脆弱版拒否検査は維持する。解除証拠を明記した最小差分の復旧PRを別途作る。自動マージしない。
+- **暫定運用:** 適用前は、非信頼ユーザーへのホストアカウントや Nix daemon ソケット利用を許可しない。一般ユーザー自身が悪意あるコードを実行した際の権限昇格防止には、修正版への切替が必要。
+
 ## 対策状況（2026-11-04）
 
 | 対象 | 状態 | 現在の判断・必要な次の作業 |

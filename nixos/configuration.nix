@@ -46,6 +46,10 @@ in {
 
   # Optimize nix store
   nix = {
+    # Pinned stable nix=2.34.8 allows untrusted local clients to corrupt the
+    # store via the daemon (CVE-2026-110450). Pinned unstable nix=2.34.9 is fixed.
+    # Remove this temporary selection only after stable is fixed and evaluated.
+    package = unstable.nix;
     settings = {
       # auto-optimize-store = true;
       experimental-features = ["nix-command" "flakes"];

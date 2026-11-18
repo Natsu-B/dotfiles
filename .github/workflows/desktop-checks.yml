@@ -67,6 +67,11 @@ jobs:
               stable = flake.inputs.nixpkgs.legacyPackages."x86_64-linux";
               unstable = flake.inputs.nixpkgs-unstable.legacyPackages."x86_64-linux";
               master = flake.inputs.nixpkgs-master.legacyPackages."x86_64-linux";
+              nixDaemonVersion = flake.nixosConfigurations.nixos.config.nix.package.version;
+              nixDaemonFixed =
+                (builtins.compareVersions nixDaemonVersion "2.34.9" >= 0
+                  && builtins.compareVersions nixDaemonVersion "2.35" < 0)
+                || builtins.compareVersions nixDaemonVersion "2.35.3" >= 0;
               packages = flake.nixosConfigurations.nixos.config.home-manager.users.hotaru.home.packages;
               ankiMatches = builtins.filter (p: (p.pname or "") == "anki") packages;
               ankiVersion =
@@ -89,7 +94,7 @@ jobs:
                     && (builtins.head directExpat).version == "2.10.0"
                 ) desktopApps;
             in {
-              inherit ankiVersion securedDesktopApps;
+              inherit ankiVersion securedDesktopApps nixDaemonVersion nixDaemonFixed;
               ankiMeetsSecurityFloor =
                 builtins.length ankiMatches == 1
                 && builtins.compareVersions ankiVersion "26.9" >= 0;
@@ -117,6 +122,10 @@ jobs:
           fi
           if ! jq -e '.securedDesktopApps == true' <<<"$report" >/dev/null; then
             echo "::error::Both desktop apps must use the patched Expat 2.10.0 runtime input."
+            exit 1
+          fi
+          if ! jq -e '.nixDaemonFixed == true' <<<"$report" >/dev/null; then
+            echo "::error::Nix daemon version is affected by CVE-2026-110450; require 2.34.9 or 2.35.3+ (for supported branches)."
             exit 1
           fi
           echo "Package versions are informational; check runtime closures and bundled libraries separately."
