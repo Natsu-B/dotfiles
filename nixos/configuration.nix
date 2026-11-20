@@ -119,6 +119,8 @@ in {
   boot.kernelPackages = master.linuxPackages_latest;
   boot.supportedFilesystems = [ "ntfs" ];
   boot.kernelModules = [ "e1000e" ];
+  # Magic SysRq emergency restart: sync (16), remount read-only (32), reboot (128).
+  boot.kernel.sysctl."kernel.sysrq" = 176;
 
   boot.binfmt.emulatedSystems = [ "aarch64-linux" "riscv64-linux" ];
 
