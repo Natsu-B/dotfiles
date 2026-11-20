@@ -51,7 +51,14 @@ def reveal(address):
     if target['workspace']['name'].startswith('special:minimized'):
         workspace = monitor['activeWorkspace']['id']
         dispatch('window.move', window=selector, workspace=workspace, follow=False)
-        target = next(w for w in query('clients') if w['address'] == address)
+        target = next((w for w in query('clients') if w['address'] == address and w.get('mapped')), None)
+        if not target:
+            return False
+        # Moving the last client can close the special workspace automatically.
+        # Check its current state before toggling, or we could reopen it.
+        monitor = next((m for m in query('monitors') if m['id'] == target['monitor']), None)
+        if monitor is None:
+            return False
     workspace = target['workspace']['id']
     overlay = monitor.get('specialWorkspace', {})
     if overlay.get('name') and overlay['id'] != workspace:
