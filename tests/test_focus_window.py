@@ -80,6 +80,22 @@ class FocusTests(unittest.TestCase):
         self.assertIn('toggle_special("minimized-123")', command.call_args.args[0][-1])
         self.assertEqual(self.target['workspace']['id'], 1)
 
+    def test_restoring_last_minimized_window_does_not_reopen_closed_overlay(self):
+        self.target['workspace'] = dict(id=-95, name='special:minimized-123')
+        self.monitor['specialWorkspace'] = dict(id=-95, name='special:minimized-123')
+        dispatch = self.dispatch
+
+        def auto_close(method, **options):
+            dispatch(method, **options)
+            if method == 'window.move' and 'workspace' in options:
+                self.monitor['specialWorkspace'] = dict(id=0, name='')
+
+        self.dispatch = auto_close
+        with patch.object(focus.sp, 'check_output') as command:
+            self.assertTrue(self.activate())
+        command.assert_not_called()
+        self.assertEqual(self.target['workspace']['id'], 1)
+
     def test_only_fullscreen_blocker_on_destination_is_cleared(self):
         self.cover.update(fullscreen=1, fullscreenClient=2)
         unrelated = copy.deepcopy(self.cover)

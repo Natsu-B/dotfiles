@@ -6,6 +6,9 @@ hl.config({
         kb_options = "",
         resolve_binds_by_sym = false,
         follow_mouse = 1,
+        -- A recalled floating window can sit beside windows on the normal
+        -- workspace. Keep the uncovered windows reachable by the pointer.
+        special_fallthrough = true,
         touchpad = {
             natural_scroll = false,
             disable_while_typing = true,
