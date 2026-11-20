@@ -53,17 +53,20 @@ class FlakeProfileTests(unittest.TestCase):
                 env['NIXOS_FLAKE_PROFILE'] = override
             result = subprocess.run(['sh', str(runner), *args], env=env,
                                     capture_output=True, text=True)
-            return result, log.read_text()
+            return result, log.read_text() if log.exists() else ''
 
     def test_windows_marker_is_used_by_both_scripts(self):
         for script in ('install.sh', 'update.sh'):
             with self.subTest(script=script):
                 result, log = self.run_script(script, marker='nixos-windows')
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn('sudo nixos-rebuild switch --flake .#nixos-windows', log)
-                self.assertNotIn('sudo nixos-rebuild switch --flake .#nixos\n', log)
+                action = 'boot' if script == 'update.sh' else 'switch'
+                self.assertIn(f'sudo nixos-rebuild {action} --flake .#nixos-windows\n', log)
+                self.assertNotIn(f'sudo nixos-rebuild {action} --flake .#nixos\n', log)
                 if script == 'update.sh':
                     self.assertIn('git pull --ff-only', log)
+                    self.assertNotIn('nixos-rebuild switch', log)
+                    self.assertIn('Reboot when convenient', result.stdout)
                 else:
                     self.assertNotIn('git pull', log)
 
@@ -77,7 +80,24 @@ class FlakeProfileTests(unittest.TestCase):
                 with self.subTest(script=script, expected=expected, args=args):
                     result, log = self.run_script(script, marker, override, args)
                     self.assertEqual(result.returncode, 0, result.stderr)
-                    self.assertIn('sudo nixos-rebuild switch --flake .#' + expected + '\n', log)
+                    action = 'boot' if script == 'update.sh' else 'switch'
+                    self.assertIn(f'sudo nixos-rebuild {action} --flake .#{expected}\n', log)
+
+    def test_explicit_update_switch_keeps_the_profile_and_boot_guard(self):
+        args = ('--switch', 'nixos-windows')
+        result, log = self.run_script('update.sh', args=args)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('can end the graphical session', result.stderr)
+        self.assertIn('sudo nixos-rebuild switch --flake .#nixos-windows\n', log)
+        result, log = self.run_script('update.sh', args=args, missing_mount='/efi')
+        self.assertEqual(result.returncode, 2)
+        self.assertNotIn('sudo', log)
+
+    def test_update_rejects_unknown_flags_before_pulling(self):
+        result, log = self.run_script('update.sh', args=('--swich',))
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('Usage:', result.stderr)
+        self.assertEqual(log, '')
 
     def test_stale_uuid_is_rejected_before_rebuild(self):
         for script in ('install.sh', 'update.sh'):
