@@ -1,5 +1,16 @@
 # セキュリティ対策と復旧管理台帳
 
+## Expat CVE-2026-124317 の限定バックポート（2026-11-21、Draft PR：作成後追記）
+
+- **適用状態:** 本Draft PRがmainへマージされるまでは未適用。旧CVEに対応した既存PR #15/#21はマージ済みで、今回の脆弱性には別途対処が必要。
+- **対象・変更前:** `home/home.nix` の `secureExpat` はExpat 2.10.0ソースを使い、Codex Desktop/Claude Desktopへ限定注入する。上流PR #1492（CVE-2026-124317）はリリース2.10.0に含まれない。
+- **変更後:** `patches/expat-cve-2026-124317.patch` に上流 [libexpat PR #1492](https://github.com/libexpat/libexpat/pull/1492) の修正と回帰テストを保持し、`secureExpat`の`patches`に追加。全域overlayはしない。旧Expat 2.9.0を参照し得るunstable/masterや他のstable利用パッケージは対象外。
+- **脆弱性・リスク:** [CVE-2026-124317](https://ubuntu.com/security/CVE-2026-124317)（中）。アプリが`XML_SetUnknownEncodingHandler`により登録した未知エンコーディングを処理し、攻撃者が末尾切れのマルチバイト列を与えられる場合、境界外読み取りによる情報露出またはクラッシュがあり得る。デスクトップ2アプリでの到達性は未検証。
+- **検証:** PRの全5パッチhunkが上流タグ`R_2_10_0`のソース本文に一致することを確認。Nix評価、パッチ適用を伴うビルド、Expatテスト、デスクトップアプリ実ビルド、ランタイム閉包・実リンク、実機起動は未実施。これらが完了するまでDraftとし、安全と判定しない。
+- **解除条件:** 2.10.0より新しい修正済みリリース、または全該当修正が固定stable nixpkgsでバックポートされ、バイナリキャッシュ、ELF依存、デスクトップ両アプリのビルド・起動・互換性が確認された場合に限る。別の最小復旧PRで局所パッチを除去する。
+- **元に戻す差分:** `home/home.nix`の`secureExpat`から`patches = (old.patches or [ ]) ++ [ ../patches/expat-cve-2026-124317.patch ];`を削除（他の利用者がなければパッチファイルも削除）。その他の既存暫定対策は保持。
+
+
 Draft PR の変更は **mainに適用済みとは扱わない**。更新と復旧は毎回、固定リビジョンのパッケージ定義・バックポート・キャッシュ・実行時依存を確認してから別PRで行う。自動マージはしない。
 
 ## stable nixpkgs のExpat更新（2026-11-18、[Draft PR #21](https://github.com/Natsu-B/dotfiles/pull/21)）
