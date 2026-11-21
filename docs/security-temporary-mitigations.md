@@ -1,6 +1,6 @@
 # セキュリティ対策と復旧管理台帳
 
-## Expat CVE-2026-124317 の限定バックポート（2026-11-21、Draft PR：作成後追記）
+## Expat CVE-2026-124317 の限定バックポート（2026-11-21、[Draft PR #25](https://github.com/Natsu-B/dotfiles/pull/25)）
 
 - **適用状態:** 本Draft PRがmainへマージされるまでは未適用。旧CVEに対応した既存PR #15/#21はマージ済みで、今回の脆弱性には別途対処が必要。
 - **対象・変更前:** `home/home.nix` の `secureExpat` はExpat 2.10.0ソースを使い、Codex Desktop/Claude Desktopへ限定注入する。上流PR #1492（CVE-2026-124317）はリリース2.10.0に含まれない。
