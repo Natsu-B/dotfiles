@@ -22,12 +22,14 @@
       # Narrow CVE-2026-113351/115506/117610/118370 mitigation.
       # Do not overlay Expat across nixpkgs: that would rebuild unrelated software.
       # The upstream 2.10.0 source/hash are from NixOS/nixpkgs PR #582242.
-      secureExpat = pkgs.expat.overrideAttrs (_: {
+      secureExpat = pkgs.expat.overrideAttrs (old: {
         version = "2.10.0";
         src = pkgs.fetchurl {
           url = "https://github.com/libexpat/libexpat/releases/download/R_2_10_0/expat-2.10.0.tar.xz";
           hash = "sha256-xiS6KZj8Zd8RY6SWQf8/mrcxOLEWQdkshr7g+wGxvH8=";
         };
+        # Upstream libexpat/libexpat#1492: CVE-2026-124317 fix and regression test.
+        patches = (old.patches or [ ]) ++ [ ../patches/expat-cve-2026-124317.patch ];
       });
       codex-desktop = pkgs.callPackage ./app/codex-desktop.nix { expat = secureExpat; };
       claude-desktop = pkgs.callPackage ./app/claude-desktop.nix { expat = secureExpat; };
