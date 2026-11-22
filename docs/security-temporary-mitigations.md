@@ -1,5 +1,16 @@
 # セキュリティ対策と復旧管理台帳
 
+## Expat CVE-2026-134703 の限定バックポート（2026-11-22、[Draft PR #26](https://github.com/Natsu-B/dotfiles/pull/26)）
+
+- **適用状態:** Draft PR #26 は未マージ。mainに適用済みと扱わない。既存のExpat CVE-2026-124317対策はmainにマージ済み。
+- **対象・変更前:** Codex Desktop / Claude Desktopで限定使用する`secureExpat`。Expat 2.10.0にCVE-2026-124317パッチを限定適用していたが、本CVEのUTF-16変換修正は含まれていなかった。
+- **変更後:** `patches/expat-cve-2026-134703.patch` に[上流libexpatコミット702389c](https://github.com/libexpat/libexpat/commit/702389c818cb402f2423fa998fa11907d621959f)の差分を保持し、`home/home.nix`の`secureExpat`のみに追加。全域overlayや他の入力更新は行わない。
+- **根拠・重要度:** [CVE-2026-134703](https://nvd.nist.gov/vuln/detail/CVE-2026-134703)（中・暫定評価）。4バイトのUTF-16サロゲートペアが2バイトの残容量へコピーされると、不完全なUTF-16出力が生じ得る。修正元の[libexpat PR #1519](https://github.com/libexpat/libexpat/pull/1519)はPR作成時点では未マージ。
+- **悪用条件・残存リスク:** XML入力が脆弱なUTF-16変換経路を通り、攻撃者が入力とバッファ境界を制御できる場合に影響し得る。対象アプリ/Emulatorへの入力到達性と実際の影響、その他のExpat利用パッケージ・バンドル版・静的リンクは未確認。
+- **検証:** 上流タグ `R_2_10_0` で修正hunkの旧本文が一意に一致することを確認。Nix評価、Expatビルド・テスト、Desktop実行・ランタイム閉包・実リンクは未実施。 既存CVE-2026-124317のhunkとは別領域を変更するが、両パッチを順次適用したビルドは未検証。上流修正自体もレビュー中のため、検証が完了するまでDraft。
+- **解除条件:** 本PRがmainへマージされた場合に限り、以後追跡する。固定nixpkgsへ本件と既存Expat修正がリリースまたはバックポートされ、バイナリキャッシュ・実リンク・実行時閉包・ビルド・互換性が確認できたら、この暫定対策だけを除く最小の復旧PRを作成する。新版・lock更新のみでは撤去しない。
+- **元に戻す差分:** `home/home.nix` の `secureExpat.patches` から `../patches/expat-cve-2026-134703.patch` の行だけを削除し、同パッチファイルを削除する。既存のCVE-2026-124317修正やRUNPATH対策は維持する。
+
 ## Expat CVE-2026-124317 の限定バックポート（2026-11-21、[Draft PR #25](https://github.com/Natsu-B/dotfiles/pull/25)）
 
 - **適用状態:** 本Draft PRがmainへマージされるまでは未適用。旧CVEに対応した既存PR #15/#21はマージ済みで、今回の脆弱性には別途対処が必要。
