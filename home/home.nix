@@ -29,7 +29,10 @@
           hash = "sha256-xiS6KZj8Zd8RY6SWQf8/mrcxOLEWQdkshr7g+wGxvH8=";
         };
         # Upstream libexpat/libexpat#1492: CVE-2026-124317 fix and regression test.
-        patches = (old.patches or [ ]) ++ [ ../patches/expat-cve-2026-124317.patch ];
+        patches = (old.patches or [ ]) ++ [
+          ../patches/expat-cve-2026-124317.patch
+          ../patches/expat-cve-2026-134703.patch
+        ];
       });
       codex-desktop = pkgs.callPackage ./app/codex-desktop.nix { expat = secureExpat; };
       claude-desktop = pkgs.callPackage ./app/claude-desktop.nix { expat = secureExpat; };
