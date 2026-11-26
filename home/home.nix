@@ -178,6 +178,7 @@
         pkgs.qemu
         pkgs.curl
         pkgs.bat
+        pkgs.yazi
         pkgs.nil
         pkgs.gdb
         master.file
