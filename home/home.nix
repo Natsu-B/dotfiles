@@ -178,7 +178,8 @@
         pkgs.qemu
         pkgs.curl
         pkgs.bat
-        pkgs.yazi
+        # Native drag and drop requires a newer Yazi than stable provides.
+        unstable.yazi
         pkgs.nil
         pkgs.gdb
         master.file
